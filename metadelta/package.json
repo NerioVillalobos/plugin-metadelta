@@ -1,0 +1,61 @@
+{
+  "name": "metadelta",
+  "description": "A Salesforce CLI plugin for metadelta",
+  "version": "0.0.0",
+  "author": "google-labs-jules[bot]",
+  "dependencies": {
+    "@salesforce/core": "^7",
+    "@salesforce/sf-plugins-core": "^7"
+  },
+  "devDependencies": {
+    "@oclif/core": "^4",
+    "@oclif/plugin-command-snapshot": "^5",
+    "@oclif/plugin-help": "^6",
+    "@oclif/plugin-plugins": "^5",
+    "@salesforce/cli-plugins-testkit": "^5",
+    "@salesforce/dev-config": "^4",
+    "@types/minimatch": "^3.0.5",
+    "@types/node": "^18.0.0",
+    "@types/sinon": "^17.0.4",
+    "eslint": "^8",
+    "eslint-config-oclif": "^5",
+    "eslint-config-oclif-typescript": "^3",
+    "oclif": "^4",
+    "shx": "^0.3.3",
+    "ts-node": "^10",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "/dist",
+    "/npm-shrinkwrap.json",
+    "/oclif.manifest.json"
+  ],
+  "license": "MIT",
+  "main": "dist/index.js",
+  "type": "module",
+  "oclif": {
+    "commands": "./dist/commands",
+    "bin": "sf",
+    "plugins": [
+      "@salesforce/sf-plugins-core"
+    ],
+    "devPlugins": [
+      "@oclif/plugin-help",
+      "@oclif/plugin-command-snapshot"
+    ],
+    "topicSeparator": " "
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepack": "oclif manifest && oclif readme",
+    "postpack": "rm -f oclif.manifest.json",
+    "version": "oclif readme && git add README.md"
+  },
+  "types": "dist/index.d.ts",
+  "overrides": {
+    "@salesforce/core": "^7"
+  }
+}
