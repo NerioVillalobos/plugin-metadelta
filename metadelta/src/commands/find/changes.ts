@@ -69,62 +69,50 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
   // For actual CLI flag parsing, this would need to be uncommented and TS2742 resolved.
   public static flags: {
     targetorg: any; // Using any as a fallback
-    outputdir: any; // Using any as a fallback
-    // New flags from original set
     days: any;
-    changedSince: any;
-    changedUntil: any;
-    destructiveChangesOnly: ReturnType<typeof Flags.boolean>;
-    includeProfiles: ReturnType<typeof Flags.boolean>;
-    includePermissionSets: ReturnType<typeof Flags.boolean>;
-    includeWorkflows: ReturnType<typeof Flags.boolean>;
-    includeSharingRules: ReturnType<typeof Flags.boolean>;
     apiVersion: any;
+    // Flags to add (previously added)
+    xml: ReturnType<typeof Flags.boolean>;
+    yaml: ReturnType<typeof Flags.boolean>;
+    audit: any;
+    // Flags to add (new for this step)
+    metafile: any;
+    namespace: any;
   } = {
     targetorg: Flags.requiredOrg({
       summary: 'Username or alias of the target org. Supports org aliases.',
       char: 'o',
     }),
-    outputdir: Flags.directory({
-      summary: 'Output directory for the destructive package.',
-      char: 'd',
-    }),
-    // New flags from original set
+    // New flags from original set (retained)
     days: Flags.integer({
       summary: 'Number of days to look back for changes.',
       char: 'D', // Assuming char
     }),
-    changedSince: Flags.string({
-      summary: 'Start date (YYYY-MM-DD) for changes to include.',
-      // char: 'S', // Example char
-    }),
-    changedUntil: Flags.string({
-      summary: 'End date (YYYY-MM-DD) for changes to include.',
-      // char: 'U', // Example char
-    }),
-    destructiveChangesOnly: Flags.boolean({
-      summary: 'Only include destructive changes (e.g., for deletions).',
-      // char: 'X', // Example char
-    }),
-    includeProfiles: Flags.boolean({
-      summary: 'Include Profile changes.',
-      // char: 'P', // Example char
-    }),
-    includePermissionSets: Flags.boolean({
-      summary: 'Include PermissionSet changes.',
-      // char: 'M', // Example char
-    }),
-    includeWorkflows: Flags.boolean({
-      summary: 'Include Workflow changes.',
-      // char: 'W', // Example char
-    }),
-    includeSharingRules: Flags.boolean({
-      summary: 'Include SharingRule changes.',
-      // char: 'R', // Example char
-    }),
     apiVersion: Flags.string({ // Using Flags.string as requested
       summary: 'API version for deployment.',
       // char: 'A', // Example char
+    }),
+    // Flags to add (previously added and retained)
+    xml: Flags.boolean({
+      summary: 'Generate package.xml for Salesforce metadata.'
+      // char: 'x' // example
+    }),
+    yaml: Flags.boolean({
+      summary: 'Generate package-vlocity.yaml for Vlocity DataPacks.'
+      // char: 'y' // example
+    }),
+    audit: Flags.string({
+      summary: 'Full name of the user to filter changes by (e.g., "User Name"). If not specified, defaults to the current user.'
+      // char: 'u' // example
+    }),
+    // Flags to add (new for this step)
+    metafile: Flags.string({
+      summary: 'Path to a JSON file defining metadata types to scan, overriding defaults.'
+      // char: 'f' // example
+    }),
+    namespace: Flags.string({
+      summary: 'Specify the Vlocity namespace (e.g., "vlocity_ins") if using Vlocity DataPacks.'
+      // char: 'n' // example
     }),
   };
 
