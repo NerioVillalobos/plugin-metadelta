@@ -68,24 +68,19 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
   // Static flags definition is commented out to achieve compilation.
   // For actual CLI flag parsing, this would need to be uncommented and TS2742 resolved.
   public static flags: {
-    testbool: ReturnType<typeof Flags.boolean>;
-    teststring: any; // Reverting to 'any' as a workaround
-    testinteger: any; // Using any as a fallback
     targetorg: any; // Using any as a fallback
     outputdir: any; // Using any as a fallback
+    // New flags from original set
+    days: any;
+    changedSince: any;
+    changedUntil: any;
+    destructiveChangesOnly: ReturnType<typeof Flags.boolean>;
+    includeProfiles: ReturnType<typeof Flags.boolean>;
+    includePermissionSets: ReturnType<typeof Flags.boolean>;
+    includeWorkflows: ReturnType<typeof Flags.boolean>;
+    includeSharingRules: ReturnType<typeof Flags.boolean>;
+    apiVersion: any;
   } = {
-    testbool: Flags.boolean({
-      summary: 'A test boolean flag',
-      char: 'b'
-    }),
-    teststring: Flags.string({
-      summary: 'A test string flag',
-      char: 's'
-    }),
-    testinteger: Flags.integer({
-      summary: 'A test integer flag',
-      char: 'i'
-    }),
     targetorg: Flags.requiredOrg({
       summary: 'Username or alias of the target org. Supports org aliases.',
       char: 'o',
@@ -93,7 +88,44 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
     outputdir: Flags.directory({
       summary: 'Output directory for the destructive package.',
       char: 'd',
-    })
+    }),
+    // New flags from original set
+    days: Flags.integer({
+      summary: 'Number of days to look back for changes.',
+      char: 'D', // Assuming char
+    }),
+    changedSince: Flags.string({
+      summary: 'Start date (YYYY-MM-DD) for changes to include.',
+      // char: 'S', // Example char
+    }),
+    changedUntil: Flags.string({
+      summary: 'End date (YYYY-MM-DD) for changes to include.',
+      // char: 'U', // Example char
+    }),
+    destructiveChangesOnly: Flags.boolean({
+      summary: 'Only include destructive changes (e.g., for deletions).',
+      // char: 'X', // Example char
+    }),
+    includeProfiles: Flags.boolean({
+      summary: 'Include Profile changes.',
+      // char: 'P', // Example char
+    }),
+    includePermissionSets: Flags.boolean({
+      summary: 'Include PermissionSet changes.',
+      // char: 'M', // Example char
+    }),
+    includeWorkflows: Flags.boolean({
+      summary: 'Include Workflow changes.',
+      // char: 'W', // Example char
+    }),
+    includeSharingRules: Flags.boolean({
+      summary: 'Include SharingRule changes.',
+      // char: 'R', // Example char
+    }),
+    apiVersion: Flags.string({ // Using Flags.string as requested
+      summary: 'API version for deployment.',
+      // char: 'A', // Example char
+    }),
   };
 
   private userToAudit!: string;
