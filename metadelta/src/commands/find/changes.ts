@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 import { SfCommand, Flags, orgApiVersionFlagWithDeprecations } from '@salesforce/sf-plugins-core'; 
-import { Org, SfError, Connection, Messages } from '@salesforce/core'; 
+import { Org, SfError, Connection, Messages } from '@salesforce/core';
 import { Interfaces } from '@oclif/core';
 
 // Hardcoded messages for simplicity
@@ -68,52 +68,50 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
   // Static flags definition is commented out to achieve compilation.
   // For actual CLI flag parsing, this would need to be uncommented and TS2742 resolved.
   public static flags: {
-    targetorg: any; // Using any as a fallback
-    days: any;
-    apiVersion: any;
-    // Flags to add (previously added)
-    xml: ReturnType<typeof Flags.boolean>;
-    yaml: ReturnType<typeof Flags.boolean>;
-    audit: any;
-    // Flags to add (new for this step)
-    metafile: any;
-    namespace: any;
+    targetorg: any;
+    // days: any;
+    // apiVersion: any;
+    // xml: ReturnType<typeof Flags.boolean>;
+    // yaml: ReturnType<typeof Flags.boolean>;
+    // audit: any;
+    // metafile: any;
+    // namespace: any;
   } = {
     targetorg: Flags.requiredOrg({
       summary: 'Username or alias of the target org. Supports org aliases.',
       char: 'o',
     }),
-    // New flags from original set (retained)
-    days: Flags.integer({
-      summary: 'Number of days to look back for changes.',
-      char: 'D', // Assuming char
-    }),
-    apiVersion: Flags.string({ // Using Flags.string as requested
-      summary: 'API version for deployment.',
-      // char: 'A', // Example char
-    }),
-    // Flags to add (previously added and retained)
-    xml: Flags.boolean({
-      summary: 'Generate package.xml for Salesforce metadata.'
-      // char: 'x' // example
-    }),
-    yaml: Flags.boolean({
-      summary: 'Generate package-vlocity.yaml for Vlocity DataPacks.'
-      // char: 'y' // example
-    }),
-    audit: Flags.string({
-      summary: 'Full name of the user to filter changes by (e.g., "User Name"). If not specified, defaults to the current user.'
-      // char: 'u' // example
-    }),
-    // Flags to add (new for this step)
-    metafile: Flags.string({
-      summary: 'Path to a JSON file defining metadata types to scan, overriding defaults.'
-      // char: 'f' // example
-    }),
-    namespace: Flags.string({
-      summary: 'Specify the Vlocity namespace (e.g., "vlocity_ins") if using Vlocity DataPacks.'
-      // char: 'n' // example
-    }),
+    // // New flags from original set (retained)
+    // days: Flags.integer({
+    //   summary: 'Number of days to look back for changes.',
+    //   char: 'D', // Assuming char
+    // }),
+    // apiVersion: Flags.string({ // Using Flags.string as requested
+    //   summary: 'API version for deployment.',
+    //   // char: 'A', // Example char
+    // }),
+    // // Flags to add (previously added and retained)
+    // xml: Flags.boolean({
+    //   summary: 'Generate package.xml for Salesforce metadata.'
+    //   // char: 'x' // example
+    // }),
+    // yaml: Flags.boolean({
+    //   summary: 'Generate package-vlocity.yaml for Vlocity DataPacks.'
+    //   // char: 'y' // example
+    // }),
+    // audit: Flags.string({
+    //   summary: 'Full name of the user to filter changes by (e.g., "User Name"). If not specified, defaults to the current user.'
+    //   // char: 'u' // example
+    // }),
+    // // Flags to add (new for this step)
+    // metafile: Flags.string({
+    //   summary: 'Path to a JSON file defining metadata types to scan, overriding defaults.'
+    //   // char: 'f' // example
+    // }),
+    // namespace: Flags.string({
+    //   summary: 'Specify the Vlocity namespace (e.g., "vlocity_ins") if using Vlocity DataPacks.'
+    //   // char: 'n' // example
+    // }),
   };
 
   private userToAudit!: string;
@@ -173,7 +171,7 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
 
         let userMatch = true; 
         // @ts-ignore Property 'audit' does not exist on type '{ testbool: BooleanFlag<boolean>; }'.
-        if ((this.flags as Interfaces.InferredFlags<typeof FindChanges.flags>).audit) { 
+        if ((this.flags as Interfaces.InferredFlags<typeof FindChanges.flags>).audit) {
             if (item.lastModifiedByName && (item.lastModifiedByName !== this.userToAudit)) {
                  userMatch = false;
             } else if (!item.lastModifiedByName) {
@@ -322,6 +320,7 @@ export default class FindChanges extends SfCommand<FindChangesCmdResult | void> 
   }
 
   public async run(): Promise<FindChangesCmdResult | void> {
+    this.log('Command metadelta find changes started successfully.'); // <-- ADD THIS LINE
     const { flags }: { flags: Interfaces.InferredFlags<typeof FindChanges.flags> } = await this.parse(FindChanges);
 
     this.spinner.start('Connecting to org...'); // Corrected: this.spinner
