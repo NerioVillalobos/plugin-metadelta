@@ -1,0 +1,21 @@
+{
+  "name": "sf-metadelta",
+  "version": "0.1.0",
+  "description": "Salesforce CLI plugin to find recent metadata changes in an org",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["salesforce", "sf", "plugin", "metadata"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@salesforce/sf-plugins-core": "^3.0.0",
+    "@oclif/core": "^3.15.1"
+  },
+  "oclif": {
+    "bin": "sf",
+    "commands": "./src/commands"
+  }
+}
