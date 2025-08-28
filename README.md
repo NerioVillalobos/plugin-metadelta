@@ -49,16 +49,6 @@ The plugin compares metadata changes for the specified user and prints a table o
 | `--yaml` | When set, generates `manifest/package-vlocity-<org>.yaml` with Vlocity datapack entries. | `false` |
 | `--audit` | Full name of the user to audit. If omitted, the command uses the org user associated with the provided alias. | Authenticated user |
 
-#### Custom metadata file
-
-If you use `--metafile`, the referenced JavaScript file must export a `metadataTypes` array, for example:
-
-```javascript
-module.exports.metadataTypes = [
-  'ApexClass', 'Flow'
-];
-```
-
 ### Examples
 
 - Basic scan for the default user:
@@ -134,16 +124,6 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | `--xml` | Si se especifica, genera `manifest/package-<org>.xml` con los metadatos encontrados. | `false` |
 | `--yaml` | Si se especifica, genera `manifest/package-vlocity-<org>.yaml` con entradas de datapacks de Vlocity. | `false` |
 | `--audit` | Nombre completo del usuario a auditar. Si se omite, el comando utiliza el usuario asociado al alias proporcionado. | Usuario autenticado |
-
-#### Ejemplo de archivo de metadatos
-
-Si usas `--metafile`, el archivo JavaScript indicado debe exportar un arreglo `metadataTypes`, por ejemplo:
-
-```javascript
-module.exports.metadataTypes = [
-  'ApexClass', 'Flow'
-];
-```
 
 ### Ejemplos
 
