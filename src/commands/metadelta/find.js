@@ -1,3 +1,9 @@
+/*
+Desarrollado por: Nerio Villalobos
+Fecha : 8/04/2025 
+*/
+
+
 const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const {spawn, spawnSync} = require('child_process');
 const fs = require('fs');
