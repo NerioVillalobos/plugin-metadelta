@@ -1,0 +1,21 @@
+{
+  "name": "sf-metadelta",
+  "version": "0.0.1",
+  "description": "Salesforce CLI plugin que detecta metadatos modificados recientemente",
+  "type": "module",
+  "main": "src/index.js",
+  "author": "Nerio Villalobos <nervill@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "test": "node -e \"console.log('No hay pruebas automatizadas')\""
+  },
+  "oclif": {
+    "commands": "./src/commands",
+    "bin": "sf",
+    "plugin": {"target": "sf"},
+    "topicSeparator": " "
+  },
+  "dependencies": {
+    "@oclif/core": "^2.15.0"
+  }
+}
