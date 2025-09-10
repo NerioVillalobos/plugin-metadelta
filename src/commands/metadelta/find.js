@@ -357,3 +357,4 @@ class Find extends SfCommand {
 }
 
 module.exports = Find;
+module.exports.default = Find;
