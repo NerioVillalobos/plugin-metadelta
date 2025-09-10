@@ -51,7 +51,7 @@ The plugin compares metadata changes for the specified user and prints a table o
 
 #### Using a custom metadata file
 
-The `--metafile` flag allows you to override the built‑in metadata list. Create a JavaScript file that exports a `metadataTypes` array. For CommonJS:
+The `--metafile` flag allows you to override the built‑in metadata list. Create a JavaScript file that exports a `metadataTypes` array. Both CommonJS and ES module syntaxes are accepted, even in projects using `"type": "module"`. For CommonJS:
 
 ```js
 module.exports = {
@@ -153,7 +153,7 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 
 #### Uso de un archivo de metadatos personalizado
 
-La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JavaScript que exporte un arreglo `metadataTypes`. En CommonJS:
+La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JavaScript que exporte un arreglo `metadataTypes`. Se aceptan sintaxis CommonJS y ES module, incluso en proyectos con `"type": "module"`. En CommonJS:
 
 ```js
 module.exports = {

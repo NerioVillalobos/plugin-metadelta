@@ -96,6 +96,12 @@ class Find extends SfCommand {
     let metadataTypesToUse = defaultMetadataTypes;
     if (flags.metafile) {
       const filePath = path.resolve(flags.metafile);
+      const loadCommonJs = (p) => {
+        const code = fs.readFileSync(p, 'utf8');
+        const m = {exports: {}};
+        new Function('module', 'exports', code)(m, m.exports);
+        return m.exports;
+      };
       if (fs.existsSync(filePath)) {
         try {
           let imported;
@@ -103,7 +109,17 @@ class Find extends SfCommand {
             imported = require(filePath);
           } catch (err) {
             if (err.code === 'ERR_REQUIRE_ESM') {
-              imported = await import(pathToFileURL(filePath).href);
+              try {
+                imported = await import(pathToFileURL(filePath).href);
+              } catch (e) {
+                if (/module is not defined/.test(e.message)) {
+                  imported = loadCommonJs(filePath);
+                } else {
+                  throw e;
+                }
+              }
+            } else if (/module is not defined/.test(err.message)) {
+              imported = loadCommonJs(filePath);
             } else {
               throw err;
             }
