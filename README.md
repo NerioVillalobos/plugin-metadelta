@@ -49,6 +49,32 @@ The plugin compares metadata changes for the specified user and prints a table o
 | `--yaml` | When set, generates `manifest/package-vlocity-<org>.yaml` with Vlocity datapack entries. | `false` |
 | `--audit` | Full name of the user to audit. If omitted, the command uses the org user associated with the provided alias. | Authenticated user |
 
+#### Using a custom metadata file
+
+The `--metafile` flag allows you to override the built‑in metadata list. Create a JavaScript file that exports a `metadataTypes` array. For CommonJS:
+
+```js
+module.exports = {
+  metadataTypes: [
+    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
+    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
+    'StaticResource','PermissionSetGroup'
+  ]
+};
+```
+
+ES modules are also supported:
+
+```js
+export const metadataTypes = ['Bot','BotVersion'];
+```
+
+Reference the file when running the command:
+
+```bash
+sf metadelta find --org myOrg --metafile ./mismetadatos.js
+```
+
 ### Examples
 
 - Basic scan for the default user:
@@ -124,6 +150,32 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | `--xml` | Si se especifica, genera `manifest/package-<org>.xml` con los metadatos encontrados. | `false` |
 | `--yaml` | Si se especifica, genera `manifest/package-vlocity-<org>.yaml` con entradas de datapacks de Vlocity. | `false` |
 | `--audit` | Nombre completo del usuario a auditar. Si se omite, el comando utiliza el usuario asociado al alias proporcionado. | Usuario autenticado |
+
+#### Uso de un archivo de metadatos personalizado
+
+La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JavaScript que exporte un arreglo `metadataTypes`. En CommonJS:
+
+```js
+module.exports = {
+  metadataTypes: [
+    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
+    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
+    'StaticResource','PermissionSetGroup'
+  ]
+};
+```
+
+También se admite sintaxis de ES modules:
+
+```js
+export const metadataTypes = ['Bot','BotVersion'];
+```
+
+Luego ejecuta el comando haciendo referencia al archivo:
+
+```bash
+sf metadelta find --org miOrg --metafile ./mismetadatos.js
+```
 
 ### Ejemplos
 
