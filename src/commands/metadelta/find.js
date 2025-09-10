@@ -8,6 +8,7 @@ const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const {spawn, spawnSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {pathToFileURL} = require('url');
 
 class Find extends SfCommand {
   static description = 'Find metadata changes made by a user in a Salesforce org';
@@ -76,7 +77,7 @@ class Find extends SfCommand {
 
     const fechasValidas = Array.from({length: daysToCheck}, (_,i)=>getFormattedDate(i));
 
-    const defaultMetadataTypes = [
+    const fallbackMetadataTypes = [
       'ApexClass','ApexPage','AuraDefinitionBundle','Bot','BotVersion',
       'CompactLayout','ContentAsset','CustomApplication','CustomField',
       'CustomMetadata','CustomNotificationType','CustomObject','CustomObjectTranslation',
@@ -92,17 +93,64 @@ class Find extends SfCommand {
       'WorkSkillRouting','PermissionSetGroup'
     ];
 
-    let metadataTypesToUse = defaultMetadataTypes;
+    const obtenerMetadataDeOrg = () => {
+      const result = spawnSync(`sf force:mdapi:describemetadata --target-org ${targetOrg} --json`, {
+        shell: true,
+        encoding: 'utf8',
+        stdio: ['ignore','pipe','ignore']
+      });
+      try {
+        const parsed = JSON.parse(result.stdout);
+        if (parsed.status === 0 && Array.isArray(parsed.result?.metadataObjects)) {
+          return parsed.result.metadataObjects.map(obj => obj.xmlName);
+        }
+        this.warn('No se pudo obtener la lista de metadatos de la org, usando lista por defecto.');
+        return fallbackMetadataTypes;
+      } catch {
+        this.warn('No se pudo obtener la lista de metadatos de la org, usando lista por defecto.');
+        return fallbackMetadataTypes;
+      }
+    };
+
+    let metadataTypesToUse = obtenerMetadataDeOrg();
     if (flags.metafile) {
       const filePath = path.resolve(flags.metafile);
+      const loadCommonJs = (p) => {
+        const code = fs.readFileSync(p, 'utf8');
+        const m = {exports: {}};
+        new Function('module', 'exports', code)(m, m.exports);
+        return m.exports;
+      };
       if (fs.existsSync(filePath)) {
         try {
-          const imported = require(filePath);
-          if (Array.isArray(imported.metadataTypes)) {
-            metadataTypesToUse = imported.metadataTypes;
+          let imported;
+          try {
+            imported = require(filePath);
+          } catch (err) {
+            if (err.code === 'ERR_REQUIRE_ESM') {
+              try {
+                imported = await import(pathToFileURL(filePath).href);
+              } catch (e) {
+                if (/module is not defined/.test(e.message)) {
+                  imported = loadCommonJs(filePath);
+                } else {
+                  throw e;
+                }
+              }
+            } else if (/module is not defined/.test(err.message)) {
+              imported = loadCommonJs(filePath);
+            } else {
+              throw err;
+            }
+          }
+          const candidate = imported.metadataTypes || imported.default?.metadataTypes || imported.default || imported;
+          if (Array.isArray(candidate)) {
+            metadataTypesToUse = candidate;
+          } else {
+            this.warn('Archivo de metadatos inválido, usando lista por defecto.');
           }
         } catch (e) {
-          this.warn('Error al cargar archivo de metadatos, usando lista por defecto.');
+          this.warn(`Error al cargar archivo de metadatos, usando lista por defecto. (${e.message})`);
         }
       } else {
         this.warn('Archivo de metadatos no encontrado, usando lista por defecto.');
