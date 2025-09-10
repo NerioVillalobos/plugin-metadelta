@@ -129,7 +129,11 @@ if (metaFileIndex !== -1 && args[metaFileIndex + 1]) {
                 console.warn('⚠️ El archivo no exporta un array llamado "metadataTypes". Usando lista por defecto.\n');
             }
         } catch (err) {
-            console.warn('⚠️ Error al cargar archivo de metadatos. Usando lista por defecto.\n');
+            if (err.code === 'ERR_REQUIRE_ESM') {
+                console.warn('⚠️ Error al cargar archivo de metadatos. Asegúrate de que sea un módulo CommonJS (por ejemplo, con extensión .cjs). Usando lista por defecto.\n');
+            } else {
+                console.warn('⚠️ Error al cargar archivo de metadatos. Usando lista por defecto.\n');
+            }
         }
     } else {
         console.warn('⚠️ Archivo de metadatos no encontrado. Usando lista por defecto.\n');
