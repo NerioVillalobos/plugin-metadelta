@@ -163,7 +163,7 @@ class Find extends SfCommand {
       process.stdout.write(`→ Verificando ${text}...\r`);
     };
 
-    const verificarMetadata = (metadataType) => {
+    const revisarMetadata = (metadataType) => {
       return new Promise((resolve) => {
         displayStatus(metadataType);
         const cmd = `sf org list metadata --metadata-type ${metadataType} --target-org ${targetOrg} --json`;
@@ -173,8 +173,11 @@ class Find extends SfCommand {
         child.on('close', () => {
           try {
             const json = JSON.parse(data);
-            if (json.status === 0 && Array.isArray(json.result)) {
-              const filtrados = json.result.filter(item=>{
+            const soporta = json.status === 0 && Array.isArray(json.result) &&
+              json.result[0] && json.result[0].lastModifiedByName !== undefined && json.result[0].lastModifiedDate !== undefined;
+            let filtrados = [];
+            if (soporta) {
+              filtrados = json.result.filter(item=>{
                 const modDate = item.lastModifiedDate?.slice(0,10);
                 return item.lastModifiedByName === userToAudit && fechasValidas.includes(modDate);
               }).map(item => ({
@@ -186,12 +189,10 @@ class Find extends SfCommand {
               if (filtrados.length>0) {
                 console.log(`🔎 Encontrado en ${metadataType}:`, filtrados.map(f=>f.fullName));
               }
-              resolve(filtrados);
-            } else {
-              resolve([]);
             }
+            resolve({type: metadataType, soporta, filtrados});
           } catch {
-            resolve([]);
+            resolve({type: metadataType, soporta:false, filtrados:[]});
           }
         });
       });
@@ -277,17 +278,18 @@ class Find extends SfCommand {
       });
     };
 
-    async function ejecutarConcurrentemente(tareas, maxParalelo=10) {
+    async function ejecutarConcurrentemente(tareas, maxParalelo = 5) {
       const resultados = [];
-      const ejecutando = [];
-      for (const tarea of tareas) {
-        const promesa = tarea().then(res => resultados.push(...res));
-        ejecutando.push(promesa);
-        if (ejecutando.length >= maxParalelo) {
-          await Promise.race(ejecutando);
+      let indice = 0;
+      async function trabajador() {
+        while (indice < tareas.length) {
+          const actual = tareas[indice++];
+          const res = await actual();
+          resultados.push(res);
         }
       }
-      await Promise.all(ejecutando);
+      const workers = Array.from({length: Math.min(maxParalelo, tareas.length)}, () => trabajador());
+      await Promise.all(workers);
       return resultados;
     }
 
@@ -353,13 +355,17 @@ class Find extends SfCommand {
     const startTime = Date.now();
     this.log(`\n🔍 Verificando modificaciones de "${userToAudit}" en ${metadataTypesToUse.length} tipos de metadatos de "${targetOrg}" (últimos ${daysToCheck} días)...\n`);
 
-    const tareasCore = metadataTypesToUse.map(tipo => () => verificarMetadata(tipo));
-    const resultadosCore = await ejecutarConcurrentemente(tareasCore, 10);
+    const tareasCore = metadataTypesToUse.map(tipo => () => revisarMetadata(tipo));
+    const revisiones = await ejecutarConcurrentemente(tareasCore, 5);
+    const soportados = revisiones.filter(r => r.soporta);
+    metadataTypesToUse = soportados.map(r => r.type);
+    const resultadosCore = soportados.flatMap(r => r.filtrados);
+
     let resultadosVlocity = [];
     if (vlocityNamespace) {
       this.log(`\n📦 Verificando componentes Vlocity usando namespace "${vlocityNamespace}"...\n`);
       const tareasVlocity = Object.entries(datapackQueries).map(([nombre, query]) => () => consultarDatapack(nombre, query));
-      resultadosVlocity = await ejecutarConcurrentemente(tareasVlocity, 5);
+      resultadosVlocity = (await ejecutarConcurrentemente(tareasVlocity, 5)).flat();
     }
     const resultadosTotales = [...resultadosCore, ...resultadosVlocity];
     process.stdout.write('\n');
