@@ -342,8 +342,8 @@ class Find extends SfCommand {
           'OverrideSettings:',
           '    DataPacks:',
           '        Catalog:',
-          '            Product2:',
-          '                MaxDeploy: 1',
+          '        Product2:',
+          '            MaxDeploy: 1',
         ].join('\n');
         fs.writeFileSync(filename, yaml);
         console.log(`\nArchivo "${filename}" generado con éxito en el directorio "${manifestDir}".`);
