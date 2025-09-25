@@ -293,13 +293,50 @@ class Find extends SfCommand {
       return resultados;
     }
 
+    const obtenerRamaGit = () => {
+      try {
+        const result = spawnSync('git rev-parse --abbrev-ref HEAD', {
+          shell: true,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        });
+        if (result.status === 0) {
+          const branch = result.stdout.trim();
+          if (branch && branch !== 'HEAD') {
+            return branch;
+          }
+        }
+      } catch {
+        /* ignore errors */
+      }
+      return null;
+    };
+
+    const sanitizarSegmentoArchivo = (valor) => {
+      const texto = String(valor ?? '').trim();
+      const reemplazado = texto.replace(/[\\/:*?"<>|\s]+/g, '-');
+      return reemplazado.length > 0 ? reemplazado : 'output';
+    };
+
+    const construirRutaManifest = (prefijo, extension) => {
+      const manifestDir = 'manifest';
+      if (!fs.existsSync(manifestDir)) {
+        fs.mkdirSync(manifestDir, {recursive: true});
+      }
+      const identificadorBase = sanitizarSegmentoArchivo(obtenerRamaGit() || targetOrg);
+      let contador = 0;
+      let ruta;
+      do {
+        const sufijoVersion = contador === 0 ? '' : `-v${contador}`;
+        ruta = path.join(manifestDir, `${prefijo}-${identificadorBase}${sufijoVersion}.${extension}`);
+        contador += 1;
+      } while (fs.existsSync(ruta));
+      return ruta;
+    };
+
     const generarPackageXML = (allComponents) => {
       if (allComponents.length > 0) {
-        const manifestDir = 'manifest';
-        const filename = path.join(manifestDir, `package-${targetOrg}.xml`);
-        if (!fs.existsSync(manifestDir)) {
-          fs.mkdirSync(manifestDir, {recursive:true});
-        }
+        const filename = construirRutaManifest('package', 'xml');
         const groupedByType = allComponents.reduce((acc, comp)=>{
           acc[comp.type] = acc[comp.type] || new Set();
           acc[comp.type].add(comp.fullName);
@@ -316,7 +353,7 @@ class Find extends SfCommand {
         }
         xml += `    <version>63.0</version>\n</Package>\n`;
         fs.writeFileSync(filename, xml);
-        console.log(`\nArchivo "${filename}" generado con éxito en el directorio "${manifestDir}".`);
+        console.log(`\nArchivo "${filename}" generado con éxito en el directorio "manifest".`);
       } else {
         console.log('\nNo hay componentes para generar el archivo "package.xml".');
       }
@@ -324,11 +361,7 @@ class Find extends SfCommand {
 
     const generarPackageYAML = (vlocityComponents) => {
       if (vlocityComponents.length > 0) {
-        const manifestDir = 'manifest';
-        const filename = path.join(manifestDir, `package-vlocity-${targetOrg}.yaml`);
-        if (!fs.existsSync(manifestDir)) {
-          fs.mkdirSync(manifestDir, {recursive:true});
-        }
+        const filename = construirRutaManifest('package-vlocity', 'yaml');
         const yaml = [
           'projectPath: ./Vlocity',
           'continueAfterError: true',
@@ -346,7 +379,7 @@ class Find extends SfCommand {
           '            MaxDeploy: 1',
         ].join('\n');
         fs.writeFileSync(filename, yaml);
-        console.log(`\nArchivo "${filename}" generado con éxito en el directorio "${manifestDir}".`);
+        console.log(`\nArchivo "${filename}" generado con éxito en el directorio "manifest".`);
       } else {
         console.log('\nNo hay componentes de Vlocity para generar el archivo "package.yaml".');
       }
