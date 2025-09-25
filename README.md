@@ -45,8 +45,8 @@ The plugin compares metadata changes for the specified user and prints a table o
 | `--metafile` | Path to a JavaScript file exporting a `metadataTypes` array to override the default metadata types. | Built‑in list |
 | `--days` | Number of days in the past to inspect for modifications. | `3` |
 | `--namespace` | Vlocity namespace to query datapacks (enables Vlocity datapack checks). | None |
-| `--xml` | When set, generates `manifest/package-<org>.xml` containing found metadata. | `false` |
-| `--yaml` | When set, generates `manifest/package-vlocity-<org>.yaml` with Vlocity datapack entries. | `false` |
+| `--xml` | When set, generates `manifest/package-<branch_or_org>[-v#].xml` containing found metadata. | `false` |
+| `--yaml` | When set, generates `manifest/package-vlocity-<branch_or_org>[-v#].yaml` with Vlocity datapack entries. | `false` |
 | `--audit` | Full name of the user to audit. If omitted, the command uses the org user associated with the provided alias. | Authenticated user |
 
 #### Using a custom metadata file
@@ -94,7 +94,7 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.js
 
 ### Output
 
-The command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory.
+The command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory. If the command runs inside a Git repository, the manifest filename uses the current branch name; otherwise it falls back to the provided org alias. Existing files are preserved by adding incremental `-v1`, `-v2`, … suffixes.
 
 ### Uninstalling
 
@@ -149,8 +149,8 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | `--metafile` | Ruta a un archivo JavaScript que exporta un arreglo `metadataTypes` para reemplazar los tipos predeterminados. | Lista integrada |
 | `--days` | Número de días hacia atrás a inspeccionar por modificaciones. | `3` |
 | `--namespace` | Namespace de Vlocity para consultar datapacks (habilita las revisiones de datapacks). | Ninguno |
-| `--xml` | Si se especifica, genera `manifest/package-<org>.xml` con los metadatos encontrados. | `false` |
-| `--yaml` | Si se especifica, genera `manifest/package-vlocity-<org>.yaml` con entradas de datapacks de Vlocity. | `false` |
+| `--xml` | Si se especifica, genera `manifest/package-<rama_o_org>[-v#].xml` con los metadatos encontrados. | `false` |
+| `--yaml` | Si se especifica, genera `manifest/package-vlocity-<rama_o_org>[-v#].yaml` con entradas de datapacks de Vlocity. | `false` |
 | `--audit` | Nombre completo del usuario a auditar. Si se omite, el comando utiliza el usuario asociado al alias proporcionado. | Usuario autenticado |
 
 #### Uso de un archivo de metadatos personalizado
@@ -198,7 +198,7 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.js
 
 ### Salida
 
-El comando imprime cada componente coincidente con su tipo, nombre completo, fecha de última modificación y usuario modificador. Cuando se establecen `--xml` o `--yaml`, los archivos de manifiesto correspondientes se crean dentro del directorio `manifest/`.
+El comando imprime cada componente coincidente con su tipo, nombre completo, fecha de última modificación y usuario modificador. Cuando se establecen `--xml` o `--yaml`, los archivos de manifiesto correspondientes se crean dentro del directorio `manifest/`. Si el comando se ejecuta dentro de un repositorio Git, el nombre del archivo utiliza la rama actual; en caso contrario, emplea el alias de la org. Los archivos existentes se conservan agregando sufijos incrementales `-v1`, `-v2`, ….
 
 ### Desinstalación
 
