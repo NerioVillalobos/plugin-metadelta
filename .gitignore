@@ -2,3 +2,4 @@ node_modules/
 manifest/
 .sfdx
 .sf
+.vscode
