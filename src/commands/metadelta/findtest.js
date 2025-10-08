@@ -43,6 +43,14 @@ const getClassContent = (directory, className) => {
   return fs.readFileSync(filePath, 'utf8');
 };
 
+const classFileExists = (directory, className) => {
+  if (!className) {
+    return false;
+  }
+  const filePath = path.join(directory, `${className}.cls`);
+  return fs.existsSync(filePath);
+};
+
 const findTestReferences = (apexClass, testClassContent) => {
   const patterns = [
     new RegExp(`\\bnew\\s+${apexClass}\\b`, 'g'),
@@ -175,24 +183,65 @@ const writePackageXml = (manifestPath, packageObject) => {
     format: true,
     suppressEmptyNode: true
   });
+  if (!packageObject['?xml']) {
+    packageObject['?xml'] = {
+      '@_version': '1.0',
+      '@_encoding': 'UTF-8'
+    };
+  }
   const xml = builder.build(packageObject);
-  const prolog = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  fs.writeFileSync(manifestPath, prolog + xml);
+  const output = xml.endsWith('\n') ? xml : `${xml}\n`;
+  fs.writeFileSync(manifestPath, output);
 };
 
-const gatherTestsForDeployment = (apexMembers, mapping) => {
-  const tests = new Set();
+const gatherTestsForDeployment = (apexMembers, mapping, classesDirectory, availableApexClasses = new Set()) => {
+  const testsToRun = new Set();
+  const testsMissingInManifest = new Set();
+  const missingTestFiles = new Set();
+  const apexWithoutTests = new Set();
+  const missingApexClasses = new Set();
+
+  const existingMembers = new Set(apexMembers);
+
   for (const member of apexMembers) {
     if (TEST_NAME_PATTERN.test(member)) {
-      tests.add(member);
+      testsToRun.add(member);
+      if (!classFileExists(classesDirectory, member)) {
+        missingTestFiles.add(member);
+      }
       continue;
     }
+
+    if (!availableApexClasses.has(member)) {
+      missingApexClasses.add(member);
+      continue;
+    }
+
     const mapped = mapping[member];
-    if (mapped && mapped !== '❌ No tiene pruebas asociadas') {
-      tests.add(mapped);
+    if (!mapped || mapped === '❌ No tiene pruebas asociadas') {
+      apexWithoutTests.add(member);
+      continue;
+    }
+
+    testsToRun.add(mapped);
+
+    if (!classFileExists(classesDirectory, mapped)) {
+      missingTestFiles.add(mapped);
+      continue;
+    }
+
+    if (!existingMembers.has(mapped)) {
+      testsMissingInManifest.add(mapped);
     }
   }
-  return Array.from(tests);
+
+  return {
+    testsToRun: Array.from(testsToRun),
+    testsMissingInManifest: Array.from(testsMissingInManifest),
+    missingTestFiles: Array.from(missingTestFiles),
+    apexWithoutTests: Array.from(apexWithoutTests),
+    missingApexClasses: Array.from(missingApexClasses)
+  };
 };
 
 class FindTest extends SfCommand {
@@ -390,26 +439,23 @@ class FindTest extends SfCommand {
 
       const originalMembers = apexType.members ?? [];
       const members = ensureArray(originalMembers);
-      const existingMembers = new Set(members);
 
-      const testsToRun = gatherTestsForDeployment(members, mapping);
-      const apexWithoutTests = members.filter(
-        (name) => !TEST_NAME_PATTERN.test(name) && (!mapping[name] || mapping[name] === '❌ No tiene pruebas asociadas')
-      );
-      if (apexWithoutTests.length > 0) {
-        this.warn(`No se encontraron clases de prueba asociadas para: ${apexWithoutTests.join(', ')}`);
-      }
+      const {
+        testsToRun,
+        testsMissingInManifest,
+        missingTestFiles,
+        apexWithoutTests,
+        missingApexClasses
+      } = gatherTestsForDeployment(members, mapping, sourceDir, availableApexClasses);
 
-      const missingTests = testsToRun.filter((testName) => !existingMembers.has(testName)).sort();
-      if (missingTests.length > 0) {
-        const updatedMembers = [...members, ...missingTests];
-        const dedupedMembers = Array.from(new Set(updatedMembers));
+      if (testsMissingInManifest.length > 0) {
+        const updatedMembers = Array.from(new Set([...members, ...testsMissingInManifest]));
 
-        apexType.members = dedupedMembers;
+        apexType.members = updatedMembers;
 
         const updatedTypes = types.map((type) => {
           if (type.name === 'ApexClass') {
-            return {...type, members: dedupedMembers};
+            return {...type, members: updatedMembers};
           }
           return type;
         });
@@ -418,12 +464,34 @@ class FindTest extends SfCommand {
 
         try {
           writePackageXml(manifestFlagPath, packageObject);
-          this.log(`\nSe agregaron ${missingTests.length} clases de prueba al package.xml.`);
+          this.log(`\nSe agregaron ${testsMissingInManifest.length} clases de prueba al package.xml.`);
         } catch (error) {
           this.error(`No se pudo actualizar el package.xml: ${error.message}`);
         }
       } else {
         this.log('\nNo fue necesario modificar el package.xml.');
+      }
+
+      const blockingWarnings = [];
+      if (missingApexClasses.length > 0) {
+        blockingWarnings.push(
+          `No se encontraron archivos .cls para las clases Apex indicadas en el manifest: ${missingApexClasses.join(', ')}`
+        );
+      }
+      if (apexWithoutTests.length > 0) {
+        blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${apexWithoutTests.join(', ')}`);
+      }
+      if (missingTestFiles.length > 0) {
+        blockingWarnings.push(
+          `No se encontraron archivos .cls para las clases de prueba requeridas: ${missingTestFiles.join(', ')}`
+        );
+      }
+
+      blockingWarnings.forEach((message) => this.warn(message));
+
+      if (blockingWarnings.length > 0) {
+        this.log('\nSe omite la ejecución de sf project deploy start porque faltan clases de prueba requeridas.');
+        return;
       }
 
       if (testsToRun.length === 0) {

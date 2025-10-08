@@ -136,9 +136,10 @@ When you provide a manifest file (with `--deploy` or by pointing `--xml-name` to
 
 1. Reads the existing `package.xml` (the file must already exist).
 2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun --dry-run`.
-3. For every Apex class in the manifest, finds the associated test class. Missing tests are appended to the same `<types>` node without altering other sections.
-4. Warns about Apex classes that have no detectable tests.
-5. Executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> … --dry-run` (or `-l NoTestRun` if no tests were detected). Use `--target-org` to override the CLI default org.
+3. Confirms that every Apex class declared in the manifest has a corresponding `.cls` file in the source directory. Missing source files stop the process before invoking the deploy command.
+4. Finds the associated test classes for each Apex entry. When the test `.cls` exists but is missing from the manifest, it is appended to the same `<types>` node without altering other sections.
+5. If any Apex class lacks an associated test or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
+6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> … --dry-run` (or `-l NoTestRun` if no tests were detected). Use `--target-org` to override the CLI default org.
 
 ### Output
 
@@ -288,9 +289,10 @@ Al indicar un manifiesto (ya sea con `--deploy` o apuntando `--xml-name` a un ar
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
 2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun --dry-run`.
-3. Para cada clase Apex del manifiesto busca la clase de prueba asociada. Las pruebas faltantes se agregan en el mismo nodo `<types>` sin modificar el resto del archivo.
-4. Advierte sobre las clases Apex que no tienen pruebas detectables.
-5. Ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> … --dry-run` (o `-l NoTestRun` si no se detectan pruebas). Usa `--target-org` para sobreescribir la org predeterminada.
+3. Confirma que cada clase Apex declarada en el manifiesto tenga su archivo `.cls` dentro del directorio fuente. Si falta alguno, el proceso se detiene antes de invocar el despliegue.
+4. Busca la clase de prueba asociada para cada entrada Apex. Cuando la prueba existe pero no está listada en el manifiesto, se agrega en el mismo nodo `<types>` sin alterar el resto del archivo.
+5. Si alguna clase Apex no tiene prueba asociada o falta el archivo `.cls` de la prueba requerida, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
+6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> … --dry-run` (o `-l NoTestRun` si no se detectan pruebas). Usa `--target-org` para sobreescribir la org predeterminada.
 
 ### Salida
 
