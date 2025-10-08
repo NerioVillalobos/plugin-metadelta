@@ -92,6 +92,44 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.js
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
 
+### `findtest` command
+
+Run the following command to analyse Apex classes inside your local Salesforce project:
+
+```bash
+sf metadelta findtest [flags]
+```
+
+By default the command searches for classes in `force-app/main/default/classes` under the directory that contains `sfdx-project.json`.
+Use the flags below to customise the behaviour.
+
+#### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--project-dir` | Path to the Salesforce project root (where `sfdx-project.json` lives). When omitted, the command walks up from the current directory until it finds the project root. | Current project |
+| `--source-dir` | Relative or absolute path to the folder that stores the Apex classes to inspect. | `force-app/main/default/classes` |
+| `--xml` | Generates `manifest/<name>.xml` with the Apex ↔︎ test mapping. | `false` |
+| `--xml-name` | Explicit filename to use with `--xml`. When omitted the command uses the Git branch name (if any) or `package-apextest.xml`. | Derived name |
+| `--branch` | Overrides the Git branch name when composing the XML filename. | Detected branch |
+| `--deploy` | Path to an existing `package.xml` manifest that should be validated and used for deployment. | N/A |
+| `--target-org` | Alias or username of the target org when invoking `sf project deploy start`. | Default CLI org |
+
+#### Output
+
+The visual mode prints the mapping exactly as: `ApexClass → ApexTest`. When `--xml` is present an XML file is written inside the `manifest/` directory following the mapping order.
+
+#### Deployment helper
+
+When `--deploy <path/to/package.xml>` is provided, the command:
+
+1. Reads the manifest and ensures the `ApexClass` node exists.
+2. Appends any missing test classes corresponding to the Apex classes listed in the manifest.
+3. Saves the updated manifest without altering other nodes.
+4. Executes `sf project deploy start --manifest <file> --dry-run` with either `-l NoTestRun` (if no tests are required) or `-l RunSpecifiedTests` plus one `-t <TestClass>` argument per detected test.
+
+Use `--target-org` to point to a specific org; otherwise the default org configured in the Salesforce CLI is used.
+
 ### Output
 
 The command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory. If the command runs inside a Git repository, the manifest filename uses the current branch name; otherwise it falls back to the provided org alias. Existing files are preserved by adding incremental `-v1`, `-v2`, … suffixes.
@@ -195,6 +233,44 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.js
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+### Comando `findtest`
+
+Ejecuta el siguiente comando para analizar las clases Apex de tu proyecto local de Salesforce:
+
+```bash
+sf metadelta findtest [banderas]
+```
+
+Por defecto el comando busca las clases dentro de `force-app/main/default/classes` partiendo del directorio que contiene `sfdx-project.json`.
+Puedes ajustar el comportamiento con las banderas descritas a continuación.
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|--------|-------------|-------------------|
+| `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
+| `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
+| `--xml` | Genera `manifest/<nombre>.xml` con el mapeo Apex ↔︎ pruebas. | `false` |
+| `--xml-name` | Nombre explícito para usar junto con `--xml`. Si se omite, se usa la rama de Git (si existe) o `package-apextest.xml`. | Nombre derivado |
+| `--branch` | Sobrescribe el nombre de la rama Git al componer el archivo XML. | Rama detectada |
+| `--deploy` | Ruta a un `package.xml` existente que se validará y utilizará para el despliegue. | N/A |
+| `--target-org` | Alias o usuario de la org destino al invocar `sf project deploy start`. | Org por defecto de la CLI |
+
+#### Salida
+
+El modo visual imprime el mapeo exactamente como `ApexClass → ApexTest`. Cuando se usa `--xml`, se escribe un archivo XML dentro del directorio `manifest/` siguiendo el orden del mapeo.
+
+#### Asistente de despliegue
+
+Al proporcionar `--deploy <ruta/a/package.xml>`, el comando:
+
+1. Lee el manifiesto y garantiza la existencia del nodo `ApexClass`.
+2. Agrega las clases de prueba faltantes correspondientes a las clases Apex listadas en el manifiesto.
+3. Guarda el manifiesto actualizado sin modificar los demás nodos.
+4. Ejecuta `sf project deploy start --manifest <archivo> --dry-run` usando `-l NoTestRun` (si no se requieren pruebas) o `-l RunSpecifiedTests` junto con un argumento `-t <ClaseTest>` por cada prueba detectada.
+
+Utiliza `--target-org` para apuntar a una org específica; en caso contrario se emplea la org predeterminada configurada en Salesforce CLI.
 
 ### Salida
 
