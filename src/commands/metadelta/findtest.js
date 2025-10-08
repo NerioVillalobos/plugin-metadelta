@@ -60,18 +60,40 @@ const findTestReferences = (apexClass, testClassContent) => {
   return patterns.some((pattern) => pattern.test(testClassContent));
 };
 
+const DIRECT_TEST_SUFFIXES = [
+  'test',
+  '_test',
+  'tests',
+  '_tests',
+  'testclass',
+  '_testclass',
+  'testcls',
+  '_testcls',
+  'testcase',
+  '_testcase'
+];
+
+const isDirectTestMatch = (apexClass, testClass) => {
+  if (!testClass) {
+    return false;
+  }
+
+  const normalizedApex = apexClass.toLowerCase();
+  const normalizedTest = testClass.toLowerCase();
+
+  return DIRECT_TEST_SUFFIXES.some((suffix) => normalizedTest === `${normalizedApex}${suffix}`);
+};
+
 const findPrimaryTestClass = (apexClass, testClasses, directory) => {
-  let bestMatch = null;
-  let maxScore = 0;
-  const possibleMatches = [];
+  let bestSuggestion = null;
 
   for (const testClass of testClasses) {
+    if (isDirectTestMatch(apexClass, testClass)) {
+      return {testClass, confidence: 'exact'};
+    }
+
     const testClassContent = getClassContent(directory, testClass);
     let score = 0;
-
-    if (testClass === `${apexClass}Test`) {
-      return testClass;
-    }
 
     if (testClassContent.includes(apexClass)) {
       score += 3;
@@ -81,30 +103,37 @@ const findPrimaryTestClass = (apexClass, testClasses, directory) => {
     }
 
     if (score > 0) {
-      possibleMatches.push({testClass, score});
+      if (!bestSuggestion || score > bestSuggestion.score) {
+        bestSuggestion = {testClass, confidence: 'suggested', score};
+      }
     }
   }
 
-  if (possibleMatches.length > 0) {
-    possibleMatches.sort((a, b) => b.score - a.score);
-    bestMatch = possibleMatches[0].testClass;
-    maxScore = possibleMatches[0].score;
-  }
-
-  return maxScore > 0 ? bestMatch : null;
+  return bestSuggestion;
 };
 
 const mapApexToTests = (classesDirectory) => {
   const apexClasses = getApexClasses(classesDirectory);
   const testClasses = getTestClasses(classesDirectory);
   const mapping = {};
+  const suggestions = [];
 
   for (const apexClass of apexClasses) {
     const primary = findPrimaryTestClass(apexClass, testClasses, classesDirectory);
-    mapping[apexClass] = primary || '❌ No tiene pruebas asociadas';
+
+    if (primary && primary.confidence === 'exact') {
+      mapping[apexClass] = {testClass: primary.testClass, confidence: 'exact'};
+    } else {
+      mapping[apexClass] = {testClass: null, confidence: 'none'};
+
+      if (primary && primary.confidence === 'suggested') {
+        mapping[apexClass].suggestion = primary.testClass;
+        suggestions.push({apexClass, testClass: primary.testClass});
+      }
+    }
   }
 
-  return mapping;
+  return {mapping, suggestions};
 };
 
 const findProjectRoot = (startDir) => {
@@ -148,11 +177,25 @@ const detectGitBranch = () => {
 
 const xmlEscape = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
+
+const formatMappingDisplay = (entry) => {
+  if (entry && entry.confidence === 'exact' && entry.testClass) {
+    return entry.testClass;
+  }
+
+  return NO_TEST_FOUND_MESSAGE;
+};
+
 const buildMappingXml = (mapping) => {
   const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<ApexTestMapping>'];
-  Object.entries(mapping).forEach(([apexClass, testClass]) => {
+  Object.entries(mapping).forEach(([apexClass, entry]) => {
+    if (!entry || entry.confidence !== 'exact' || !entry.testClass) {
+      return;
+    }
+
     lines.push(`    <apexClass name="${xmlEscape(apexClass)}">`);
-    lines.push(`        <testClass>${xmlEscape(testClass)}</testClass>`);
+    lines.push(`        <testClass>${xmlEscape(entry.testClass)}</testClass>`);
     lines.push('    </apexClass>');
   });
   lines.push('</ApexTestMapping>', '');
@@ -194,12 +237,18 @@ const writePackageXml = (manifestPath, packageObject) => {
   fs.writeFileSync(manifestPath, output);
 };
 
-const gatherTestsForDeployment = (apexMembers, mapping, classesDirectory, availableApexClasses = new Set()) => {
+const gatherTestsForDeployment = (
+  apexMembers,
+  mapping,
+  classesDirectory,
+  availableApexClasses = new Set()
+) => {
   const testsToRun = new Set();
   const testsMissingInManifest = new Set();
   const missingTestFiles = new Set();
   const apexWithoutTests = new Set();
   const missingApexClasses = new Set();
+  const lowConfidenceMatches = new Map();
 
   const existingMembers = new Set(apexMembers);
 
@@ -217,12 +266,18 @@ const gatherTestsForDeployment = (apexMembers, mapping, classesDirectory, availa
       continue;
     }
 
-    const mapped = mapping[member];
-    if (!mapped || mapped === '❌ No tiene pruebas asociadas') {
+    const mappingEntry = mapping[member];
+
+    if (!mappingEntry || mappingEntry.confidence !== 'exact' || !mappingEntry.testClass) {
+      if (mappingEntry && mappingEntry.suggestion) {
+        lowConfidenceMatches.set(member, mappingEntry.suggestion);
+      }
+
       apexWithoutTests.add(member);
       continue;
     }
 
+    const mapped = mappingEntry.testClass;
     testsToRun.add(mapped);
 
     if (!classFileExists(classesDirectory, mapped)) {
@@ -240,7 +295,8 @@ const gatherTestsForDeployment = (apexMembers, mapping, classesDirectory, availa
     testsMissingInManifest: Array.from(testsMissingInManifest),
     missingTestFiles: Array.from(missingTestFiles),
     apexWithoutTests: Array.from(apexWithoutTests),
-    missingApexClasses: Array.from(missingApexClasses)
+    missingApexClasses: Array.from(missingApexClasses),
+    lowConfidenceMatches
   };
 };
 
@@ -296,8 +352,8 @@ class FindTest extends SfCommand {
       this.error(`El directorio de clases Apex no existe: ${sourceDir}`);
     }
 
-    const mapping = mapApexToTests(sourceDir);
-    const availableApexClasses = new Set(Object.keys(mapping));
+    const {mapping: apexTestMapping, suggestions} = mapApexToTests(sourceDir);
+    const availableApexClasses = new Set(Object.keys(apexTestMapping));
 
     const deployPath = flags.deploy ? resolvePath(projectRoot, flags.deploy) : null;
     const xmlNameResolved = flags['xml-name']
@@ -352,14 +408,26 @@ class FindTest extends SfCommand {
       }
       classesToReport.forEach((apexClass) => {
         if (availableApexClasses.has(apexClass)) {
-          this.log(` ${apexClass} → ${mapping[apexClass]}`);
+          this.log(` ${apexClass} → ${formatMappingDisplay(apexTestMapping[apexClass])}`);
         } else {
           this.log(` ${apexClass} → ❌ Clase Apex no encontrada en el directorio fuente`);
         }
       });
     } else {
-      Object.entries(mapping).forEach(([apexClass, testClass]) => {
-        this.log(` ${apexClass} → ${testClass}`);
+      Object.entries(apexTestMapping).forEach(([apexClass, entry]) => {
+        this.log(` ${apexClass} → ${formatMappingDisplay(entry)}`);
+      });
+    }
+
+    const relevantSuggestions = manifestProvidesFilter
+      ? suggestions.filter(({apexClass}) => classesToReport?.includes(apexClass))
+      : suggestions;
+
+    if (relevantSuggestions.length > 0) {
+      this.log('');
+      this.warn('No se encontraron coincidencias de nombre exactas para algunas clases Apex. Posibles coincidencias:');
+      relevantSuggestions.forEach(({apexClass, testClass}) => {
+        this.warn(` - ${apexClass}: posible prueba ${testClass}`);
       });
     }
 
@@ -394,7 +462,7 @@ class FindTest extends SfCommand {
         if (!fs.existsSync(outputDir)) {
           fs.mkdirSync(outputDir, {recursive: true});
         }
-        fs.writeFileSync(outputPath, buildMappingXml(mapping));
+        fs.writeFileSync(outputPath, buildMappingXml(apexTestMapping));
         this.log(`\nArchivo XML generado en: ${outputPath}`);
       }
     }
@@ -445,8 +513,9 @@ class FindTest extends SfCommand {
         testsMissingInManifest,
         missingTestFiles,
         apexWithoutTests,
-        missingApexClasses
-      } = gatherTestsForDeployment(members, mapping, sourceDir, availableApexClasses);
+        missingApexClasses,
+        lowConfidenceMatches
+      } = gatherTestsForDeployment(members, apexTestMapping, sourceDir, availableApexClasses);
 
       if (testsMissingInManifest.length > 0) {
         const updatedMembers = Array.from(new Set([...members, ...testsMissingInManifest]));
@@ -479,7 +548,14 @@ class FindTest extends SfCommand {
         );
       }
       if (apexWithoutTests.length > 0) {
-        blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${apexWithoutTests.join(', ')}`);
+        const details = apexWithoutTests
+          .map((apexClass) => {
+            const suggested = lowConfidenceMatches.get(apexClass);
+            return suggested ? `${apexClass} (posible: ${suggested})` : apexClass;
+          })
+          .join(', ');
+
+        blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${details}`);
       }
       if (missingTestFiles.length > 0) {
         blockingWarnings.push(
