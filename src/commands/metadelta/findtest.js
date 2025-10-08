@@ -151,6 +151,13 @@ const buildMappingXml = (mapping) => {
   return lines.join('\n');
 };
 
+const resolvePath = (baseDir, candidate) => {
+  if (!candidate) {
+    return null;
+  }
+  return path.isAbsolute(candidate) ? candidate : path.join(baseDir, candidate);
+};
+
 const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
   const parser = new XMLParser({
@@ -247,19 +254,38 @@ class FindTest extends SfCommand {
       this.log(` ${apexClass} → ${testClass}`);
     });
 
+    const deployPath = flags.deploy ? resolvePath(projectRoot, flags.deploy) : null;
+    const xmlNameResolved = flags['xml-name']
+      ? resolvePath(
+          projectRoot,
+          flags['xml-name'].endsWith('.xml') ? flags['xml-name'] : `${flags['xml-name']}.xml`
+        )
+      : null;
+
+    if (flags.deploy && flags['xml-name'] && deployPath && xmlNameResolved) {
+      if (fs.existsSync(xmlNameResolved) && path.resolve(xmlNameResolved) !== path.resolve(deployPath)) {
+        this.error('Los valores de --deploy y --xml-name apuntan a archivos distintos.');
+      }
+    }
+
+    const manifestFlagPath = deployPath || xmlNameResolved;
+    const manifestExists = manifestFlagPath && fs.existsSync(manifestFlagPath);
+
     if (flags.xml) {
-      const branchName = flags.branch || detectGitBranch();
       const xmlNameFlag = flags['xml-name'];
-      let outputPath;
+      const branchName = flags.branch || detectGitBranch();
+      let outputPath = null;
 
       if (xmlNameFlag) {
         const normalized = xmlNameFlag.endsWith('.xml') ? xmlNameFlag : `${xmlNameFlag}.xml`;
-        outputPath = path.isAbsolute(normalized)
+        const resolved = path.isAbsolute(normalized)
           ? normalized
           : path.join(projectRoot, normalized);
-        const outputDir = path.dirname(outputPath);
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, {recursive: true});
+
+        if (manifestExists && path.resolve(resolved) === path.resolve(manifestFlagPath)) {
+          this.log('\nEl archivo indicado en --xml-name se usará como package.xml existente. No se generará un XML de mapeo aparte.');
+        } else {
+          outputPath = resolved;
         }
       } else {
         const baseName = sanitizeFilename(branchName || 'package-apextest');
@@ -271,22 +297,28 @@ class FindTest extends SfCommand {
         outputPath = path.join(manifestDir, filename);
       }
 
-      fs.writeFileSync(outputPath, buildMappingXml(mapping));
-      this.log(`\nArchivo XML generado en: ${outputPath}`);
+      if (outputPath) {
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, {recursive: true});
+        }
+        fs.writeFileSync(outputPath, buildMappingXml(mapping));
+        this.log(`\nArchivo XML generado en: ${outputPath}`);
+      }
     }
 
-    if (flags.deploy) {
-      const manifestPath = path.isAbsolute(flags.deploy)
-        ? flags.deploy
-        : path.join(projectRoot, flags.deploy);
+    if (flags.deploy || manifestExists) {
+      if (!manifestFlagPath) {
+        this.error('Debe proporcionar la ruta al package.xml existente mediante --deploy o --xml-name.');
+      }
 
-      if (!fs.existsSync(manifestPath)) {
-        this.error(`El archivo package.xml indicado no existe: ${manifestPath}`);
+      if (!manifestExists) {
+        this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
       let packageObject;
       try {
-        packageObject = readPackageXml(manifestPath);
+        packageObject = readPackageXml(manifestFlagPath);
       } catch (error) {
         this.error(`No se pudo leer el package.xml: ${error.message}`);
       }
@@ -300,7 +332,7 @@ class FindTest extends SfCommand {
       const typesIsArray = Array.isArray(originalTypes);
       const apexType = types.find((type) => type.name === 'ApexClass');
 
-      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestPath];
+      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath];
       if (flags['target-org']) {
         deployArgs.push('--target-org', flags['target-org']);
       }

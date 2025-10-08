@@ -111,7 +111,8 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Save the mapping to `manifest/<branch>.xml` | `sf metadelta findtest --xml` |
 | Save the mapping to a custom path | `sf metadelta findtest --xml --xml-name manifest/tests/package.xml` |
-| Validate an existing manifest and prepare deployment | `sf metadelta findtest --deploy manifest/package.xml --target-org MyOrg` |
+| Validate an existing manifest (using `--xml-name`) and prepare deployment | `sf metadelta findtest --xml-name manifest/package.xml --target-org MyOrg` |
+| Validate an existing manifest (explicit `--deploy`) | `sf metadelta findtest --deploy manifest/package.xml --target-org MyOrg` |
 
 #### Flags
 
@@ -120,18 +121,18 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
 | `--xml` | Writes an XML report with the Apex ↔︎ test mapping. | `false` |
-| `--xml-name` | File name or relative/absolute path for the XML generated with `--xml`. When omitted the file is stored in `manifest/` and named after the current Git branch or `package-apextest.xml`. | Derived name |
+| `--xml-name` | File name or relative/absolute path for the XML generated with `--xml`. If the referenced file already exists, the command treats it as an existing `package.xml` manifest for validation and deployment. When omitted the file is stored in `manifest/` and named after the current Git branch or `package-apextest.xml`. | Derived name or provided path |
 | `--branch` | Overrides the Git branch name when generating the default XML filename. | Detected branch |
-| `--deploy` | Path (relative to the project root or absolute) to an existing `package.xml` manifest. The command never creates a new manifest; it validates and enriches the provided file. | N/A |
+| `--deploy` | Path (relative to the project root or absolute) to an existing `package.xml` manifest. The command never creates a new manifest; it validates and enriches the provided file. This flag is optional when `--xml-name` already points to an existing manifest. | N/A |
 | `--target-org` | Alias or username passed to `sf project deploy start`. If omitted, the default org configured in the Salesforce CLI is used. | CLI default |
 
 #### Output
 
 The console output mirrors the original script exactly (`ApexClass → ApexTest`). When `--xml` is present, the mapping is written to the provided path or to `manifest/<branch>.xml`.
 
-#### Deployment flow (`--deploy`)
+#### Deployment flow (`--deploy` / existing `--xml-name`)
 
-When you provide a manifest file, the command:
+When you provide a manifest file (with `--deploy` or by pointing `--xml-name` to an existing file), the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
 2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun --dry-run`.
@@ -262,7 +263,8 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Guardar el mapeo en `manifest/<rama>.xml` | `sf metadelta findtest --xml` |
 | Guardar el mapeo en una ruta personalizada | `sf metadelta findtest --xml --xml-name manifest/tests/package.xml` |
-| Validar un manifiesto existente y preparar el despliegue | `sf metadelta findtest --deploy manifest/package.xml --target-org MiOrg` |
+| Validar un manifiesto existente usando `--xml-name` | `sf metadelta findtest --xml-name manifest/package.xml --target-org MiOrg` |
+| Validar un manifiesto existente con `--deploy` | `sf metadelta findtest --deploy manifest/package.xml --target-org MiOrg` |
 
 #### Banderas
 
@@ -271,18 +273,18 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
 | `--xml` | Genera un archivo XML con el mapeo Apex ↔︎ pruebas. | `false` |
-| `--xml-name` | Nombre de archivo o ruta relativa/absoluta para el XML generado con `--xml`. Si se omite, se guarda en `manifest/` usando el nombre de la rama Git o `package-apextest.xml`. | Nombre derivado |
+| `--xml-name` | Nombre de archivo o ruta relativa/absoluta para el XML generado con `--xml`. Si el archivo ya existe, el comando lo utiliza como `package.xml` para validación y despliegue. Si se omite, se guarda en `manifest/` usando el nombre de la rama Git o `package-apextest.xml`. | Nombre derivado o ruta indicada |
 | `--branch` | Sobrescribe el nombre de la rama Git al generar el archivo XML por defecto. | Rama detectada |
-| `--deploy` | Ruta (relativa al proyecto o absoluta) a un `package.xml` existente. El comando nunca crea un manifiesto nuevo; solo valida y enriquece el archivo indicado. | N/A |
+| `--deploy` | Ruta (relativa al proyecto o absoluta) a un `package.xml` existente. El comando nunca crea un manifiesto nuevo; solo valida y enriquece el archivo indicado. Esta bandera es opcional cuando `--xml-name` ya apunta a un manifiesto existente. | N/A |
 | `--target-org` | Alias o usuario de la org destino al invocar `sf project deploy start`. Si se omite, se usa la org por defecto de la CLI. | Org por defecto |
 
 #### Salida
 
 La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se emplea `--xml`, el mapeo se escribe en la ruta indicada o en `manifest/<rama>.xml`.
 
-#### Flujo de despliegue (`--deploy`)
+#### Flujo de despliegue (`--deploy` / `--xml-name` existente)
 
-Al indicar un manifiesto, el comando:
+Al indicar un manifiesto (ya sea con `--deploy` o apuntando `--xml-name` a un archivo existente), el comando:
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
 2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun --dry-run`.
