@@ -248,11 +248,7 @@ class FindTest extends SfCommand {
     }
 
     const mapping = mapApexToTests(sourceDir);
-
-    this.log('Lista de ApexClass con sus respectivas ApexTest:');
-    Object.entries(mapping).forEach(([apexClass, testClass]) => {
-      this.log(` ${apexClass} → ${testClass}`);
-    });
+    const availableApexClasses = new Set(Object.keys(mapping));
 
     const deployPath = flags.deploy ? resolvePath(projectRoot, flags.deploy) : null;
     const xmlNameResolved = flags['xml-name']
@@ -270,6 +266,53 @@ class FindTest extends SfCommand {
 
     const manifestFlagPath = deployPath || xmlNameResolved;
     const manifestExists = manifestFlagPath && fs.existsSync(manifestFlagPath);
+    let manifestData = null;
+    let manifestApexMembers = null;
+
+    if (manifestExists) {
+      try {
+        manifestData = readPackageXml(manifestFlagPath);
+      } catch (error) {
+        this.error(`No se pudo leer el package.xml: ${error.message}`);
+      }
+
+      if (!manifestData.Package) {
+        this.error('El package.xml no contiene un nodo <Package>.');
+      }
+
+      const manifestTypes = ensureArray(manifestData.Package.types ?? []);
+      const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
+      manifestApexMembers = manifestApexType ? ensureArray(manifestApexType.members ?? []) : [];
+    }
+
+    const manifestProvidesFilter = manifestApexMembers !== null;
+    const classesToReport = manifestProvidesFilter
+      ? Array.from(
+          new Set(
+            (manifestApexMembers ?? [])
+              .filter((name) => name)
+              .filter((name) => !TEST_NAME_PATTERN.test(name))
+          )
+        )
+      : null;
+
+    this.log('Lista de ApexClass con sus respectivas ApexTest:');
+    if (manifestProvidesFilter) {
+      if (classesToReport.length === 0) {
+        this.log(' (El package.xml no incluye clases Apex para evaluar)');
+      }
+      classesToReport.forEach((apexClass) => {
+        if (availableApexClasses.has(apexClass)) {
+          this.log(` ${apexClass} → ${mapping[apexClass]}`);
+        } else {
+          this.log(` ${apexClass} → ❌ Clase Apex no encontrada en el directorio fuente`);
+        }
+      });
+    } else {
+      Object.entries(mapping).forEach(([apexClass, testClass]) => {
+        this.log(` ${apexClass} → ${testClass}`);
+      });
+    }
 
     if (flags.xml) {
       const xmlNameFlag = flags['xml-name'];
@@ -316,12 +359,7 @@ class FindTest extends SfCommand {
         this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
-      let packageObject;
-      try {
-        packageObject = readPackageXml(manifestFlagPath);
-      } catch (error) {
-        this.error(`No se pudo leer el package.xml: ${error.message}`);
-      }
+      const packageObject = manifestData ?? readPackageXml(manifestFlagPath);
 
       if (!packageObject.Package) {
         this.error('El package.xml no contiene un nodo <Package>.');
@@ -379,7 +417,7 @@ class FindTest extends SfCommand {
         packageObject.Package.types = typesIsArray ? updatedTypes : updatedTypes[0];
 
         try {
-          writePackageXml(manifestPath, packageObject);
+          writePackageXml(manifestFlagPath, packageObject);
           this.log(`\nSe agregaron ${missingTests.length} clases de prueba al package.xml.`);
         } catch (error) {
           this.error(`No se pudo actualizar el package.xml: ${error.message}`);

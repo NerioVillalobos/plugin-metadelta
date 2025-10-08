@@ -128,7 +128,7 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 
 #### Output
 
-The console output mirrors the original script exactly (`ApexClass → ApexTest`). When `--xml` is present, the mapping is written to the provided path or to `manifest/<branch>.xml`.
+The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via `--deploy` or an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file. When `--xml` is present, the mapping is written to the provided path or to `manifest/<branch>.xml`.
 
 #### Deployment flow (`--deploy` / existing `--xml-name`)
 
@@ -280,7 +280,7 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 
 #### Salida
 
-La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se emplea `--xml`, el mapeo se escribe en la ruta indicada o en `manifest/<rama>.xml`.
+La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante `--deploy` o un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo. Cuando se emplea `--xml`, el mapeo se escribe en la ruta indicada o en `manifest/<rama>.xml`.
 
 #### Flujo de despliegue (`--deploy` / `--xml-name` existente)
 
