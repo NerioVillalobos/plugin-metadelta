@@ -10,7 +10,7 @@ const ensureArray = (value) => {
   if (Array.isArray(value)) {
     return value;
   }
-  if (value === undefined || value === null) {
+  if (value === undefined || value === null || value === '') {
     return [];
   }
   return [value];
@@ -155,7 +155,7 @@ const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
   const parser = new XMLParser({
     ignoreAttributes: false,
-    attributeNamePrefix: '@_' ,
+    attributeNamePrefix: '@_',
     preserveOrder: false
   });
   return parser.parse(xmlContent);
@@ -171,22 +171,6 @@ const writePackageXml = (manifestPath, packageObject) => {
   const xml = builder.build(packageObject);
   const prolog = '<?xml version="1.0" encoding="UTF-8"?>\n';
   fs.writeFileSync(manifestPath, prolog + xml);
-};
-
-const ensureApexType = (packageObject) => {
-  if (!packageObject.Package) {
-    packageObject.Package = {};
-  }
-  let {types} = packageObject.Package;
-  types = ensureArray(types);
-  let apexType = types.find((item) => item.name === 'ApexClass');
-  if (!apexType) {
-    apexType = {members: [], name: 'ApexClass'};
-    types.push(apexType);
-  }
-  apexType.members = ensureArray(apexType.members);
-  packageObject.Package.types = types;
-  return apexType;
 };
 
 const gatherTestsForDeployment = (apexMembers, mapping) => {
@@ -265,15 +249,28 @@ class FindTest extends SfCommand {
 
     if (flags.xml) {
       const branchName = flags.branch || detectGitBranch();
-      const baseName = flags['xml-name']
-        ? sanitizeFilename(flags['xml-name'])
-        : sanitizeFilename(branchName || 'package-apextest');
-      const filename = baseName.endsWith('.xml') ? baseName : `${baseName}.xml`;
-      const manifestDir = path.join(projectRoot, 'manifest');
-      if (!fs.existsSync(manifestDir)) {
-        fs.mkdirSync(manifestDir, {recursive: true});
+      const xmlNameFlag = flags['xml-name'];
+      let outputPath;
+
+      if (xmlNameFlag) {
+        const normalized = xmlNameFlag.endsWith('.xml') ? xmlNameFlag : `${xmlNameFlag}.xml`;
+        outputPath = path.isAbsolute(normalized)
+          ? normalized
+          : path.join(projectRoot, normalized);
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, {recursive: true});
+        }
+      } else {
+        const baseName = sanitizeFilename(branchName || 'package-apextest');
+        const filename = baseName.endsWith('.xml') ? baseName : `${baseName}.xml`;
+        const manifestDir = path.join(projectRoot, 'manifest');
+        if (!fs.existsSync(manifestDir)) {
+          fs.mkdirSync(manifestDir, {recursive: true});
+        }
+        outputPath = path.join(manifestDir, filename);
       }
-      const outputPath = path.join(manifestDir, filename);
+
       fs.writeFileSync(outputPath, buildMappingXml(mapping));
       this.log(`\nArchivo XML generado en: ${outputPath}`);
     }
@@ -294,45 +291,73 @@ class FindTest extends SfCommand {
         this.error(`No se pudo leer el package.xml: ${error.message}`);
       }
 
-      const apexType = ensureApexType(packageObject);
-      const orderedMembers = [...apexType.members];
-      const existingMembers = new Set(orderedMembers);
-
-      const testsToRun = gatherTestsForDeployment(orderedMembers, mapping);
-      const apexWithoutTests = orderedMembers.filter((name) => !TEST_NAME_PATTERN.test(name) && (!mapping[name] || mapping[name] === '❌ No tiene pruebas asociadas'));
-      if (apexWithoutTests.length > 0) {
-        this.warn(`No se encontraron clases de prueba asociadas para: ${apexWithoutTests.join(', ')}`);
-      }
-      const missingTests = testsToRun.filter((testName) => !existingMembers.has(testName)).sort();
-      const updatedMembers = [...orderedMembers, ...missingTests];
-      const dedupedMembers = Array.from(new Set(updatedMembers));
-
-      apexType.members = dedupedMembers;
-      packageObject.Package.types = packageObject.Package.types.map((type) => {
-        if (type.name === 'ApexClass') {
-          return {...type, members: dedupedMembers};
-        }
-        return type;
-      });
-
-      try {
-        writePackageXml(manifestPath, packageObject);
-      } catch (error) {
-        this.error(`No se pudo actualizar el package.xml: ${error.message}`);
+      if (!packageObject.Package) {
+        this.error('El package.xml no contiene un nodo <Package>.');
       }
 
-      if (testsToRun.length === 0) {
-        this.log('\nNo se detectaron clases Apex en el package.xml o no se encontraron pruebas asociadas.');
-      } else {
-        this.log(`\nSe aseguraron ${testsToRun.length} clases de prueba en el package.xml.`);
-      }
+      const originalTypes = packageObject.Package.types ?? [];
+      const types = ensureArray(originalTypes);
+      const typesIsArray = Array.isArray(originalTypes);
+      const apexType = types.find((type) => type.name === 'ApexClass');
 
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestPath];
       if (flags['target-org']) {
         deployArgs.push('--target-org', flags['target-org']);
       }
 
+      if (!apexType) {
+        this.log('\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con NoTestRun.');
+        deployArgs.push('-l', 'NoTestRun', '--dry-run');
+        this.log(`\nEjecutando: sf ${deployArgs.join(' ')}`);
+        const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});
+        if (result.error) {
+          this.warn(`Error al ejecutar sf project deploy start: ${result.error.message}`);
+        } else if (result.status !== 0) {
+          this.warn(`El comando sf project deploy start finalizó con código ${result.status}.`);
+        }
+        return;
+      }
+
+      const originalMembers = apexType.members ?? [];
+      const members = ensureArray(originalMembers);
+      const existingMembers = new Set(members);
+
+      const testsToRun = gatherTestsForDeployment(members, mapping);
+      const apexWithoutTests = members.filter(
+        (name) => !TEST_NAME_PATTERN.test(name) && (!mapping[name] || mapping[name] === '❌ No tiene pruebas asociadas')
+      );
+      if (apexWithoutTests.length > 0) {
+        this.warn(`No se encontraron clases de prueba asociadas para: ${apexWithoutTests.join(', ')}`);
+      }
+
+      const missingTests = testsToRun.filter((testName) => !existingMembers.has(testName)).sort();
+      if (missingTests.length > 0) {
+        const updatedMembers = [...members, ...missingTests];
+        const dedupedMembers = Array.from(new Set(updatedMembers));
+
+        apexType.members = dedupedMembers;
+
+        const updatedTypes = types.map((type) => {
+          if (type.name === 'ApexClass') {
+            return {...type, members: dedupedMembers};
+          }
+          return type;
+        });
+
+        packageObject.Package.types = typesIsArray ? updatedTypes : updatedTypes[0];
+
+        try {
+          writePackageXml(manifestPath, packageObject);
+          this.log(`\nSe agregaron ${missingTests.length} clases de prueba al package.xml.`);
+        } catch (error) {
+          this.error(`No se pudo actualizar el package.xml: ${error.message}`);
+        }
+      } else {
+        this.log('\nNo fue necesario modificar el package.xml.');
+      }
+
       if (testsToRun.length === 0) {
+        this.log('\nNo se detectaron clases Apex a validar. Se ejecutará NoTestRun.');
         deployArgs.push('-l', 'NoTestRun');
       } else {
         deployArgs.push('-l', 'RunSpecifiedTests');
