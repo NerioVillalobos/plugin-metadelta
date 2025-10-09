@@ -150,33 +150,6 @@ const findProjectRoot = (startDir) => {
   return fs.existsSync(path.join(startDir, 'sfdx-project.json')) ? startDir : null;
 };
 
-const sanitizeFilename = (value) => {
-  const replaced = String(value ?? '')
-    .trim()
-    .replace(/[\\/:*?"<>|\s]+/g, '-');
-  return replaced.length > 0 ? replaced : 'package-apextest';
-};
-
-const detectGitBranch = () => {
-  try {
-    const result = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    });
-    if (result.status === 0) {
-      const branch = result.stdout.trim();
-      if (branch && branch !== 'HEAD') {
-        return branch;
-      }
-    }
-  } catch (error) {
-    /* ignore */
-  }
-  return null;
-};
-
-const xmlEscape = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-
 const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
 
 const formatMappingDisplay = (entry) => {
@@ -185,21 +158,6 @@ const formatMappingDisplay = (entry) => {
   }
 
   return NO_TEST_FOUND_MESSAGE;
-};
-
-const buildMappingXml = (mapping) => {
-  const lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<ApexTestMapping>'];
-  Object.entries(mapping).forEach(([apexClass, entry]) => {
-    if (!entry || entry.confidence !== 'exact' || !entry.testClass) {
-      return;
-    }
-
-    lines.push(`    <apexClass name="${xmlEscape(apexClass)}">`);
-    lines.push(`        <testClass>${xmlEscape(entry.testClass)}</testClass>`);
-    lines.push('    </apexClass>');
-  });
-  lines.push('</ApexTestMapping>', '');
-  return lines.join('\n');
 };
 
 const resolvePath = (baseDir, candidate) => {
@@ -311,25 +269,33 @@ class FindTest extends SfCommand {
       summary: 'Ruta relativa o absoluta al directorio que contiene las clases Apex.',
       default: 'force-app/main/default/classes'
     }),
-    xml: Flags.boolean({
-      summary: 'Genera un archivo XML con el mapeo de clases y pruebas.'
-    }),
     'xml-name': Flags.string({
-      summary: 'Nombre del archivo XML a generar cuando se usa --xml.'
-    }),
-    branch: Flags.string({
-      summary: 'Nombre de rama a usar cuando se genera un XML (sobrescribe la rama detectada).'
+      summary: 'Ruta al package.xml existente que se usará para el análisis o despliegue.'
     }),
     deploy: Flags.string({
       summary: 'Ruta al package.xml existente que se utilizará para el despliegue.'
     }),
+    org: Flags.string({
+      char: 'o',
+      summary: 'Alias o usuario de la org destino (usa la predeterminada si se omite).'
+    }),
     'target-org': Flags.string({
       summary: 'Alias o usuario de la org destino para la ejecución de despliegue.'
+    }),
+    'run-deploy': Flags.boolean({
+      summary: 'Ejecuta el despliegue sin agregar la bandera --dry-run.'
     })
   };
 
   async run() {
     const {flags} = await this.parse(FindTest);
+
+    if (flags['target-org'] && flags.org && flags['target-org'] !== flags.org) {
+      this.error('Los valores de --target-org y --org no pueden diferir.');
+    }
+
+    const targetOrg = flags['target-org'] || flags.org;
+    const useDryRun = !flags['run-deploy'];
 
     let projectRoot;
     if (flags['project-dir']) {
@@ -385,6 +351,10 @@ class FindTest extends SfCommand {
         this.error('El package.xml no contiene un nodo <Package>.');
       }
 
+      if (flags['xml-name']) {
+        this.log('\nSe utilizará el package.xml indicado en --xml-name.');
+      }
+
       const manifestTypes = ensureArray(manifestData.Package.types ?? []);
       const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
       manifestApexMembers = manifestApexType ? ensureArray(manifestApexType.members ?? []) : [];
@@ -431,42 +401,6 @@ class FindTest extends SfCommand {
       });
     }
 
-    if (flags.xml) {
-      const xmlNameFlag = flags['xml-name'];
-      const branchName = flags.branch || detectGitBranch();
-      let outputPath = null;
-
-      if (xmlNameFlag) {
-        const normalized = xmlNameFlag.endsWith('.xml') ? xmlNameFlag : `${xmlNameFlag}.xml`;
-        const resolved = path.isAbsolute(normalized)
-          ? normalized
-          : path.join(projectRoot, normalized);
-
-        if (manifestExists && path.resolve(resolved) === path.resolve(manifestFlagPath)) {
-          this.log('\nEl archivo indicado en --xml-name se usará como package.xml existente. No se generará un XML de mapeo aparte.');
-        } else {
-          outputPath = resolved;
-        }
-      } else {
-        const baseName = sanitizeFilename(branchName || 'package-apextest');
-        const filename = baseName.endsWith('.xml') ? baseName : `${baseName}.xml`;
-        const manifestDir = path.join(projectRoot, 'manifest');
-        if (!fs.existsSync(manifestDir)) {
-          fs.mkdirSync(manifestDir, {recursive: true});
-        }
-        outputPath = path.join(manifestDir, filename);
-      }
-
-      if (outputPath) {
-        const outputDir = path.dirname(outputPath);
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, {recursive: true});
-        }
-        fs.writeFileSync(outputPath, buildMappingXml(apexTestMapping));
-        this.log(`\nArchivo XML generado en: ${outputPath}`);
-      }
-    }
-
     if (flags.deploy || manifestExists) {
       if (!manifestFlagPath) {
         this.error('Debe proporcionar la ruta al package.xml existente mediante --deploy o --xml-name.');
@@ -488,13 +422,16 @@ class FindTest extends SfCommand {
       const apexType = types.find((type) => type.name === 'ApexClass');
 
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath];
-      if (flags['target-org']) {
-        deployArgs.push('--target-org', flags['target-org']);
+      if (targetOrg) {
+        deployArgs.push('--target-org', targetOrg);
       }
 
       if (!apexType) {
         this.log('\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con NoTestRun.');
-        deployArgs.push('-l', 'NoTestRun', '--dry-run');
+        deployArgs.push('-l', 'NoTestRun');
+        if (useDryRun) {
+          deployArgs.push('--dry-run');
+        }
         this.log(`\nEjecutando: sf ${deployArgs.join(' ')}`);
         const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});
         if (result.error) {
@@ -580,7 +517,9 @@ class FindTest extends SfCommand {
         });
       }
 
-      deployArgs.push('--dry-run');
+      if (useDryRun) {
+        deployArgs.push('--dry-run');
+      }
 
       this.log(`\nEjecutando: sf ${deployArgs.join(' ')}`);
       const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});

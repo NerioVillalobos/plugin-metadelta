@@ -109,10 +109,10 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | Scenario | Example |
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
-| Save the mapping to `manifest/<branch>.xml` | `sf metadelta findtest --xml` |
-| Save the mapping to a custom path | `sf metadelta findtest --xml --xml-name manifest/tests/package.xml` |
-| Validate an existing manifest (using `--xml-name`) and prepare deployment | `sf metadelta findtest --xml-name manifest/package.xml --target-org MyOrg` |
-| Validate an existing manifest (explicit `--deploy`) | `sf metadelta findtest --deploy manifest/package.xml --target-org MyOrg` |
+| Restrict the report to the Apex classes listed in a manifest | `sf metadelta findtest --xml-name manifest/package.xml` |
+| Validate a manifest and target a specific org | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Validate using an explicit `--deploy` flag | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss` |
+| Run the deployment helper without `--dry-run` | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Flags
 
@@ -120,15 +120,15 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 |------|-------------|---------|
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
-| `--xml` | Writes an XML report with the Apex ↔︎ test mapping. | `false` |
-| `--xml-name` | File name or relative/absolute path for the XML generated with `--xml`. If the referenced file already exists, the command treats it as an existing `package.xml` manifest for validation and deployment. When omitted the file is stored in `manifest/` and named after the current Git branch or `package-apextest.xml`. | Derived name or provided path |
-| `--branch` | Overrides the Git branch name when generating the default XML filename. | Detected branch |
-| `--deploy` | Path (relative to the project root or absolute) to an existing `package.xml` manifest. The command never creates a new manifest; it validates and enriches the provided file. This flag is optional when `--xml-name` already points to an existing manifest. | N/A |
-| `--target-org` | Alias or username passed to `sf project deploy start`. If omitted, the default org configured in the Salesforce CLI is used. | CLI default |
+| `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report is limited to the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
+| `--deploy` | Alternate way to point at an existing `package.xml`. Use it when you prefer to keep `--xml-name` free for other tooling; both flags must reference the same file if set together. | N/A |
+| `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
+| `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
+| `--run-deploy` | Executes the deployment helper without appending `--dry-run`. | `false` |
 
 #### Output
 
-The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via `--deploy` or an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file. When `--xml` is present, the mapping is written to the provided path or to `manifest/<branch>.xml`.
+The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via `--deploy` or an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file.
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings (for review) but are **not** added to manifests or deployment commands automatically.
 
@@ -137,11 +137,11 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 When you provide a manifest file (with `--deploy` or by pointing `--xml-name` to an existing file), the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
-2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun --dry-run`.
+2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun` and adds `--dry-run` unless you include `--run-deploy`.
 3. Confirms that every Apex class declared in the manifest has a corresponding `.cls` file in the source directory. Missing source files stop the process before invoking the deploy command.
 4. Finds the associated test classes for each Apex entry. Only direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Heuristic matches are surfaced as warnings so you can double-check coverage manually.
 5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
-6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> … --dry-run` (or `-l NoTestRun` if no tests were detected). Use `--target-org` to override the CLI default org.
+6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
 
 ### Output
 
@@ -264,10 +264,10 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | Escenario | Ejemplo |
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
-| Guardar el mapeo en `manifest/<rama>.xml` | `sf metadelta findtest --xml` |
-| Guardar el mapeo en una ruta personalizada | `sf metadelta findtest --xml --xml-name manifest/tests/package.xml` |
-| Validar un manifiesto existente usando `--xml-name` | `sf metadelta findtest --xml-name manifest/package.xml --target-org MiOrg` |
-| Validar un manifiesto existente con `--deploy` | `sf metadelta findtest --deploy manifest/package.xml --target-org MiOrg` |
+| Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
+| Validar un manifiesto y apuntar a una org específica | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Validar usando la bandera `--deploy` explícitamente | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss` |
+| Ejecutar el despliegue sin `--dry-run` | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Banderas
 
@@ -275,15 +275,15 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 |--------|-------------|-------------------|
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
-| `--xml` | Genera un archivo XML con el mapeo Apex ↔︎ pruebas. | `false` |
-| `--xml-name` | Nombre de archivo o ruta relativa/absoluta para el XML generado con `--xml`. Si el archivo ya existe, el comando lo utiliza como `package.xml` para validación y despliegue. Si se omite, se guarda en `manifest/` usando el nombre de la rama Git o `package-apextest.xml`. | Nombre derivado o ruta indicada |
-| `--branch` | Sobrescribe el nombre de la rama Git al generar el archivo XML por defecto. | Rama detectada |
-| `--deploy` | Ruta (relativa al proyecto o absoluta) a un `package.xml` existente. El comando nunca crea un manifiesto nuevo; solo valida y enriquece el archivo indicado. Esta bandera es opcional cuando `--xml-name` ya apunta a un manifiesto existente. | N/A |
-| `--target-org` | Alias o usuario de la org destino al invocar `sf project deploy start`. Si se omite, se usa la org por defecto de la CLI. | Org por defecto |
+| `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte se limita a las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
+| `--deploy` | Forma alternativa de señalar un `package.xml` existente. Úsala cuando prefieras reservar `--xml-name` para otras herramientas; si ambas banderas están presentes deben apuntar al mismo archivo. | N/A |
+| `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
+| `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
+| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. | `false` |
 
 #### Salida
 
-La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante `--deploy` o un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo. Cuando se emplea `--xml`, el mapeo se escribe en la ruta indicada o en `manifest/<rama>.xml`.
+La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante `--deploy` o un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo.
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias detectadas de forma heurística se informan como advertencias para revisión manual y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
@@ -292,11 +292,11 @@ Solo se consideran confiables las clases de prueba cuyo nombre coincide directam
 Al indicar un manifiesto (ya sea con `--deploy` o apuntando `--xml-name` a un archivo existente), el comando:
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
-2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun --dry-run`.
+2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun` y agrega `--dry-run` a menos que indiques `--run-deploy`.
 3. Confirma que cada clase Apex declarada en el manifiesto tenga su archivo `.cls` dentro del directorio fuente. Si falta alguno, el proceso se detiene antes de invocar el despliegue.
 4. Busca la clase de prueba asociada para cada entrada Apex. Solo se agregan al manifiesto las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para que verifiques la cobertura manualmente.
 5. Si alguna clase Apex no tiene prueba asociada, solo cuenta con una coincidencia heurística o falta el archivo `.cls` requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
-6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> … --dry-run` (o `-l NoTestRun` si no se detectan pruebas). Usa `--target-org` para sobreescribir la org predeterminada.
+6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> …` (o `-l NoTestRun` si no se detectan pruebas). El comando agrega `--dry-run` a menos que indiques `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
 
 ### Salida
 
