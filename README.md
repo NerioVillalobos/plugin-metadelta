@@ -5,7 +5,10 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that inspects a target org and reports metadata components modified by a specific user within a recent time window. It optionally generates manifest files for deployment or Vlocity datapack migration.
+Metadelta is a custom Salesforce CLI plugin that offers two complementary workflows:
+
+* `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration.
+* `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -110,9 +113,8 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest and target a specific org | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Validate using an explicit `--deploy` flag | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss` |
-| Run the deployment helper without `--dry-run` | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Execute the deployment helper without `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Flags
 
@@ -121,20 +123,19 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
 | `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report is limited to the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
-| `--deploy` | Alternate way to point at an existing `package.xml`. Use it when you prefer to keep `--xml-name` free for other tooling; both flags must reference the same file if set together. | N/A |
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
-| `--run-deploy` | Executes the deployment helper without appending `--dry-run`. | `false` |
+| `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
 
 #### Output
 
-The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via `--deploy` or an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file.
+The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file.
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings (for review) but are **not** added to manifests or deployment commands automatically.
 
-#### Deployment flow (`--deploy` / existing `--xml-name`)
+#### Deployment flow (existing `package.xml`)
 
-When you provide a manifest file (with `--deploy` or by pointing `--xml-name` to an existing file), the command:
+When you provide a manifest file (by pointing `--xml-name` to an existing file), the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
 2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun` and adds `--dry-run` unless you include `--run-deploy`.
@@ -160,7 +161,10 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente. Opcionalmente genera archivos de manifiesto para despliegues o migraciones de paquetes de Vlocity.
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece dos flujos complementarios:
+
+* `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity.
+* `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -265,9 +269,8 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto y apuntar a una org específica | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Validar usando la bandera `--deploy` explícitamente | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss` |
-| Ejecutar el despliegue sin `--dry-run` | `sf metadelta findtest --deploy manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Validar un manifiesto apuntando a una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Ejecutar el asistente de despliegue sin `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Banderas
 
@@ -276,20 +279,19 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
 | `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte se limita a las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
-| `--deploy` | Forma alternativa de señalar un `package.xml` existente. Úsala cuando prefieras reservar `--xml-name` para otras herramientas; si ambas banderas están presentes deben apuntar al mismo archivo. | N/A |
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
-| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. | `false` |
+| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente siempre agrega `--dry-run` para mantener la validación sin impacto. | `false` |
 
 #### Salida
 
-La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante `--deploy` o un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo.
+La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo.
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias detectadas de forma heurística se informan como advertencias para revisión manual y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
-#### Flujo de despliegue (`--deploy` / `--xml-name` existente)
+#### Flujo de despliegue (package.xml existente)
 
-Al indicar un manifiesto (ya sea con `--deploy` o apuntando `--xml-name` a un archivo existente), el comando:
+Al indicar un manifiesto (apuntando `--xml-name` a un archivo existente), el comando:
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
 2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun` y agrega `--dry-run` a menos que indiques `--run-deploy`.

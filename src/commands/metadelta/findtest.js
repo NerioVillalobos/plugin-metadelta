@@ -351,9 +351,7 @@ class FindTest extends SfCommand {
         this.error('El package.xml no contiene un nodo <Package>.');
       }
 
-      if (flags['xml-name']) {
-        this.log('\nSe utilizará el package.xml indicado en --xml-name.');
-      }
+      this.log(`\nUsando package.xml existente: ${manifestFlagPath}`);
 
       const manifestTypes = ensureArray(manifestData.Package.types ?? []);
       const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
