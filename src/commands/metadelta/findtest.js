@@ -305,6 +305,10 @@ class FindTest extends SfCommand {
     'target-org': Flags.string({
       summary: 'Alias o usuario de la org destino para la ejecución de despliegue.'
     }),
+    'dry-run': Flags.boolean({
+      summary: 'Asegura que el despliegue se ejecute con --dry-run (valor predeterminado).',
+      allowNo: true
+    }),
     'run-deploy': Flags.boolean({
       summary: 'Ejecuta el despliegue sin agregar la bandera --dry-run.'
     })
@@ -318,7 +322,14 @@ class FindTest extends SfCommand {
     }
 
     const targetOrg = flags['target-org'] || flags.org;
-    const useDryRun = !flags['run-deploy'];
+    const explicitDryRun = flags['dry-run'];
+    const wantsRunDeploy = Boolean(flags['run-deploy']);
+
+    if (wantsRunDeploy && explicitDryRun === true) {
+      this.error('No puede usar --run-deploy junto con --dry-run. Use --no-dry-run o quite --run-deploy.');
+    }
+
+    const useDryRun = wantsRunDeploy ? false : explicitDryRun !== undefined ? explicitDryRun : true;
 
     let projectRoot;
     if (flags['project-dir']) {
