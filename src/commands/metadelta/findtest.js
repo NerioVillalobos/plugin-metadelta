@@ -169,12 +169,33 @@ const resolvePath = (baseDir, candidate) => {
 
 const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    preserveOrder: false
-  });
-  return parser.parse(xmlContent);
+
+  if (/<<<<<<<|=======|>>>>>>>/.test(xmlContent)) {
+    const conflictError = new Error(
+      'El package.xml contiene marcadores de conflicto (<<<<<<<, =======, >>>>>>>).'
+    );
+    conflictError.name = 'ManifestConflictError';
+    throw conflictError;
+  }
+
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      preserveOrder: false
+    });
+    return parser.parse(xmlContent);
+  } catch (error) {
+    if (error instanceof SyntaxError && error.message.includes("Unexpected token '<<'")) {
+      const syntax = new Error(
+        'No se pudo analizar el package.xml porque contiene marcadores de conflicto o caracteres inválidos.'
+      );
+      syntax.name = 'ManifestSyntaxError';
+      throw syntax;
+    }
+
+    throw error;
+  }
 };
 
 const writePackageXml = (manifestPath, packageObject) => {
@@ -346,7 +367,11 @@ class FindTest extends SfCommand {
       try {
         manifestData = readPackageXml(manifestFlagPath);
       } catch (error) {
-        this.error(`No se pudo leer el package.xml: ${error.message}`);
+        if (error instanceof Error && ['ManifestConflictError', 'ManifestSyntaxError'].includes(error.name)) {
+          this.error(error.message);
+        }
+
+        this.error(`No se pudo leer el package.xml: ${error instanceof Error ? error.message : error}`);
       }
 
       if (!manifestData.Package) {
@@ -410,7 +435,18 @@ class FindTest extends SfCommand {
         this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
-      const packageObject = manifestData ?? readPackageXml(manifestFlagPath);
+      let packageObject = manifestData;
+      if (!packageObject) {
+        try {
+          packageObject = readPackageXml(manifestFlagPath);
+        } catch (error) {
+          if (error instanceof Error && ['ManifestConflictError', 'ManifestSyntaxError'].includes(error.name)) {
+            this.error(error.message);
+          }
+
+          this.error(`No se pudo leer el package.xml: ${error instanceof Error ? error.message : error}`);
+        }
+      }
 
       if (!packageObject.Package) {
         this.error('El package.xml no contiene un nodo <Package>.');
