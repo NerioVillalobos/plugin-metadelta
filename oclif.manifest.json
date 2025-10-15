@@ -137,13 +137,6 @@
           "multiple": false,
           "type": "option"
         },
-        "dry-run": {
-          "name": "dry-run",
-          "summary": "Asegura que el despliegue se ejecute con --dry-run (valor predeterminado).",
-          "hasDynamicHelp": false,
-          "allowNo": true,
-          "type": "boolean"
-        },
         "run-deploy": {
           "name": "run-deploy",
           "summary": "Ejecuta el despliegue sin agregar la bandera --dry-run.",

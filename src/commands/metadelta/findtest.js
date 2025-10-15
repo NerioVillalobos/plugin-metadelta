@@ -169,33 +169,12 @@ const resolvePath = (baseDir, candidate) => {
 
 const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
-
-  if (/<<<<<<<|=======|>>>>>>>/.test(xmlContent)) {
-    const conflictError = new Error(
-      'El package.xml contiene marcadores de conflicto (<<<<<<<, =======, >>>>>>>).'
-    );
-    conflictError.name = 'ManifestConflictError';
-    throw conflictError;
-  }
-
-  try {
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@_',
-      preserveOrder: false
-    });
-    return parser.parse(xmlContent);
-  } catch (error) {
-    if (error instanceof SyntaxError && error.message.includes("Unexpected token '<<'")) {
-      const syntax = new Error(
-        'No se pudo analizar el package.xml porque contiene marcadores de conflicto o caracteres inválidos.'
-      );
-      syntax.name = 'ManifestSyntaxError';
-      throw syntax;
-    }
-
-    throw error;
-  }
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    preserveOrder: false
+  });
+  return parser.parse(xmlContent);
 };
 
 const writePackageXml = (manifestPath, packageObject) => {
@@ -305,10 +284,6 @@ class FindTest extends SfCommand {
     'target-org': Flags.string({
       summary: 'Alias o usuario de la org destino para la ejecución de despliegue.'
     }),
-    'dry-run': Flags.boolean({
-      summary: 'Asegura que el despliegue se ejecute con --dry-run (valor predeterminado).',
-      allowNo: true
-    }),
     'run-deploy': Flags.boolean({
       summary: 'Ejecuta el despliegue sin agregar la bandera --dry-run.'
     })
@@ -322,14 +297,7 @@ class FindTest extends SfCommand {
     }
 
     const targetOrg = flags['target-org'] || flags.org;
-    const explicitDryRun = flags['dry-run'];
-    const wantsRunDeploy = Boolean(flags['run-deploy']);
-
-    if (wantsRunDeploy && explicitDryRun === true) {
-      this.error('No puede usar --run-deploy junto con --dry-run. Use --no-dry-run o quite --run-deploy.');
-    }
-
-    const useDryRun = wantsRunDeploy ? false : explicitDryRun !== undefined ? explicitDryRun : true;
+    const useDryRun = !flags['run-deploy'];
 
     let projectRoot;
     if (flags['project-dir']) {
@@ -378,11 +346,7 @@ class FindTest extends SfCommand {
       try {
         manifestData = readPackageXml(manifestFlagPath);
       } catch (error) {
-        if (error instanceof Error && ['ManifestConflictError', 'ManifestSyntaxError'].includes(error.name)) {
-          this.error(error.message);
-        }
-
-        this.error(`No se pudo leer el package.xml: ${error instanceof Error ? error.message : error}`);
+        this.error(`No se pudo leer el package.xml: ${error.message}`);
       }
 
       if (!manifestData.Package) {
@@ -446,18 +410,7 @@ class FindTest extends SfCommand {
         this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
-      let packageObject = manifestData;
-      if (!packageObject) {
-        try {
-          packageObject = readPackageXml(manifestFlagPath);
-        } catch (error) {
-          if (error instanceof Error && ['ManifestConflictError', 'ManifestSyntaxError'].includes(error.name)) {
-            this.error(error.message);
-          }
-
-          this.error(`No se pudo leer el package.xml: ${error instanceof Error ? error.message : error}`);
-        }
-      }
+      const packageObject = manifestData ?? readPackageXml(manifestFlagPath);
 
       if (!packageObject.Package) {
         this.error('El package.xml no contiene un nodo <Package>.');
