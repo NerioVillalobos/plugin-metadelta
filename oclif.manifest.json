@@ -4,6 +4,7 @@
       "aliases": [],
       "args": {},
       "description": "Find metadata changes made by a user in a Salesforce org",
+      "summary": "Find metadata changes made by a user in a Salesforce org",
       "flags": {
         "json": {
           "description": "Format output as json.",
@@ -83,6 +84,7 @@
       "aliases": [],
       "args": {},
       "description": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
+      "summary": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
       "flags": {
         "json": {
           "description": "Format output as json.",

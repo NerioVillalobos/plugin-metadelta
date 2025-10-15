@@ -259,6 +259,8 @@ const gatherTestsForDeployment = (
 };
 
 class FindTest extends SfCommand {
+  static id = 'metadelta:findtest';
+  static summary = 'Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.';
   static description = 'Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.';
 
   static flags = {

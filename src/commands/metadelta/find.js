@@ -11,6 +11,8 @@ const path = require('path');
 const {pathToFileURL} = require('url');
 
 class Find extends SfCommand {
+  static id = 'metadelta:find';
+  static summary = 'Find metadata changes made by a user in a Salesforce org';
   static description = 'Find metadata changes made by a user in a Salesforce org';
 
   static flags = {
