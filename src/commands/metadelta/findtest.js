@@ -221,7 +221,6 @@ const gatherTestsForDeployment = (
 ) => {
   const testsToRun = new Set();
   const testsMissingInManifest = new Set();
-  const missingTestFiles = new Set();
   const apexWithoutTests = new Set();
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
@@ -231,9 +230,6 @@ const gatherTestsForDeployment = (
   for (const member of apexMembers) {
     if (TEST_NAME_PATTERN.test(member)) {
       testsToRun.add(member);
-      if (!classFileExists(classesDirectory, member)) {
-        missingTestFiles.add(member);
-      }
       continue;
     }
 
@@ -257,7 +253,7 @@ const gatherTestsForDeployment = (
     testsToRun.add(mapped);
 
     if (!classFileExists(classesDirectory, mapped)) {
-      missingTestFiles.add(mapped);
+      apexWithoutTests.add(member);
       continue;
     }
 
@@ -269,7 +265,6 @@ const gatherTestsForDeployment = (
   return {
     testsToRun: Array.from(testsToRun),
     testsMissingInManifest: Array.from(testsMissingInManifest),
-    missingTestFiles: Array.from(missingTestFiles),
     apexWithoutTests: Array.from(apexWithoutTests),
     missingApexClasses: Array.from(missingApexClasses),
     lowConfidenceMatches
@@ -466,7 +461,6 @@ class FindTest extends SfCommand {
       const {
         testsToRun,
         testsMissingInManifest,
-        missingTestFiles,
         apexWithoutTests,
         missingApexClasses,
         lowConfidenceMatches
@@ -497,9 +491,10 @@ class FindTest extends SfCommand {
       }
 
       const blockingWarnings = [];
+      const advisoryWarnings = [];
       if (missingApexClasses.length > 0) {
-        blockingWarnings.push(
-          `No se encontraron archivos .cls para las clases Apex indicadas en el manifest: ${missingApexClasses.join(', ')}`
+        advisoryWarnings.push(
+          `No se encontraron archivos .cls locales para las clases Apex indicadas en el manifest: ${missingApexClasses.join(', ')}`
         );
       }
       if (apexWithoutTests.length > 0) {
@@ -512,12 +507,8 @@ class FindTest extends SfCommand {
 
         blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${details}`);
       }
-      if (missingTestFiles.length > 0) {
-        blockingWarnings.push(
-          `No se encontraron archivos .cls para las clases de prueba requeridas: ${missingTestFiles.join(', ')}`
-        );
-      }
 
+      advisoryWarnings.forEach((message) => this.warn(message));
       blockingWarnings.forEach((message) => this.warn(message));
 
       if (blockingWarnings.length > 0) {
