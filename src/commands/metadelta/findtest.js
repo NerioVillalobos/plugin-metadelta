@@ -547,9 +547,10 @@ class FindTest extends SfCommand {
     if (finalClasses.length === 0) {
       if (usedManifest) {
         if (manifestNonTestMembers.length === 0) {
-          this.log(
-            'El package.xml indicado no contiene clases Apex para validar. Se continuará con NoTestRun.'
-          );
+          const continuationMessage = targetOrg
+            ? 'El package.xml indicado no contiene clases Apex para validar. Se continuará con NoTestRun.'
+            : 'El package.xml indicado no contiene clases Apex para validar.';
+          this.log(continuationMessage);
         } else {
           const presentInRepo = manifestNonTestMembers.filter((name) => filesystemClasses.has(name));
 
@@ -615,6 +616,14 @@ class FindTest extends SfCommand {
         this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
+      if (!targetOrg) {
+        this.log(
+          '\nNo se proporcionó --org ni --target-org. Se omite la ejecución de sf project deploy start. '
+            + 'Indique una org para ejecutar el dry-run o el despliegue.'
+        );
+        return;
+      }
+
       const packageObject = manifestData ?? readPackageXml(manifestFlagPath);
 
       if (!packageObject.Package) {
@@ -626,10 +635,7 @@ class FindTest extends SfCommand {
       const typesIsArray = Array.isArray(originalTypes);
       const apexType = types.find((type) => type.name === 'ApexClass');
 
-      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath];
-      if (targetOrg) {
-        deployArgs.push('--target-org', targetOrg);
-      }
+      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
 
       if (!apexType) {
         this.log('\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con NoTestRun.');
