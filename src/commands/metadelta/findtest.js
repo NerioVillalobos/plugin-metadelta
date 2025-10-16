@@ -16,6 +16,24 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
+
+const COMMUNITY_CONTROLLERS = new Set([
+  'ChangePasswordController',
+  'CommunitiesLandingController',
+  'CommunitiesLoginController',
+  'CommunitiesSelfRegConfirmController',
+  'CommunitiesSelfRegController',
+  'ForgotPasswordController',
+  'LightningForgotPasswordController',
+  'LightningLoginFormController',
+  'LightningSelfRegisterController',
+  'MicrobatchSelfRegController',
+  'MyProfilePageController',
+  'SiteLoginController',
+  'SiteRegisterController'
+]);
+
 const getApexClasses = (directory) => {
   if (!fs.existsSync(directory)) {
     return [];
@@ -197,6 +215,7 @@ const writePackageXml = (manifestPath, packageObject) => {
 
 const gatherTestsForDeployment = (
   apexMembers,
+  manifestMembers,
   mapping,
   classesDirectory,
   availableApexClasses = new Set()
@@ -208,7 +227,7 @@ const gatherTestsForDeployment = (
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
 
-  const existingMembers = new Set(apexMembers);
+  const existingMembers = new Set(manifestMembers);
 
   for (const member of apexMembers) {
     if (TEST_NAME_PATTERN.test(member)) {
@@ -284,6 +303,25 @@ class FindTest extends SfCommand {
     }),
     'run-deploy': Flags.boolean({
       summary: 'Ejecuta el despliegue sin agregar la bandera --dry-run.'
+    }),
+    'only-local': Flags.boolean({
+      summary: 'Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.'
+    }),
+    'ignore-managed': Flags.boolean({
+      summary: 'Omite miembros de paquetes gestionados (namespace__Clase).',
+      default: true,
+      allowNo: true
+    }),
+    'ignore-communities': Flags.boolean({
+      summary: 'Omite controladores estándar de Communities.',
+      default: true,
+      allowNo: true
+    }),
+    verbose: Flags.boolean({
+      summary: 'Muestra avisos detallados de clases omitidas por filtros o ausencia local.'
+    }),
+    json: Flags.boolean({
+      summary: 'Emite un resumen en formato JSON con métricas de filtrado.'
     })
   };
 
@@ -320,6 +358,7 @@ class FindTest extends SfCommand {
 
     const {mapping: apexTestMapping, suggestions} = mapApexToTests(sourceDir);
     const availableApexClasses = new Set(Object.keys(apexTestMapping));
+    const filesystemClasses = new Set(Object.keys(apexTestMapping));
 
     const deployPath = flags.deploy ? resolvePath(projectRoot, flags.deploy) : null;
     const xmlNameResolved = flags['xml-name']
@@ -340,7 +379,7 @@ class FindTest extends SfCommand {
     let manifestData = null;
     let manifestApexMembers = null;
 
-    if (manifestExists) {
+    if (manifestExists && !flags['only-local']) {
       try {
         manifestData = readPackageXml(manifestFlagPath);
       } catch (error) {
@@ -354,44 +393,117 @@ class FindTest extends SfCommand {
       if (flags['xml-name']) {
         this.log('\nSe utilizará el package.xml indicado en --xml-name.');
       }
-
       const manifestTypes = ensureArray(manifestData.Package.types ?? []);
       const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
       manifestApexMembers = manifestApexType ? ensureArray(manifestApexType.members ?? []) : [];
     }
 
-    const manifestProvidesFilter = manifestApexMembers !== null;
-    const classesToReport = manifestProvidesFilter
-      ? Array.from(
-          new Set(
-            (manifestApexMembers ?? [])
-              .filter((name) => name)
-              .filter((name) => !TEST_NAME_PATTERN.test(name))
-          )
-        )
-      : null;
+    const ignoreManaged = flags['ignore-managed'] !== undefined ? flags['ignore-managed'] : true;
+    const ignoreCommunities = flags['ignore-communities'] !== undefined
+      ? flags['ignore-communities']
+      : true;
+    const verbose = Boolean(flags.verbose);
 
-    this.log('Lista de ApexClass con sus respectivas ApexTest:');
-    if (manifestProvidesFilter) {
-      if (classesToReport.length === 0) {
-        this.log(' (El package.xml no incluye clases Apex para evaluar)');
-      }
-      classesToReport.forEach((apexClass) => {
-        if (availableApexClasses.has(apexClass)) {
-          this.log(` ${apexClass} → ${formatMappingDisplay(apexTestMapping[apexClass])}`);
-        } else {
-          this.log(` ${apexClass} → ❌ Clase Apex no encontrada en el directorio fuente`);
+    const initialClassSet = new Set();
+    let usedManifest = Boolean(manifestApexMembers);
+
+    if (usedManifest) {
+      (manifestApexMembers ?? []).forEach((name) => {
+        if (name && !TEST_NAME_PATTERN.test(name)) {
+          initialClassSet.add(name);
         }
       });
     } else {
-      Object.entries(apexTestMapping).forEach(([apexClass, entry]) => {
-        this.log(` ${apexClass} → ${formatMappingDisplay(entry)}`);
-      });
+      usedManifest = false;
+      Array.from(filesystemClasses).forEach((name) => initialClassSet.add(name));
     }
 
-    const relevantSuggestions = manifestProvidesFilter
-      ? suggestions.filter(({apexClass}) => classesToReport?.includes(apexClass))
-      : suggestions;
+    if (flags['only-local']) {
+      usedManifest = false;
+      initialClassSet.clear();
+      Array.from(filesystemClasses).forEach((name) => initialClassSet.add(name));
+    }
+
+    const inputClasses = Array.from(initialClassSet).sort();
+
+    const ignoredManaged = new Set();
+    const ignoredCommunities = new Set();
+
+    let filteredClasses = inputClasses.filter((className) => {
+      if (ignoreManaged && MANAGED_NAMESPACE_PATTERN.test(className)) {
+        ignoredManaged.add(className);
+        return false;
+      }
+      if (ignoreCommunities && COMMUNITY_CONTROLLERS.has(className)) {
+        ignoredCommunities.add(className);
+        return false;
+      }
+      return true;
+    });
+
+    const filteredCount = filteredClasses.length;
+
+    const missingLocal = filteredClasses.filter((className) => !filesystemClasses.has(className));
+    const finalClasses = filteredClasses
+      .filter((className) => filesystemClasses.has(className))
+      .sort();
+
+    const summaryLabel = usedManifest ? 'Clases (manifest)' : 'Clases (filesystem)';
+    this.log(
+      `${summaryLabel}: ${inputClasses.length} · Filtradas: ${filteredCount} · Presentes en repo: ${finalClasses.length}`
+    );
+
+    if (verbose) {
+      const logLimitedWarnings = (items, formatter, extraMessage) => {
+        if (items.length === 0) {
+          return;
+        }
+        const preview = items.slice(0, 10);
+        preview.forEach((item) => this.warn(formatter(item)));
+        if (items.length > preview.length) {
+          this.warn(`... (${items.length - preview.length} adicionales)`);
+        }
+        if (extraMessage) {
+          this.warn(extraMessage);
+        }
+      };
+
+      logLimitedWarnings(
+        Array.from(ignoredManaged).sort(),
+        (cls) => `Se omitió ${cls} por namespace gestionado (__).`
+      );
+      logLimitedWarnings(
+        Array.from(ignoredCommunities).sort(),
+        (cls) => `Se omitió ${cls} por pertenecer a los controladores estándar de Communities.`
+      );
+      logLimitedWarnings(
+        missingLocal.sort(),
+        (cls) => `Se omitió ${cls} porque no existe en el filesystem.`,
+        'Revise su manifest o use --only-local.'
+      );
+    }
+
+    if (finalClasses.length === 0) {
+      this.error(
+        'El manifest no tiene clases presentes en el repo local. Usa --only-local o pasa un manifest válido.'
+      );
+    }
+
+    const metrics = {
+      inputCount: inputClasses.length,
+      filteredCount,
+      finalCount: finalClasses.length,
+      ignoredManaged: Array.from(ignoredManaged).sort(),
+      ignoredCommunities: Array.from(ignoredCommunities).sort(),
+      missingLocal: missingLocal.sort()
+    };
+
+    this.log('Lista de ApexClass con sus respectivas ApexTest:');
+    finalClasses.forEach((apexClass) => {
+      this.log(` ${apexClass} → ${formatMappingDisplay(apexTestMapping[apexClass])}`);
+    });
+
+    const relevantSuggestions = suggestions.filter(({apexClass}) => finalClasses.includes(apexClass));
 
     if (relevantSuggestions.length > 0) {
       this.log('');
@@ -399,6 +511,10 @@ class FindTest extends SfCommand {
       relevantSuggestions.forEach(({apexClass, testClass}) => {
         this.warn(` - ${apexClass}: posible prueba ${testClass}`);
       });
+    }
+
+    if (flags.json) {
+      this.log(JSON.stringify(metrics, null, 2));
     }
 
     if (flags.deploy || manifestExists) {
@@ -452,7 +568,7 @@ class FindTest extends SfCommand {
         apexWithoutTests,
         missingApexClasses,
         lowConfidenceMatches
-      } = gatherTestsForDeployment(members, apexTestMapping, sourceDir, availableApexClasses);
+      } = gatherTestsForDeployment(finalClasses, members, apexTestMapping, sourceDir, availableApexClasses);
 
       if (testsMissingInManifest.length > 0) {
         const updatedMembers = Array.from(new Set([...members, ...testsMissingInManifest]));

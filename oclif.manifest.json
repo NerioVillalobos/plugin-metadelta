@@ -142,6 +142,32 @@
           "summary": "Ejecuta el despliegue sin agregar la bandera --dry-run.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "only-local": {
+          "name": "only-local",
+          "summary": "Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ignore-managed": {
+          "name": "ignore-managed",
+          "summary": "Omite miembros de paquetes gestionados (namespace__Clase).",
+          "default": true,
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "ignore-communities": {
+          "name": "ignore-communities",
+          "summary": "Omite controladores estándar de Communities.",
+          "default": true,
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "verbose": {
+          "name": "verbose",
+          "summary": "Muestra avisos detallados de clases omitidas por filtros o ausencia local.",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
