@@ -1,0 +1,191 @@
+{
+  "commands": {
+    "metadelta:find": {
+      "aliases": [],
+      "args": {},
+      "description": "Find metadata changes made by a user in a Salesforce org",
+      "summary": "Find metadata changes made by a user in a Salesforce org",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "metafile": {
+          "name": "metafile",
+          "summary": "Path to a JS file exporting metadataTypes array",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "name": "days",
+          "summary": "Number of days to check for changes",
+          "default": 3,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "namespace": {
+          "name": "namespace",
+          "summary": "Vlocity namespace for datapacks",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Generate a package.xml with the found components",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Generate a Vlocity package.yaml with the found components",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "audit": {
+          "name": "audit",
+          "summary": "Full name of the user to audit",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:find",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "find.js"
+      ]
+    },
+    "metadelta:findtest": {
+      "aliases": [],
+      "args": {},
+      "description": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
+      "summary": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "project-dir": {
+          "name": "project-dir",
+          "summary": "Ruta al directorio raíz del proyecto Salesforce (contiene sfdx-project.json).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "source-dir": {
+          "name": "source-dir",
+          "summary": "Ruta relativa o absoluta al directorio que contiene las clases Apex.",
+          "default": "force-app/main/default/classes",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml-name": {
+          "name": "xml-name",
+          "summary": "Ruta al package.xml existente que se usará para el análisis o despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "deploy": {
+          "name": "deploy",
+          "summary": "Ruta al package.xml existente que se utilizará para el despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias o usuario de la org destino (usa la predeterminada si se omite).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "summary": "Alias o usuario de la org destino para la ejecución de despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "run-deploy": {
+          "name": "run-deploy",
+          "summary": "Ejecuta el despliegue sin agregar la bandera --dry-run.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "only-local": {
+          "name": "only-local",
+          "summary": "Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ignore-managed": {
+          "name": "ignore-managed",
+          "summary": "Omite miembros de paquetes gestionados (namespace__Clase).",
+          "default": true,
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "ignore-communities": {
+          "name": "ignore-communities",
+          "summary": "Omite controladores estándar de Communities.",
+          "default": true,
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "verbose": {
+          "name": "verbose",
+          "summary": "Muestra avisos detallados de clases omitidas por filtros o ausencia local.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:findtest",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "findtest.js"
+      ]
+    }
+  },
+  "version": "0.2.0"
+}

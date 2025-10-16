@@ -114,7 +114,9 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest | `sf metadelta findtest --xml-name manifest/package.xml` |
 | Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Execute the deployment helper without `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
+| Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
 #### Flags
 
@@ -122,16 +124,21 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 |------|-------------|---------|
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
-| `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report is limited to the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
+| `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report starts from the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
 | `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
+| `--only-local` | Ignores the manifest (if any) and analyses only the Apex classes present in the local repository. | `false` |
+| `--ignore-managed`, `--no-ignore-managed` | Skip (`true`) or include (`false`) classes whose names start with `namespace__`. | `true` |
+| `--ignore-communities`, `--no-ignore-communities` | Skip (`true`) or include (`false`) the built-in Communities controllers (ChangePasswordController, etc.). | `true` |
+| `--verbose` | Print detailed warnings for every class filtered out or missing locally. | `false` |
+| `--json` | Emit a JSON summary with filtering metrics (`inputCount`, `filteredCount`, `finalCount`, and ignored/missing lists). | `false` |
 
 #### Output
 
-The console output mirrors the original script exactly (`ApexClass → ApexTest`). When you validate an existing manifest (via an `--xml-name` that points to a `package.xml`), the listing is restricted to the Apex classes declared in that file.
+Every run starts with a summary line detailing how many classes came from the manifest (or filesystem), how many were filtered out, and how many remain in the local repository. The detailed mapping preserves the original script format (`ApexClass → ApexTest`). When a manifest is provided, the command automatically ignores managed-package entries (`namespace__*`) and common Communities controllers unless you opt back in; only classes that exist locally are considered for test discovery. Use `--verbose` to list the filtered names and `--json` to capture the underlying metrics programmatically.
 
-Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings (for review) but are **not** added to manifests or deployment commands automatically.
+Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
 
 #### Deployment flow (existing `package.xml`)
 
@@ -139,8 +146,8 @@ When you provide a manifest file (by pointing `--xml-name` to an existing file),
 
 1. Reads the existing `package.xml` (the file must already exist).
 2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun` and adds `--dry-run` unless you include `--run-deploy`.
-3. Confirms that every Apex class declared in the manifest has a corresponding `.cls` file in the source directory. Missing source files stop the process before invoking the deploy command.
-4. Finds the associated test classes for each Apex entry. Only direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Heuristic matches are surfaced as warnings so you can double-check coverage manually.
+3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
+4. Finds the associated test classes for each remaining Apex entry. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Name-only heuristics are surfaced as warnings so you can double-check coverage manually.
 5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
 6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
 
@@ -269,8 +276,10 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto apuntando a una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Ejecutar el asistente de despliegue sin `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
+| Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
 #### Banderas
 
@@ -278,16 +287,21 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 |--------|-------------|-------------------|
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
-| `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte se limita a las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
+| `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte parte de las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
-| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente siempre agrega `--dry-run` para mantener la validación sin impacto. | `false` |
+| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente agrega `--dry-run` para mantener la validación no destructiva. | `false` |
+| `--only-local` | Ignora el manifiesto (si existe) y analiza únicamente las clases Apex presentes en el repositorio local. | `false` |
+| `--ignore-managed`, `--no-ignore-managed` | Omite (`true`) o incluye (`false`) clases cuyos nombres comienzan con `namespace__`. | `true` |
+| `--ignore-communities`, `--no-ignore-communities` | Omite (`true`) o incluye (`false`) los controladores estándar de Communities (ChangePasswordController, etc.). | `true` |
+| `--verbose` | Muestra advertencias detalladas para cada clase filtrada o ausente localmente. | `false` |
+| `--json` | Emite un resumen en formato JSON con métricas de filtrado (`inputCount`, `filteredCount`, `finalCount` y las listas ignoradas/faltantes). | `false` |
 
 #### Salida
 
-La salida en consola replica exactamente el script original (`ApexClass → ApexTest`). Cuando se valida un manifiesto existente (mediante un `--xml-name` que apunte a un `package.xml`), el listado se limita a las clases Apex declaradas en dicho archivo.
+Cada ejecución inicia con una línea resumen indicando cuántas clases provienen del manifiesto (o del filesystem), cuántas se filtraron y cuántas existen en el repositorio local. El mapeo detallado mantiene el formato del script original (`ApexClass → ApexTest`). Al usar un manifiesto, el comando omite automáticamente las entradas de paquetes gestionados (`namespace__*`) y los controladores comunes de Communities, a menos que elijas incluirlos; solo se consideran las clases que existen localmente. Usa `--verbose` para listar los nombres filtrados y `--json` si necesitas capturar las métricas programáticamente.
 
-Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias detectadas de forma heurística se informan como advertencias para revisión manual y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
+Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
 #### Flujo de despliegue (package.xml existente)
 
@@ -295,8 +309,8 @@ Al indicar un manifiesto (apuntando `--xml-name` a un archivo existente), el com
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
 2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun` y agrega `--dry-run` a menos que indiques `--run-deploy`.
-3. Confirma que cada clase Apex declarada en el manifiesto tenga su archivo `.cls` dentro del directorio fuente. Si falta alguno, el proceso se detiene antes de invocar el despliegue.
-4. Busca la clase de prueba asociada para cada entrada Apex. Solo se agregan al manifiesto las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para que verifiques la cobertura manualmente.
+3. Construye la lista a evaluar intersectando el manifiesto con el filesystem local y, opcionalmente, eliminando las clases de paquetes gestionados y los controladores de Communities. Usa `--verbose` para conocer qué elementos se omitieron.
+4. Busca la clase de prueba asociada para cada entrada Apex restante. Se agregan al manifiesto las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias basadas solo en similitud del nombre se muestran como advertencias para que verifiques la cobertura manualmente.
 5. Si alguna clase Apex no tiene prueba asociada, solo cuenta con una coincidencia heurística o falta el archivo `.cls` requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
 6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> …` (o `-l NoTestRun` si no se detectan pruebas). El comando agrega `--dry-run` a menos que indiques `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
 
