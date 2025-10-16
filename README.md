@@ -28,7 +28,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.3.0 (link)`.
 
 ### Usage
 
@@ -112,11 +112,13 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | Scenario | Example |
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
-| Restrict the report to the Apex classes listed in a manifest | `sf metadelta findtest --xml-name manifest/package.xml` |
+| Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
 | Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
 | Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
+
+> **Note:** The deployment helper (dry-run or live deploy) requires `--org` or `--target-org`. Without either flag, the command only analyses manifests and local sources—even when `--xml-name` is provided.
 
 #### Flags
 
@@ -145,7 +147,7 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 When you provide a manifest file (by pointing `--xml-name` to an existing file), the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
-2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it runs `sf project deploy start --manifest <file> -l NoTestRun` and adds `--dry-run` unless you include `--run-deploy`.
+2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it reports the absence of Apex classes. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
 3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
 4. Finds the associated test classes for each remaining Apex entry. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Name-only heuristics are surfaced as warnings so you can double-check coverage manually.
 5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.

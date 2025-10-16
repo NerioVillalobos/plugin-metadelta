@@ -18,6 +18,64 @@ const ensureArray = (value) => {
 
 const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
 
+const stripManagedNamespace = (name = '') => name.replace(MANAGED_NAMESPACE_PATTERN, '');
+
+const levenshteinDistance = (a = '', b = '') => {
+  const aLength = a.length;
+  const bLength = b.length;
+
+  if (aLength === 0) {
+    return bLength;
+  }
+  if (bLength === 0) {
+    return aLength;
+  }
+
+  const matrix = Array.from({length: aLength + 1}, (_, index) => [index]);
+  for (let j = 0; j <= bLength; j += 1) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= aLength; i += 1) {
+    for (let j = 1; j <= bLength; j += 1) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[aLength][bLength];
+};
+
+const suggestSimilarClasses = (missingClass, availableClasses, limit = 5) => {
+  const normalizedMissing = stripManagedNamespace(missingClass).toLowerCase();
+  const candidates = Array.from(availableClasses).map((candidate) => {
+    const normalizedCandidate = stripManagedNamespace(candidate).toLowerCase();
+    const distance = levenshteinDistance(normalizedMissing, normalizedCandidate);
+    return {candidate, distance};
+  });
+
+  candidates.sort((a, b) => {
+    if (a.distance === b.distance) {
+      return a.candidate.localeCompare(b.candidate);
+    }
+    return a.distance - b.distance;
+  });
+
+  const maxDistance = Math.max(3, Math.floor(normalizedMissing.length / 2));
+
+  return candidates
+    .filter(({distance}) => distance <= maxDistance)
+    .slice(0, limit)
+    .map(({candidate}) => candidate);
+};
+
 const COMMUNITY_CONTROLLERS = new Set([
   'ChangePasswordController',
   'CommunitiesLandingController',
@@ -406,6 +464,9 @@ class FindTest extends SfCommand {
 
     const initialClassSet = new Set();
     let usedManifest = Boolean(manifestApexMembers);
+    const manifestNonTestMembers = usedManifest
+      ? ensureArray(manifestApexMembers).filter((name) => name && !TEST_NAME_PATTERN.test(name))
+      : [];
 
     if (usedManifest) {
       (manifestApexMembers ?? []).forEach((name) => {
@@ -484,9 +545,36 @@ class FindTest extends SfCommand {
     }
 
     if (finalClasses.length === 0) {
-      this.error(
-        'El manifest no tiene clases presentes en el repo local. Usa --only-local o pasa un manifest válido.'
-      );
+      if (usedManifest) {
+        if (manifestNonTestMembers.length === 0) {
+          const continuationMessage = targetOrg
+            ? 'El package.xml indicado no contiene clases Apex para validar. Se continuará con NoTestRun.'
+            : 'El package.xml indicado no contiene clases Apex para validar.';
+          this.log(continuationMessage);
+        } else {
+          const presentInRepo = manifestNonTestMembers.filter((name) => filesystemClasses.has(name));
+
+          if (presentInRepo.length === 0) {
+            this.log('No se encontraron en el repositorio las clases Apex declaradas en el manifest:');
+            manifestNonTestMembers.forEach((missingClass) => {
+              const suggestionsForMissing = suggestSimilarClasses(missingClass, filesystemClasses);
+              const suggestionText = suggestionsForMissing.length > 0
+                ? ` (posibles coincidencias: ${suggestionsForMissing.join(', ')})`
+                : '';
+              this.log(` - ${missingClass}${suggestionText}`);
+            });
+            this.error('Actualiza el package.xml o sincroniza las clases Apex antes de continuar.');
+          } else {
+            this.warn('Todas las clases Apex del manifest fueron omitidas por los filtros aplicados.');
+            this.warn('Ajusta las banderas --ignore-managed o --ignore-communities para incluirlas.');
+            return;
+          }
+        }
+      } else {
+        this.error(
+          'El manifest no tiene clases presentes en el repo local. Usa --only-local o pasa un manifest válido.'
+        );
+      }
     }
 
     const metrics = {
@@ -498,10 +586,12 @@ class FindTest extends SfCommand {
       missingLocal: missingLocal.sort()
     };
 
-    this.log('Lista de ApexClass con sus respectivas ApexTest:');
-    finalClasses.forEach((apexClass) => {
-      this.log(` ${apexClass} → ${formatMappingDisplay(apexTestMapping[apexClass])}`);
-    });
+    if (finalClasses.length > 0) {
+      this.log('Lista de ApexClass con sus respectivas ApexTest:');
+      finalClasses.forEach((apexClass) => {
+        this.log(` ${apexClass} → ${formatMappingDisplay(apexTestMapping[apexClass])}`);
+      });
+    }
 
     const relevantSuggestions = suggestions.filter(({apexClass}) => finalClasses.includes(apexClass));
 
@@ -526,6 +616,14 @@ class FindTest extends SfCommand {
         this.error(`El archivo package.xml indicado no existe: ${manifestFlagPath}`);
       }
 
+      if (!targetOrg) {
+        this.log(
+          '\nNo se proporcionó --org ni --target-org. Se omite la ejecución de sf project deploy start. '
+            + 'Indique una org para ejecutar el dry-run o el despliegue.'
+        );
+        return;
+      }
+
       const packageObject = manifestData ?? readPackageXml(manifestFlagPath);
 
       if (!packageObject.Package) {
@@ -537,10 +635,7 @@ class FindTest extends SfCommand {
       const typesIsArray = Array.isArray(originalTypes);
       const apexType = types.find((type) => type.name === 'ApexClass');
 
-      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath];
-      if (targetOrg) {
-        deployArgs.push('--target-org', targetOrg);
-      }
+      const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
 
       if (!apexType) {
         this.log('\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con NoTestRun.');
