@@ -167,8 +167,26 @@ const resolvePath = (baseDir, candidate) => {
   return path.isAbsolute(candidate) ? candidate : path.join(baseDir, candidate);
 };
 
+const validateXmlContent = (xmlContent) => {
+  if (/<<<<<</.test(xmlContent) || />>>>>>/.test(xmlContent) || /=======/.test(xmlContent)) {
+    throw new Error('El package.xml contiene marcadores de conflicto (<<<<<<<, =======, >>>>>>>). Resuélvelos antes de continuar.');
+  }
+
+  const unexpectedDoubleAngle = xmlContent
+    .split('\n')
+    .find((line) => {
+      const trimmed = line.trim();
+      return trimmed.startsWith('<<') && !trimmed.startsWith('<?xml');
+    });
+
+  if (unexpectedDoubleAngle) {
+    throw new Error('El package.xml contiene una secuencia "<<" inesperada. Revisa el archivo antes de continuar.');
+  }
+};
+
 const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
+  validateXmlContent(xmlContent);
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',

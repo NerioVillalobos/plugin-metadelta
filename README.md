@@ -113,8 +113,8 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org (dry-run by default) | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Execute the deployment helper without the default dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Flags
 
@@ -125,7 +125,7 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 | `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report is limited to the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
-| `--run-deploy` | Executes the deployment helper without appending `--dry-run` (by default the helper performs a dry-run). | `false` |
+| `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
 
 #### Output
 
@@ -269,8 +269,8 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto apuntando a una org específica (dry-run por defecto) | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Ejecutar el asistente de despliegue sin el dry-run predeterminado | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 
 #### Banderas
 
@@ -281,7 +281,7 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte se limita a las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
-| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run` (por defecto el asistente realiza un dry-run). | `false` |
+| `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente agrega `--dry-run` para mantener la validación no destructiva. | `false` |
 
 #### Salida
 
