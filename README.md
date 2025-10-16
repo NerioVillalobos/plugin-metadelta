@@ -106,6 +106,8 @@ sf metadelta findtest [flags]
 By default the command looks for `sfdx-project.json` in the current directory (or its parents) and inspects the `force-app/main/default/classes` folder.
 
 > **Tip:** After pulling plugin updates, run `sf plugins link .` again so the Salesforce CLI registers the new `findtest` command.
+> Each execution prints `metadelta findtest v<version>` at the top of the output; if the number doesn't match the version in
+> `package.json`, relink the plugin to avoid using a cached build.
 
 #### Quick start
 
@@ -262,6 +264,8 @@ sf metadelta findtest [banderas]
 Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o en sus padres) y revisa la carpeta `force-app/main/default/classes`.
 
 > **Tip:** Después de actualizar el plugin ejecuta `sf plugins link .` nuevamente para que Salesforce CLI registre el comando `findtest`.
+> En cada ejecución se muestra `metadelta findtest v<versión>` al inicio; si el número no coincide con el de `package.json`, vuelve a
+> vincular el plugin para descartar un build en caché.
 
 #### Guía rápida
 

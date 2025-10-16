@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const {spawnSync} = require('child_process');
 const {XMLParser, XMLBuilder} = require('fast-xml-parser');
+const pkg = require('../../../package.json');
 
 const TEST_NAME_PATTERN = /TEST|Test_|test_|_TEST|TEST_|Test|_test/i;
 
@@ -302,6 +303,8 @@ class FindTest extends SfCommand {
 
   async run() {
     const {flags} = await this.parse(FindTest);
+
+    this.log(`metadelta findtest v${pkg.version}`);
 
     if (flags['target-org'] && flags.org && flags['target-org'] !== flags.org) {
       this.error('Los valores de --target-org y --org no pueden diferir.');
