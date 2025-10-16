@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const {spawnSync} = require('child_process');
 const {XMLParser, XMLBuilder} = require('fast-xml-parser');
-const pkg = require('../../../package.json');
 
 const TEST_NAME_PATTERN = /TEST|Test_|test_|_TEST|TEST_|Test|_test/i;
 
@@ -86,29 +85,31 @@ const isDirectTestMatch = (apexClass, testClass) => {
 };
 
 const findPrimaryTestClass = (apexClass, testClasses, directory) => {
-  const normalizedApex = apexClass.toLowerCase();
-  let fallbackSuggestion = null;
+  let bestSuggestion = null;
 
   for (const testClass of testClasses) {
     if (isDirectTestMatch(apexClass, testClass)) {
       return {testClass, confidence: 'exact'};
     }
-  }
 
-  for (const testClass of testClasses) {
     const testClassContent = getClassContent(directory, testClass);
-    const hasReferences = findTestReferences(apexClass, testClassContent);
+    let score = 0;
 
-    if (hasReferences) {
-      return {testClass, confidence: 'reference'};
+    if (testClassContent.includes(apexClass)) {
+      score += 3;
+    }
+    if (findTestReferences(apexClass, testClassContent)) {
+      score += 2;
     }
 
-    if (!fallbackSuggestion && testClass.toLowerCase().includes(normalizedApex)) {
-      fallbackSuggestion = {testClass, confidence: 'suggested'};
+    if (score > 0) {
+      if (!bestSuggestion || score > bestSuggestion.score) {
+        bestSuggestion = {testClass, confidence: 'suggested', score};
+      }
     }
   }
 
-  return fallbackSuggestion;
+  return bestSuggestion;
 };
 
 const mapApexToTests = (classesDirectory) => {
@@ -120,7 +121,7 @@ const mapApexToTests = (classesDirectory) => {
   for (const apexClass of apexClasses) {
     const primary = findPrimaryTestClass(apexClass, testClasses, classesDirectory);
 
-    if (primary && (primary.confidence === 'exact' || primary.confidence === 'reference')) {
+    if (primary && primary.confidence === 'exact') {
       mapping[apexClass] = {testClass: primary.testClass, confidence: 'exact'};
     } else {
       mapping[apexClass] = {testClass: null, confidence: 'none'};
@@ -152,7 +153,7 @@ const findProjectRoot = (startDir) => {
 const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
 
 const formatMappingDisplay = (entry) => {
-  if (entry && entry.testClass) {
+  if (entry && entry.confidence === 'exact' && entry.testClass) {
     return entry.testClass;
   }
 
@@ -166,26 +167,8 @@ const resolvePath = (baseDir, candidate) => {
   return path.isAbsolute(candidate) ? candidate : path.join(baseDir, candidate);
 };
 
-const validateXmlContent = (xmlContent) => {
-  if (/<<<<<</.test(xmlContent) || />>>>>>/.test(xmlContent) || /=======/.test(xmlContent)) {
-    throw new Error('El package.xml contiene marcadores de conflicto (<<<<<<<, =======, >>>>>>>). Resuélvelos antes de continuar.');
-  }
-
-  const unexpectedDoubleAngle = xmlContent
-    .split('\n')
-    .find((line) => {
-      const trimmed = line.trim();
-      return trimmed.startsWith('<<') && !trimmed.startsWith('<?xml');
-    });
-
-  if (unexpectedDoubleAngle) {
-    throw new Error('El package.xml contiene una secuencia "<<" inesperada. Revisa el archivo antes de continuar.');
-  }
-};
-
 const readPackageXml = (manifestPath) => {
   const xmlContent = fs.readFileSync(manifestPath, 'utf8');
-  validateXmlContent(xmlContent);
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -220,6 +203,7 @@ const gatherTestsForDeployment = (
 ) => {
   const testsToRun = new Set();
   const testsMissingInManifest = new Set();
+  const missingTestFiles = new Set();
   const apexWithoutTests = new Set();
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
@@ -229,6 +213,9 @@ const gatherTestsForDeployment = (
   for (const member of apexMembers) {
     if (TEST_NAME_PATTERN.test(member)) {
       testsToRun.add(member);
+      if (!classFileExists(classesDirectory, member)) {
+        missingTestFiles.add(member);
+      }
       continue;
     }
 
@@ -239,7 +226,7 @@ const gatherTestsForDeployment = (
 
     const mappingEntry = mapping[member];
 
-    if (!mappingEntry || !mappingEntry.testClass) {
+    if (!mappingEntry || mappingEntry.confidence !== 'exact' || !mappingEntry.testClass) {
       if (mappingEntry && mappingEntry.suggestion) {
         lowConfidenceMatches.set(member, mappingEntry.suggestion);
       }
@@ -252,7 +239,7 @@ const gatherTestsForDeployment = (
     testsToRun.add(mapped);
 
     if (!classFileExists(classesDirectory, mapped)) {
-      apexWithoutTests.add(member);
+      missingTestFiles.add(mapped);
       continue;
     }
 
@@ -264,6 +251,7 @@ const gatherTestsForDeployment = (
   return {
     testsToRun: Array.from(testsToRun),
     testsMissingInManifest: Array.from(testsMissingInManifest),
+    missingTestFiles: Array.from(missingTestFiles),
     apexWithoutTests: Array.from(apexWithoutTests),
     missingApexClasses: Array.from(missingApexClasses),
     lowConfidenceMatches
@@ -271,8 +259,6 @@ const gatherTestsForDeployment = (
 };
 
 class FindTest extends SfCommand {
-  static id = 'metadelta:findtest';
-  static summary = 'Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.';
   static description = 'Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.';
 
   static flags = {
@@ -303,8 +289,6 @@ class FindTest extends SfCommand {
 
   async run() {
     const {flags} = await this.parse(FindTest);
-
-    this.log(`metadelta findtest v${pkg.version}`);
 
     if (flags['target-org'] && flags.org && flags['target-org'] !== flags.org) {
       this.error('Los valores de --target-org y --org no pueden diferir.');
@@ -367,7 +351,9 @@ class FindTest extends SfCommand {
         this.error('El package.xml no contiene un nodo <Package>.');
       }
 
-      this.log(`\nUsando package.xml existente: ${manifestFlagPath}`);
+      if (flags['xml-name']) {
+        this.log('\nSe utilizará el package.xml indicado en --xml-name.');
+      }
 
       const manifestTypes = ensureArray(manifestData.Package.types ?? []);
       const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
@@ -462,6 +448,7 @@ class FindTest extends SfCommand {
       const {
         testsToRun,
         testsMissingInManifest,
+        missingTestFiles,
         apexWithoutTests,
         missingApexClasses,
         lowConfidenceMatches
@@ -492,10 +479,9 @@ class FindTest extends SfCommand {
       }
 
       const blockingWarnings = [];
-      const advisoryWarnings = [];
       if (missingApexClasses.length > 0) {
-        advisoryWarnings.push(
-          `No se encontraron archivos .cls locales para las clases Apex indicadas en el manifest: ${missingApexClasses.join(', ')}`
+        blockingWarnings.push(
+          `No se encontraron archivos .cls para las clases Apex indicadas en el manifest: ${missingApexClasses.join(', ')}`
         );
       }
       if (apexWithoutTests.length > 0) {
@@ -508,8 +494,12 @@ class FindTest extends SfCommand {
 
         blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${details}`);
       }
+      if (missingTestFiles.length > 0) {
+        blockingWarnings.push(
+          `No se encontraron archivos .cls para las clases de prueba requeridas: ${missingTestFiles.join(', ')}`
+        );
+      }
 
-      advisoryWarnings.forEach((message) => this.warn(message));
       blockingWarnings.forEach((message) => this.warn(message));
 
       if (blockingWarnings.length > 0) {
