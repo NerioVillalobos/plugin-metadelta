@@ -85,31 +85,29 @@ const isDirectTestMatch = (apexClass, testClass) => {
 };
 
 const findPrimaryTestClass = (apexClass, testClasses, directory) => {
-  let bestSuggestion = null;
+  const normalizedApex = apexClass.toLowerCase();
+  let fallbackSuggestion = null;
 
   for (const testClass of testClasses) {
     if (isDirectTestMatch(apexClass, testClass)) {
       return {testClass, confidence: 'exact'};
     }
+  }
 
+  for (const testClass of testClasses) {
     const testClassContent = getClassContent(directory, testClass);
-    let score = 0;
+    const hasReferences = findTestReferences(apexClass, testClassContent);
 
-    if (testClassContent.includes(apexClass)) {
-      score += 3;
-    }
-    if (findTestReferences(apexClass, testClassContent)) {
-      score += 2;
+    if (hasReferences) {
+      return {testClass, confidence: 'reference'};
     }
 
-    if (score > 0) {
-      if (!bestSuggestion || score > bestSuggestion.score) {
-        bestSuggestion = {testClass, confidence: 'suggested', score};
-      }
+    if (!fallbackSuggestion && testClass.toLowerCase().includes(normalizedApex)) {
+      fallbackSuggestion = {testClass, confidence: 'suggested'};
     }
   }
 
-  return bestSuggestion;
+  return fallbackSuggestion;
 };
 
 const mapApexToTests = (classesDirectory) => {
@@ -121,7 +119,7 @@ const mapApexToTests = (classesDirectory) => {
   for (const apexClass of apexClasses) {
     const primary = findPrimaryTestClass(apexClass, testClasses, classesDirectory);
 
-    if (primary && primary.confidence === 'exact') {
+    if (primary && (primary.confidence === 'exact' || primary.confidence === 'reference')) {
       mapping[apexClass] = {testClass: primary.testClass, confidence: 'exact'};
     } else {
       mapping[apexClass] = {testClass: null, confidence: 'none'};
@@ -153,7 +151,7 @@ const findProjectRoot = (startDir) => {
 const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
 
 const formatMappingDisplay = (entry) => {
-  if (entry && entry.confidence === 'exact' && entry.testClass) {
+  if (entry && entry.testClass) {
     return entry.testClass;
   }
 
@@ -240,7 +238,7 @@ const gatherTestsForDeployment = (
 
     const mappingEntry = mapping[member];
 
-    if (!mappingEntry || mappingEntry.confidence !== 'exact' || !mappingEntry.testClass) {
+    if (!mappingEntry || !mappingEntry.testClass) {
       if (mappingEntry && mappingEntry.suggestion) {
         lowConfidenceMatches.set(member, mappingEntry.suggestion);
       }
