@@ -20,6 +20,35 @@ const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
 
 const stripManagedNamespace = (name = '') => name.replace(MANAGED_NAMESPACE_PATTERN, '');
 
+const findManualStepDoc = (baseDir, identifier) => {
+  if (!identifier || !baseDir || !fs.existsSync(baseDir)) {
+    return null;
+  }
+
+  const stack = [baseDir];
+  const normalizedIdentifier = identifier.toUpperCase();
+
+  while (stack.length > 0) {
+    const currentDir = stack.pop();
+    const entries = fs.readdirSync(currentDir, {withFileTypes: true});
+
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        stack.push(entryPath);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.toUpperCase().includes(normalizedIdentifier)) {
+        return entryPath;
+      }
+    }
+  }
+
+  return null;
+};
+
 const levenshteinDistance = (a = '', b = '') => {
   const aLength = a.length;
   const bLength = b.length;
@@ -434,6 +463,33 @@ class FindTest extends SfCommand {
 
     const manifestFlagPath = deployPath || xmlNameResolved;
     const manifestExists = manifestFlagPath && fs.existsSync(manifestFlagPath);
+    const manifestIdentifier = manifestFlagPath
+      ? path.basename(manifestFlagPath, path.extname(manifestFlagPath) || undefined)
+      : null;
+    const docsDir = path.join(projectRoot, 'docs');
+    const manualDocPath = manifestIdentifier ? findManualStepDoc(docsDir, manifestIdentifier) : null;
+
+    if (manifestFlagPath && !manifestExists) {
+      const relativeManifestPath = path.relative(projectRoot, manifestFlagPath);
+      if (manualDocPath) {
+        const relativeManualPath = path.relative(projectRoot, manualDocPath);
+        this.log(`\nNo existe el archivo XML indicado: ${relativeManifestPath}.`);
+        this.log(
+          `Se detectaron pasos manuales en ${relativeManualPath}. Ejecute esos pasos manuales sin utilizar --dry-run ni --run-deploy.`
+        );
+        return;
+      }
+
+      this.error(`No existe el archivo XML indicado: ${relativeManifestPath}`);
+    }
+
+    if (manualDocPath) {
+      const relativeManualPath = path.relative(projectRoot, manualDocPath);
+      this.log(
+        `\nSe detectó documentación de pasos manuales relacionada (${relativeManualPath}). Revísala antes de continuar.`
+      );
+    }
+
     let manifestData = null;
     let manifestApexMembers = null;
 
