@@ -20,13 +20,15 @@ const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
 
 const stripManagedNamespace = (name = '') => name.replace(MANAGED_NAMESPACE_PATTERN, '');
 
+const normalizeIdentifier = (value = '') => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
 const findManualStepDoc = (baseDir, identifier) => {
   if (!identifier || !baseDir || !fs.existsSync(baseDir)) {
     return null;
   }
 
   const stack = [baseDir];
-  const normalizedIdentifier = identifier.toUpperCase();
+  const normalizedIdentifier = normalizeIdentifier(identifier);
 
   while (stack.length > 0) {
     const currentDir = stack.pop();
@@ -40,7 +42,16 @@ const findManualStepDoc = (baseDir, identifier) => {
         continue;
       }
 
-      if (entry.isFile() && entry.name.toUpperCase().includes(normalizedIdentifier)) {
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const normalizedEntryName = normalizeIdentifier(entry.name);
+
+      if (
+        entry.name.toUpperCase().includes(identifier.toUpperCase()) ||
+        normalizedEntryName.includes(normalizedIdentifier)
+      ) {
         return entryPath;
       }
     }
@@ -485,9 +496,8 @@ class FindTest extends SfCommand {
 
     if (manualDocPath) {
       const relativeManualPath = path.relative(projectRoot, manualDocPath);
-      this.log(
-        `\nSe detectó documentación de pasos manuales relacionada (${relativeManualPath}). Revísala antes de continuar.`
-      );
+      this.log(`\n⚠️  Se detectó documentación de pasos manuales relacionada (${relativeManualPath}).`);
+      this.log('⚠️  Revisa y ejecuta los pasos manuales antes de continuar con el despliegue.');
     }
 
     let manifestData = null;
