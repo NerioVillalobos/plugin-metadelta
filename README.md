@@ -29,7 +29,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.3.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.4.0 (link)`.
 
 ### Usage
 
