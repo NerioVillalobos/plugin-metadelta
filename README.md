@@ -121,6 +121,12 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 
 > **Note:** The deployment helper (dry-run or live deploy) requires `--org` or `--target-org`. Without either flag, the command only analyses manifests and local sources—even when `--xml-name` is provided.
 
+#### Manual-step documentation detection
+
+When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/OSS-FSL-5044-PRE.md` for `manifest/OSSFSL-5044.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
+
+If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
+
 #### Flags
 
 | Flag | Description | Default |
