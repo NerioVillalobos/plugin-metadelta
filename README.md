@@ -5,10 +5,11 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers two complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers three complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment.
+* `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -28,7 +29,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.3.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.4.0 (link)`.
 
 ### Usage
 
@@ -142,6 +143,32 @@ Every run starts with a summary line detailing how many classes came from the ma
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
 
+### `merge` command
+
+Combine multiple manifest fragments into a single package with:
+
+```bash
+sf metadelta merge --xml-name <substring> [flags]
+```
+
+By default the command looks inside the `manifest/` directory for XML files whose filenames contain the provided substring. It merges their `<types>` entries, deduplicating members per metadata type and keeping the highest API version found across the inputs. The result is saved to `manifest/globalpackage.xml`, unless you override the filename.
+
+#### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--xml-name`, `-x` | **Required.** Substring that matching manifest filenames must contain. | N/A |
+| `--directory`, `-d` | Directory that holds the manifest XML files to merge. | `manifest` |
+| `--output`, `-o` | Name of the combined manifest file to generate. | `globalpackage.xml` |
+
+#### Example
+
+To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpackage.xml`:
+
+```bash
+sf metadelta merge --xml-name OSSFSL
+```
+
 #### Deployment flow (existing `package.xml`)
 
 When you provide a manifest file (by pointing `--xml-name` to an existing file), the command:
@@ -170,10 +197,11 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece dos flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece tres flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue.
+* `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -304,6 +332,32 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 Cada ejecución inicia con una línea resumen indicando cuántas clases provienen del manifiesto (o del filesystem), cuántas se filtraron y cuántas existen en el repositorio local. El mapeo detallado mantiene el formato del script original (`ApexClass → ApexTest`). Al usar un manifiesto, el comando omite automáticamente las entradas de paquetes gestionados (`namespace__*`) y los controladores comunes de Communities, a menos que elijas incluirlos; solo se consideran las clases que existen localmente. Usa `--verbose` para listar los nombres filtrados y `--json` si necesitas capturar las métricas programáticamente.
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
+
+### Comando `merge`
+
+Combina múltiples fragmentos de manifiesto en un solo paquete con:
+
+```bash
+sf metadelta merge --xml-name <subcadena> [banderas]
+```
+
+Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML cuyo nombre contenga la subcadena proporcionada. Luego fusiona sus nodos `<types>`, elimina duplicados por tipo de metadato y conserva la versión de API más alta encontrada. El resultado se guarda como `manifest/globalpackage.xml`, a menos que definas otro nombre.
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--xml-name`, `-x` | **Requerida.** Subcadena que deben contener los nombres de los manifiestos a combinar. | N/A |
+| `--directory`, `-d` | Directorio que contiene los archivos XML de manifiesto a unir. | `manifest` |
+| `--output`, `-o` | Nombre del archivo combinado que se generará. | `globalpackage.xml` |
+
+#### Ejemplo
+
+Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globalpackage.xml`:
+
+```bash
+sf metadelta merge --xml-name OSSFSL
+```
 
 #### Flujo de despliegue (package.xml existente)
 
