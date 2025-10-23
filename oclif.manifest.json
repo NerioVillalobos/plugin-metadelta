@@ -185,6 +185,63 @@
         "metadelta",
         "findtest.js"
       ]
+    },
+    "metadelta:merge": {
+      "aliases": [],
+      "args": {},
+      "description": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+      "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "xml-name": {
+          "char": "x",
+          "name": "xml-name",
+          "required": true,
+          "summary": "Cadena que deben contener los archivos XML a combinar",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "directory": {
+          "char": "d",
+          "name": "directory",
+          "summary": "Directorio donde se encuentran los archivos manifest",
+          "default": "manifest",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Nombre del archivo XML resultante",
+          "default": "globalpackage.xml",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:merge",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "merge.js"
+      ]
     }
   },
   "version": "0.5.0"
