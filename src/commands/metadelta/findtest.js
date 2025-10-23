@@ -288,7 +288,8 @@ const readPackageXml = (manifestPath) => {
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
-    preserveOrder: false
+    preserveOrder: false,
+    parseTagValue: false
   });
   return parser.parse(xmlContent);
 };
@@ -300,6 +301,12 @@ const writePackageXml = (manifestPath, packageObject) => {
     format: true,
     suppressEmptyNode: true
   });
+  if (packageObject.Package && packageObject.Package.version !== undefined) {
+    const versionString = String(packageObject.Package.version);
+    if (/^\d+$/.test(versionString)) {
+      packageObject.Package.version = `${versionString}.0`;
+    }
+  }
   if (!packageObject['?xml']) {
     packageObject['?xml'] = {
       '@_version': '1.0',
@@ -731,6 +738,9 @@ class FindTest extends SfCommand {
         lowConfidenceMatches
       } = gatherTestsForDeployment(finalClasses, members, apexTestMapping, sourceDir, availableApexClasses);
 
+      let manifestUpdated = false;
+      let manifestUpdateReason = '';
+
       if (testsMissingInManifest.length > 0) {
         const updatedMembers = Array.from(new Set([...members, ...testsMissingInManifest]));
 
@@ -747,7 +757,9 @@ class FindTest extends SfCommand {
 
         try {
           writePackageXml(manifestFlagPath, packageObject);
-          this.log(`\nSe agregaron ${testsMissingInManifest.length} clases de prueba al package.xml.`);
+          manifestUpdated = true;
+          manifestUpdateReason = `Se agregaron ${testsMissingInManifest.length} clases de prueba al package.xml.`;
+          this.log(`\n${manifestUpdateReason}`);
         } catch (error) {
           this.error(`No se pudo actualizar el package.xml: ${error.message}`);
         }
@@ -779,11 +791,6 @@ class FindTest extends SfCommand {
 
       blockingWarnings.forEach((message) => this.warn(message));
 
-      if (blockingWarnings.length > 0) {
-        this.log('\nSe omite la ejecución de sf project deploy start porque faltan clases de prueba requeridas.');
-        return;
-      }
-
       if (testsToRun.length === 0) {
         this.log('\nNo se detectaron clases Apex a validar. Se ejecutará NoTestRun.');
         deployArgs.push('-l', 'NoTestRun');
@@ -798,7 +805,25 @@ class FindTest extends SfCommand {
         deployArgs.push('--dry-run');
       }
 
-      this.log(`\nEjecutando: sf ${deployArgs.join(' ')}`);
+      const commandPreview = `sf ${deployArgs.join(' ')}`;
+
+      const hasBlockingWarnings = blockingWarnings.length > 0;
+
+      if (manifestUpdated || hasBlockingWarnings) {
+        this.log(`\nComando sugerido (no ejecutado): ${commandPreview}`);
+        if (manifestUpdated) {
+          this.log('Se omitió la ejecución automática porque el package.xml fue modificado.');
+          if (manifestUpdateReason) {
+            this.log(`Motivo: ${manifestUpdateReason}`);
+          }
+        }
+        if (hasBlockingWarnings) {
+          this.log('\nSe omite la ejecución de sf project deploy start porque faltan clases de prueba requeridas.');
+        }
+        return;
+      }
+
+      this.log(`\nEjecutando: ${commandPreview}`);
       const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});
       if (result.error) {
         this.warn(`Error al ejecutar sf project deploy start: ${result.error.message}`);
