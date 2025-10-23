@@ -127,6 +127,14 @@ When you provide `--xml-name` (or `--deploy`), the command cross-checks the mani
 
 If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
 
+#### How Apex tests are detected
+
+`sf metadelta findtest` splits Apex sources into functional classes and tests by applying a case-insensitive name pattern (`TEST_NAME_PATTERN`) while scanning the target directory. Non-matching `.cls` files become candidates for validation, whereas files whose names contain `test`, `_test`, `testclass`, or similar suffixes are treated as potential test classes.
+
+For every functional class, the command first looks for an exact suffix match (for example `AccountController` → `AccountControllerTest`, `AccountController_Test`, `AccountControllerTestClass`, etc.). When a suffix match is found, the relationship is marked with “exact” confidence and appears directly in the console mapping.
+
+If no suffix match exists, `findtest` falls back to a content inspection heuristic: it opens each candidate test file and searches for instantiations, static method calls, or variable declarations that reference the Apex class (`new MyClass`, `MyClass.someMethod(`, `MyClass variable;`). The highest-scoring candidate is surfaced as a low-confidence suggestion so you can review or fix the associations manually.
+
 #### Flags
 
 | Flag | Description | Default |
@@ -316,6 +324,14 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 | Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
+
+#### Cómo se detectan las clases de prueba
+
+`sf metadelta findtest` separa las clases Apex funcionales de las clases de prueba aplicando un patrón de nombre insensible a mayúsculas (`TEST_NAME_PATTERN`) mientras recorre el directorio indicado. Los archivos `.cls` que no coinciden con el patrón se consideran candidatos a validar; los que contienen `test`, `_test`, `testclass` u otros sufijos similares se tratan como posibles clases de prueba.
+
+Para cada clase funcional, el comando intenta primero una coincidencia directa por sufijo (por ejemplo `AccountController` → `AccountControllerTest`, `AccountController_Test`, `AccountControllerTestClass`, etc.). Cuando encuentra una coincidencia directa, la relación se marca con confianza “exacta” y aparece en el mapeo mostrado en consola.
+
+Si no existe una coincidencia directa, `findtest` recurre a una heurística basada en el contenido: abre cada clase de prueba candidata y busca instanciaciones, llamadas a métodos estáticos o declaraciones de variables que hagan referencia a la clase Apex (`new MiClase`, `MiClase.algunMetodo(`, `MiClase variable;`). El candidato con mayor puntaje se presenta como sugerencia de baja confianza para que revises o ajustes la cobertura manualmente.
 
 #### Banderas
 
