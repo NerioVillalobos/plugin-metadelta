@@ -16,6 +16,28 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const normalizeMemberValue = (value) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (typeof value === 'object') {
+    if (Object.prototype.hasOwnProperty.call(value, '#text')) {
+      return normalizeMemberValue(value['#text']);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(value, '@_xsi:nil') && value['@_xsi:nil'] === 'true') {
+      return '';
+    }
+  }
+
+  return String(value).trim();
+};
+
 const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
 
 const stripManagedNamespace = (name = '') => name.replace(MANAGED_NAMESPACE_PATTERN, '');
@@ -741,6 +763,7 @@ class FindTest extends SfCommand {
 
       const originalMembers = apexType.members ?? [];
       const members = ensureArray(originalMembers);
+      const normalizedMembers = members.map((member) => normalizeMemberValue(member)).filter(Boolean);
 
       const {
         testsToRun,
@@ -749,13 +772,24 @@ class FindTest extends SfCommand {
         apexWithoutTests,
         missingApexClasses,
         lowConfidenceMatches
-      } = gatherTestsForDeployment(finalClasses, members, apexTestMapping, sourceDir, availableApexClasses);
+      } = gatherTestsForDeployment(
+        finalClasses,
+        normalizedMembers,
+        apexTestMapping,
+        sourceDir,
+        availableApexClasses
+      );
 
       let manifestUpdated = false;
       let manifestUpdateReason = '';
 
       if (testsMissingInManifest.length > 0) {
-        const updatedMembers = Array.from(new Set([...members, ...testsMissingInManifest]));
+        const updatedMembers = [...normalizedMembers];
+        for (const testClass of testsMissingInManifest) {
+          if (!updatedMembers.includes(testClass)) {
+            updatedMembers.push(testClass);
+          }
+        }
 
         apexType.members = updatedMembers;
 
