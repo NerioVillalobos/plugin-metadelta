@@ -189,6 +189,8 @@ const DIRECT_TEST_SUFFIXES = [
   '_testcase'
 ];
 
+const DIRECT_TEST_ALTERNATES = ['handler'];
+
 const isDirectTestMatch = (apexClass, testClass) => {
   if (!testClass) {
     return false;
@@ -197,7 +199,18 @@ const isDirectTestMatch = (apexClass, testClass) => {
   const normalizedApex = apexClass.toLowerCase();
   const normalizedTest = testClass.toLowerCase();
 
-  return DIRECT_TEST_SUFFIXES.some((suffix) => normalizedTest === `${normalizedApex}${suffix}`);
+  if (DIRECT_TEST_SUFFIXES.some((suffix) => normalizedTest === `${normalizedApex}${suffix}`)) {
+    return true;
+  }
+
+  return DIRECT_TEST_ALTERNATES.some((alternateSuffix) => {
+    if (!normalizedApex.endsWith(alternateSuffix)) {
+      return false;
+    }
+
+    const baseName = normalizedApex.slice(0, -alternateSuffix.length);
+    return DIRECT_TEST_SUFFIXES.some((suffix) => baseName && normalizedTest === `${baseName}${suffix}`);
+  });
 };
 
 const findPrimaryTestClass = (apexClass, testClasses, directory) => {
