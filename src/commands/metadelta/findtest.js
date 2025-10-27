@@ -38,6 +38,8 @@ const normalizeMemberValue = (value) => {
   return String(value).trim();
 };
 
+const canonicalizeMemberName = (value) => normalizeMemberValue(value).toLowerCase();
+
 const MANAGED_NAMESPACE_PATTERN = /^\w+__/;
 
 const stripManagedNamespace = (name = '') => name.replace(MANAGED_NAMESPACE_PATTERN, '');
@@ -367,7 +369,7 @@ const gatherTestsForDeployment = (
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
 
-  const existingMembers = new Set(manifestMembers);
+  const existingMembers = new Set(manifestMembers.map((member) => canonicalizeMemberName(member)));
 
   for (const member of apexMembers) {
     if (TEST_NAME_PATTERN.test(member)) {
@@ -402,7 +404,7 @@ const gatherTestsForDeployment = (
       continue;
     }
 
-    if (!existingMembers.has(mapped)) {
+    if (!existingMembers.has(canonicalizeMemberName(mapped))) {
       testsMissingInManifest.add(mapped);
     }
   }
@@ -544,6 +546,7 @@ class FindTest extends SfCommand {
 
     let manifestData = null;
     let manifestApexMembers = null;
+    let manifestApexMembersNormalized = [];
 
     if (manifestExists && !flags['only-local']) {
       try {
@@ -562,6 +565,9 @@ class FindTest extends SfCommand {
       const manifestTypes = ensureArray(manifestData.Package.types ?? []);
       const manifestApexType = manifestTypes.find((type) => type.name === 'ApexClass');
       manifestApexMembers = manifestApexType ? ensureArray(manifestApexType.members ?? []) : [];
+      manifestApexMembersNormalized = manifestApexMembers
+        .map((name) => normalizeMemberValue(name))
+        .filter(Boolean);
     }
 
     const ignoreManaged = flags['ignore-managed'] !== undefined ? flags['ignore-managed'] : true;
@@ -571,13 +577,13 @@ class FindTest extends SfCommand {
     const verbose = Boolean(flags.verbose);
 
     const initialClassSet = new Set();
-    let usedManifest = Boolean(manifestApexMembers);
+    let usedManifest = manifestApexMembers !== null;
     const manifestNonTestMembers = usedManifest
-      ? ensureArray(manifestApexMembers).filter((name) => name && !TEST_NAME_PATTERN.test(name))
+      ? manifestApexMembersNormalized.filter((name) => !TEST_NAME_PATTERN.test(name))
       : [];
 
     if (usedManifest) {
-      (manifestApexMembers ?? []).forEach((name) => {
+      manifestApexMembersNormalized.forEach((name) => {
         if (name && !TEST_NAME_PATTERN.test(name)) {
           initialClassSet.add(name);
         }
@@ -785,9 +791,12 @@ class FindTest extends SfCommand {
 
       if (testsMissingInManifest.length > 0) {
         const updatedMembers = [...normalizedMembers];
+        const updatedMembersLookup = new Set(updatedMembers.map((member) => canonicalizeMemberName(member)));
         for (const testClass of testsMissingInManifest) {
-          if (!updatedMembers.includes(testClass)) {
+          const canonical = canonicalizeMemberName(testClass);
+          if (!updatedMembersLookup.has(canonical)) {
             updatedMembers.push(testClass);
+            updatedMembersLookup.add(canonical);
           }
         }
 
