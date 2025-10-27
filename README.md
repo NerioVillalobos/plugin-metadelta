@@ -131,9 +131,11 @@ If the manifest file itself is missing but matching documentation exists under `
 
 `sf metadelta findtest` splits Apex sources into functional classes and tests by applying a case-insensitive name pattern (`TEST_NAME_PATTERN`) while scanning the target directory. Non-matching `.cls` files become candidates for validation, whereas files whose names contain `test`, `_test`, `testclass`, or similar suffixes are treated as potential test classes.
 
-For every functional class, the command first looks for an exact suffix match (for example `AccountController` → `AccountControllerTest`, `AccountController_Test`, `AccountControllerTestClass`, etc.). When a suffix match is found, the relationship is marked with “exact” confidence and appears directly in the console mapping.
+Once the functional and test pools are separated, the command evaluates each class with the following steps:
 
-If no suffix match exists, `findtest` falls back to a content inspection heuristic: it opens each candidate test file and searches for instantiations, static method calls, or variable declarations that reference the Apex class (`new MyClass`, `MyClass.someMethod(`, `MyClass variable;`). The highest-scoring candidate is surfaced as a low-confidence suggestion so you can review or fix the associations manually.
+1. **Direct suffix match.** `findtest` attempts to append each of the known test suffixes (`Test`, `_Test`, `TestClass`, etc.) to the Apex class name and looks for an exact match. The comparison also tolerates trigger handler patterns by trimming a trailing `Handler` before trying the suffixes, so classes like `MyTriggerHandler` can pair with tests named `MyTriggerTest`.
+2. **Content analysis.** When there is no direct match, the command opens every potential test class and looks for evidence that it exercises the Apex class: instantiations (`new MyClass`), static member access (`MyClass.someMethod(`), or variable declarations (`MyClass variable;`). The best-scoring candidate is reported as a low-confidence suggestion, leaving the final decision to you.
+3. **Manifest reconciliation.** If a manifest is provided, the command normalizes every `<members>` entry (ignoring whitespace, nil markers, and letter casing) before comparing it against the inferred tests. This prevents duplicate insertions and ensures that existing test names are respected even when the XML formatting varies.
 
 #### Flags
 
