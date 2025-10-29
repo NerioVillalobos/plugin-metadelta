@@ -242,6 +242,77 @@
         "metadelta",
         "merge.js"
       ]
+    },
+    "metadelta:cleanps": {
+      "aliases": [],
+      "args": {},
+      "description": "Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.",
+      "summary": "Genera una versión depurada de un Permission Set filtrando por prefijo y exclusiones.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "prefix": {
+          "char": "f",
+          "name": "prefix",
+          "summary": "Prefijo que deben tener los miembros para ser conservados.",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "permissionset": {
+          "char": "p",
+          "name": "permissionset",
+          "summary": "Nombre del Permission Set a filtrar (sin extensión o nombre de archivo).",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "exclude": {
+          "char": "e",
+          "name": "exclude",
+          "summary": "Ruta al archivo de exclusiones (uno por línea).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Nombre del archivo XML de salida que se creará dentro de la carpeta cleanps.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "project-dir": {
+          "name": "project-dir",
+          "summary": "Ruta al directorio raíz del proyecto (contiene sfdx-project.json).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:cleanps",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "cleanps.js"
+      ]
     }
   },
   "version": "0.5.0"
