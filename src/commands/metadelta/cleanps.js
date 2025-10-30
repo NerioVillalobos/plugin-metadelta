@@ -52,16 +52,16 @@ const resolvePackageDirectory = (config) => {
   return candidate.path;
 };
 
-const loadExcludeSet = (excludePath) => {
-  if (!excludePath) {
+const loadIncludeSet = (includePath) => {
+  if (!includePath) {
     return new Set();
   }
 
   let content;
   try {
-    content = fs.readFileSync(excludePath, 'utf8');
+    content = fs.readFileSync(includePath, 'utf8');
   } catch (error) {
-    throw new Error(`No se pudo leer el archivo de exclusiones (${excludePath}): ${error.message}`);
+    throw new Error(`No se pudo leer el archivo indicado en --exclude (${includePath}): ${error.message}`);
   }
 
   return new Set(
@@ -72,48 +72,119 @@ const loadExcludeSet = (excludePath) => {
   );
 };
 
-const buildOutputObject = (permissionSet, keepers) => {
-  const {fieldPermissions, objectPermissions, classAccesses, pageAccesses} = keepers;
-  const base = {};
+const FILTER_TARGETS = [
+  {
+    key: 'applicationVisibilities',
+    extractValues: (entry) => [entry?.application]
+  },
+  {
+    key: 'classAccesses',
+    extractValues: (entry) => [entry?.apexClass]
+  },
+  {
+    key: 'customPermissions',
+    extractValues: (entry) => [entry?.name]
+  },
+  {
+    key: 'fieldPermissions',
+    extractValues: (entry) => {
+      const fieldValue = entry?.field;
+      if (typeof fieldValue !== 'string') {
+        return [];
+      }
 
-  if (permissionSet['@_xmlns']) {
-    base['@_xmlns'] = permissionSet['@_xmlns'];
+      const [objectName, fieldName] = fieldValue.split('.', 2);
+      const values = [fieldValue];
+      if (objectName) {
+        values.push(objectName);
+      }
+      if (fieldName) {
+        values.push(fieldName);
+      }
+      return values;
+    }
+  },
+  {
+    key: 'objectPermissions',
+    extractValues: (entry) => [entry?.object]
+  },
+  {
+    key: 'pageAccesses',
+    extractValues: (entry) => [entry?.apexPage]
+  },
+  {
+    key: 'recordTypeVisibilities',
+    extractValues: (entry) => {
+      const recordTypeValue = entry?.recordType;
+      if (typeof recordTypeValue !== 'string') {
+        return [];
+      }
+
+      const [objectName, recordTypeName] = recordTypeValue.split('.', 2);
+      const values = [recordTypeValue];
+      if (objectName) {
+        values.push(objectName);
+      }
+      if (recordTypeName) {
+        values.push(recordTypeName);
+      }
+      return values;
+    }
+  },
+  {
+    key: 'tabSettings',
+    extractValues: (entry) => [entry?.tab]
+  },
+  {
+    key: 'userPermissions',
+    extractValues: (entry) => [entry?.name]
+  }
+];
+
+const buildOutputObject = (originalPermissionSet, filteredSections) => {
+  const output = {};
+
+  if (originalPermissionSet['@_xmlns']) {
+    output['@_xmlns'] = originalPermissionSet['@_xmlns'];
   } else {
-    base['@_xmlns'] = METADATA_NAMESPACE;
+    output['@_xmlns'] = METADATA_NAMESPACE;
   }
 
-  for (const tag of ['description', 'label', 'hasActivationRequired']) {
-    if (permissionSet[tag] !== undefined) {
-      base[tag] = permissionSet[tag];
+  for (const [key, value] of Object.entries(originalPermissionSet)) {
+    if (key === '@_xmlns') {
+      continue;
+    }
+
+    if (filteredSections.has(key)) {
+      const sectionEntries = filteredSections.get(key);
+      if (sectionEntries.length > 0) {
+        output[key] = sectionEntries;
+      }
+      continue;
+    }
+
+    output[key] = value;
+  }
+
+  for (const [key, entries] of filteredSections.entries()) {
+    if (output[key] === undefined && entries.length > 0) {
+      output[key] = entries;
     }
   }
 
-  if (fieldPermissions.length > 0) {
-    base.fieldPermissions = fieldPermissions;
-  }
-  if (objectPermissions.length > 0) {
-    base.objectPermissions = objectPermissions;
-  }
-  if (classAccesses.length > 0) {
-    base.classAccesses = classAccesses;
-  }
-  if (pageAccesses.length > 0) {
-    base.pageAccesses = pageAccesses;
-  }
-
-  return {PermissionSet: base};
+  return {PermissionSet: output};
 };
 
 class CleanPs extends SfCommand {
   static id = 'metadelta:cleanps';
-  static summary = 'Genera una versión depurada de un Permission Set filtrando por prefijo y exclusiones.';
+  static summary = 'Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.';
   static description =
     'Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.';
 
   static flags = {
     prefix: Flags.string({
       char: 'f',
-      summary: 'Prefijo que deben tener los miembros para ser conservados.',
+      summary: 'Fragmento que deben contener los miembros para conservarse.',
       required: true
     }),
     permissionset: Flags.string({
@@ -123,7 +194,7 @@ class CleanPs extends SfCommand {
     }),
     exclude: Flags.string({
       char: 'e',
-      summary: 'Ruta al archivo de exclusiones (uno por línea).'
+      summary: 'Ruta al archivo con nombres exactos a conservar (uno por línea).'
     }),
     output: Flags.string({
       char: 'o',
@@ -187,9 +258,9 @@ class CleanPs extends SfCommand {
         : path.join(projectRoot, flags.exclude)
       : null;
 
-    let excludeSet;
+    let includeSet;
     try {
-      excludeSet = loadExcludeSet(excludePath);
+      includeSet = loadIncludeSet(excludePath);
     } catch (error) {
       this.error(error.message);
     }
@@ -220,32 +291,33 @@ class CleanPs extends SfCommand {
       this.error('El archivo XML no contiene un nodo PermissionSet válido.');
     }
 
-    const startsWithPrefix = (value) => typeof value === 'string' && value.startsWith(prefix);
-
-    const fieldPermissions = toArray(permissionSet.fieldPermissions).filter((entry) => {
-      const fieldValue = entry?.field;
-      if (typeof fieldValue !== 'string') {
+    const matchesCriteria = (value) => {
+      if (typeof value !== 'string' || value.length === 0) {
         return false;
       }
-      const parts = fieldValue.split('.');
-      const fieldName = parts.length > 1 ? parts[1] : parts[0];
-      return startsWithPrefix(fieldName) && !excludeSet.has(fieldName);
-    });
 
-    const objectPermissions = toArray(permissionSet.objectPermissions).filter((entry) => {
-      const objectName = entry?.object;
-      return startsWithPrefix(objectName) && !excludeSet.has(objectName);
-    });
+      if (prefix && value.includes(prefix)) {
+        return true;
+      }
 
-    const classAccesses = toArray(permissionSet.classAccesses).filter((entry) => {
-      const className = entry?.apexClass;
-      return startsWithPrefix(className) && !excludeSet.has(className);
-    });
+      return includeSet.has(value);
+    };
 
-    const pageAccesses = toArray(permissionSet.pageAccesses).filter((entry) => {
-      const pageName = entry?.apexPage;
-      return startsWithPrefix(pageName) && !excludeSet.has(pageName);
-    });
+    const filteredSections = new Map();
+
+    for (const {key, extractValues} of FILTER_TARGETS) {
+      const entries = toArray(permissionSet[key]);
+      if (entries.length === 0) {
+        continue;
+      }
+
+      const filteredEntries = entries.filter((entry) => {
+        const candidates = extractValues(entry).filter((candidate) => typeof candidate === 'string');
+        return candidates.some((candidate) => matchesCriteria(candidate));
+      });
+
+      filteredSections.set(key, filteredEntries);
+    }
 
     const builder = new XMLBuilder({
       ignoreAttributes: false,
@@ -257,12 +329,7 @@ class CleanPs extends SfCommand {
       }
     });
 
-    const outputObject = buildOutputObject(permissionSet, {
-      fieldPermissions,
-      objectPermissions,
-      classAccesses,
-      pageAccesses
-    });
+    const outputObject = buildOutputObject(permissionSet, filteredSections);
 
     const xmlOutput = builder.build(outputObject);
 
