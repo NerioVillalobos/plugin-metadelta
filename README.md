@@ -14,6 +14,14 @@ Metadelta is a custom Salesforce CLI plugin that offers four complementary workf
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
+### Index
+
+- [Installation](#installation)
+- [`sf metadelta find`](#usage)
+- [`sf metadelta cleanps`](#cleanps-command)
+- [`sf metadelta findtest`](#findtest-command)
+- [`sf metadelta merge`](#merge-command)
+
 ### Installation
 
 1. Install the Salesforce CLI (requires version `2.102.6` or later):
@@ -251,6 +259,14 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece cuatro flujos 
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
+
+### Índice
+
+- [Instalación](#instalación)
+- [`sf metadelta find`](#uso)
+- [`sf metadelta cleanps`](#comando-cleanps)
+- [`sf metadelta findtest`](#comando-findtest)
+- [`sf metadelta merge`](#comando-merge)
 
 ### Instalación
 
