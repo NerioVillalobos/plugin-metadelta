@@ -66,7 +66,9 @@ The plugin compares metadata changes for the specified user and prints a table o
 
 By default, the command builds its metadata type list by running `sf force:mdapi:describemetadata --target-org` so it stays synchronized with the connected org. If the describe call fails, a built-in fallback list is used. The resulting list is further filtered to include only types that expose both `lastModifiedByName` and `lastModifiedDate`, avoiding unnecessary queries. A maximum of five metadata types are processed in parallel to limit resource usage.
 
-The `--metafile` flag allows you to override the built‑in metadata list. Provide a JSON **(.json)** file that either contains a top-level array or an object with a `metadataTypes` array:
+The `--metafile` flag allows you to override the built‑in metadata list. Provide a JSON **(.json)** file that either contains a top-level array or an object with a `metadataTypes` array. The file must contain plain JSON (no `module.exports =` wrappers) and use UTF-8 encoding.
+
+Create a file—for example `mismetadatos.json`—with the following content:
 
 ```json
 {
@@ -92,6 +94,8 @@ Reference the file when running the command (prefix with `./` when the file live
 ```bash
 sf metadelta find --org myOrg --metafile ./mismetadatos.json
 ```
+
+> **Tip:** If you previously used a `.js` file with `module.exports`, rename it to end with `.json` and remove the assignment wrapper so only the JSON structure remains.
 
 ### Examples
 
@@ -315,7 +319,9 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 
 Por defecto, el comando construye la lista de tipos de metadatos ejecutando `sf force:mdapi:describemetadata --target-org`, de modo que se mantenga sincronizada con la org conectada. Si la llamada de describe falla, se utiliza una lista integrada de respaldo. La lista resultante se filtra para conservar solo los tipos que exponen `lastModifiedByName` y `lastModifiedDate`, evitando consultas innecesarias. Además, se procesan como máximo cinco tipos de metadatos en paralelo para no saturar la memoria.
 
-La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JSON **(.json)** que contenga un arreglo en la raíz o un objeto con la propiedad `metadataTypes`:
+La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JSON **(.json)** que contenga un arreglo en la raíz o un objeto con la propiedad `metadataTypes`. El archivo debe incluir únicamente JSON plano (sin `module.exports =`) y usar codificación UTF-8.
+
+Crea un archivo—for ejemplo `mismetadatos.json`—con el siguiente contenido:
 
 ```json
 {
@@ -341,6 +347,8 @@ Luego ejecuta el comando haciendo referencia al archivo (agrega `./` si está en
 ```bash
 sf metadelta find --org miOrg --metafile ./mismetadatos.json
 ```
+
+> **Consejo:** Si antes utilizabas un archivo `.js` con `module.exports`, cámbiale la extensión a `.json` y elimina la asignación para que solo quede la estructura JSON.
 
 ### Ejemplos
 

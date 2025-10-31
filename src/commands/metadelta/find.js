@@ -119,7 +119,20 @@ class Find extends SfCommand {
       if (fs.existsSync(filePath)) {
         try {
           const raw = fs.readFileSync(filePath, 'utf8');
-          const parsed = JSON.parse(raw);
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (parseError) {
+            const hints = [];
+            if (path.extname(filePath).toLowerCase() !== '.json') {
+              hints.push('usa la extensión .json');
+            }
+            if (/module\.exports\s*=/.test(raw)) {
+              hints.push('elimina la instrucción "module.exports =" y deja solo el JSON');
+            }
+            const hintText = hints.length ? ` Consejo: ${hints.join(' y ')}.` : '';
+            throw new Error(`${parseError.message}.${hintText}`);
+          }
           const candidate = Array.isArray(parsed) ? parsed : parsed?.metadataTypes;
           if (Array.isArray(candidate)) {
             metadataTypesToUse = candidate;
