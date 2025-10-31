@@ -8,7 +8,6 @@ const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const {spawn, spawnSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const {pathToFileURL} = require('url');
 
 class Find extends SfCommand {
   static id = 'metadelta:find';
@@ -17,7 +16,7 @@ class Find extends SfCommand {
 
   static flags = {
     org: Flags.string({char: 'o', summary: 'Alias or username of the target org', required: true}),
-    metafile: Flags.string({summary: 'Path to a JS file exporting metadataTypes array'}),
+    metafile: Flags.string({summary: 'Path to a JSON file listing the metadata types to inspect'}),
     days: Flags.integer({summary: 'Number of days to check for changes', default: 3}),
     namespace: Flags.string({summary: 'Vlocity namespace for datapacks'}),
     xml: Flags.boolean({summary: 'Generate a package.xml with the found components'}),
@@ -117,42 +116,11 @@ class Find extends SfCommand {
     let metadataTypesToUse = obtenerMetadataDeOrg();
     if (flags.metafile) {
       const filePath = path.resolve(flags.metafile);
-      const loadCommonJs = (p) => {
-        const code = fs.readFileSync(p, 'utf8');
-        const m = {exports: {}};
-        new Function('module', 'exports', code)(m, m.exports);
-        return m.exports;
-      };
       if (fs.existsSync(filePath)) {
         try {
-          const extension = path.extname(filePath).toLowerCase();
-          let imported;
-          if (extension === '.json') {
-            const raw = fs.readFileSync(filePath, 'utf8');
-            const parsed = JSON.parse(raw);
-            imported = parsed;
-          } else {
-            try {
-              imported = require(filePath);
-            } catch (err) {
-              if (err.code === 'ERR_REQUIRE_ESM') {
-                try {
-                  imported = await import(pathToFileURL(filePath).href);
-                } catch (e) {
-                  if (/module is not defined/.test(e.message)) {
-                    imported = loadCommonJs(filePath);
-                  } else {
-                    throw e;
-                  }
-                }
-              } else if (/module is not defined/.test(err.message)) {
-                imported = loadCommonJs(filePath);
-              } else {
-                throw err;
-              }
-            }
-          }
-          const candidate = imported?.metadataTypes || imported?.default?.metadataTypes || imported?.default || imported;
+          const raw = fs.readFileSync(filePath, 'utf8');
+          const parsed = JSON.parse(raw);
+          const candidate = Array.isArray(parsed) ? parsed : parsed?.metadataTypes;
           if (Array.isArray(candidate)) {
             metadataTypesToUse = candidate;
           } else {

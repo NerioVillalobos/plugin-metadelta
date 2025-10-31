@@ -55,7 +55,7 @@ The plugin compares metadata changes for the specified user and prints a table o
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
-| `--metafile` | Path to a JavaScript or JSON file defining a `metadataTypes` array to override the default metadata types. | Built‑in list |
+| `--metafile` | Path to a JSON file listing the metadata types to override the default selection. | Built‑in list |
 | `--days` | Number of days in the past to inspect for modifications. | `3` |
 | `--namespace` | Vlocity namespace to query datapacks (enables Vlocity datapack checks). | None |
 | `--xml` | When set, generates `manifest/package-<branch_or_org>[-v#].xml` containing found metadata. | `false` |
@@ -66,40 +66,31 @@ The plugin compares metadata changes for the specified user and prints a table o
 
 By default, the command builds its metadata type list by running `sf force:mdapi:describemetadata --target-org` so it stays synchronized with the connected org. If the describe call fails, a built-in fallback list is used. The resulting list is further filtered to include only types that expose both `lastModifiedByName` and `lastModifiedDate`, avoiding unnecessary queries. A maximum of five metadata types are processed in parallel to limit resource usage.
 
-The `--metafile` flag allows you to override the built‑in metadata list. Provide either a JavaScript **(.js/.cjs/.mjs)** file that exports a `metadataTypes` array or a JSON **(.json)** file with the same structure. Both CommonJS and ES module syntaxes are accepted, even in projects using `"type": "module"`.
-
-CommonJS example (`mismetadatos.js`):
-
-```js
-module.exports = {
-  metadataTypes: [
-    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
-    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
-    'StaticResource','PermissionSetGroup'
-  ]
-};
-```
-
-ES module example:
-
-```js
-export const metadataTypes = ['Bot','BotVersion'];
-```
-
-JSON example (`mismetadatos.json`):
+The `--metafile` flag allows you to override the built‑in metadata list. Provide a JSON **(.json)** file that either contains a top-level array or an object with a `metadataTypes` array:
 
 ```json
 {
-  "metadataTypes": ["ApexClass", "Flow"]
+  "metadataTypes": [
+    "Bot", "BotVersion", "CustomPermission", "FlexiPage", "Flow",
+    "GenAiFunction", "GenAiPlanner", "GenAiPlugin", "GenAiPlannerBundle",
+    "PermissionSet", "Profile", "StaticResource", "PermissionSetGroup"
+  ]
 }
 ```
 
-You can also provide a raw JSON array such as `["ApexClass", "Flow"]`.
+Minimal example using an array:
+
+```json
+[
+  "ApexClass",
+  "Flow"
+]
+```
 
 Reference the file when running the command (prefix with `./` when the file lives in the current folder):
 
 ```bash
-sf metadelta find --org myOrg --metafile ./mismetadatos.js
+sf metadelta find --org myOrg --metafile ./mismetadatos.json
 ```
 
 ### Examples
@@ -313,7 +304,7 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | Bandera | Descripción | Valor por defecto |
 |--------|-------------|-------------------|
 | `--org`, `-o` | **Requerido.** Alias o usuario de la org de destino. | N/A |
-| `--metafile` | Ruta a un archivo JavaScript o JSON que defina un arreglo `metadataTypes` para reemplazar los tipos predeterminados. | Lista integrada |
+| `--metafile` | Ruta a un archivo JSON con la lista de tipos de metadatos que reemplazan la selección predeterminada. | Lista integrada |
 | `--days` | Número de días hacia atrás a inspeccionar por modificaciones. | `3` |
 | `--namespace` | Namespace de Vlocity para consultar datapacks (habilita las revisiones de datapacks). | Ninguno |
 | `--xml` | Si se especifica, genera `manifest/package-<rama_o_org>[-v#].xml` con los metadatos encontrados. | `false` |
@@ -324,40 +315,31 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 
 Por defecto, el comando construye la lista de tipos de metadatos ejecutando `sf force:mdapi:describemetadata --target-org`, de modo que se mantenga sincronizada con la org conectada. Si la llamada de describe falla, se utiliza una lista integrada de respaldo. La lista resultante se filtra para conservar solo los tipos que exponen `lastModifiedByName` y `lastModifiedDate`, evitando consultas innecesarias. Además, se procesan como máximo cinco tipos de metadatos en paralelo para no saturar la memoria.
 
-La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Puedes crear un archivo JavaScript **(.js/.cjs/.mjs)** que exporte un arreglo `metadataTypes` o un archivo JSON **(.json)** con la misma estructura. Se aceptan sintaxis CommonJS y ES module, incluso en proyectos con `"type": "module"`.
-
-Ejemplo CommonJS (`mismetadatos.js`):
-
-```js
-module.exports = {
-  metadataTypes: [
-    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
-    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
-    'StaticResource','PermissionSetGroup'
-  ]
-};
-```
-
-Ejemplo con módulos ES:
-
-```js
-export const metadataTypes = ['Bot','BotVersion'];
-```
-
-Ejemplo JSON (`mismetadatos.json`):
+La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JSON **(.json)** que contenga un arreglo en la raíz o un objeto con la propiedad `metadataTypes`:
 
 ```json
 {
-  "metadataTypes": ["ApexClass", "Flow"]
+  "metadataTypes": [
+    "Bot", "BotVersion", "CustomPermission", "FlexiPage", "Flow",
+    "GenAiFunction", "GenAiPlanner", "GenAiPlugin", "GenAiPlannerBundle",
+    "PermissionSet", "Profile", "StaticResource", "PermissionSetGroup"
+  ]
 }
 ```
 
-También puedes proveer un arreglo JSON directo como `["ApexClass", "Flow"]`.
+Ejemplo minimalista usando un arreglo directo:
+
+```json
+[
+  "ApexClass",
+  "Flow"
+]
+```
 
 Luego ejecuta el comando haciendo referencia al archivo (agrega `./` si está en la carpeta actual):
 
 ```bash
-sf metadelta find --org miOrg --metafile ./mismetadatos.js
+sf metadelta find --org miOrg --metafile ./mismetadatos.json
 ```
 
 ### Ejemplos
