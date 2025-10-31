@@ -5,11 +5,12 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers three complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers four complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
+* `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -95,6 +96,35 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.js
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+
+### `cleanps` command
+
+Generate a trimmed permission-set file with:
+
+```bash
+sf metadelta cleanps --permissionset <name> --prefix <fragment> [flags]
+```
+
+The command locates the default package directory declared in `sfdx-project.json`, reads the matching permission-set XML under `<packageDir>/main/default/permissionsets`, and produces a filtered copy inside `<project-root>/cleanps/` (the folder is created automatically when missing).
+
+#### Cleaning workflow
+
+1. **Prefix-driven matches.** Every candidate entry is evaluated against the fragment provided through `--prefix`. If any relevant value (such as the object name, record type, or tab API name) contains that fragment, the entire node is kept.
+2. **Allowlist overrides.** When you pass `--exclude <file>`, the command loads each non-empty line of the text file (relative paths are resolved from the project root). Any entry whose relevant value equals one of those lines is preserved even when it does not contain the prefix. Use this to retain standard objects or tabs that complement your custom solution.
+3. **Section-aware filtering.** The cleaner scans the following sections: `applicationVisibilities`, `classAccesses`, `customPermissions`, `fieldPermissions`, `objectPermissions`, `pageAccesses`, `recordTypeVisibilities`, `tabSettings`, and `userPermissions`. For composite fields such as `fieldPermissions` and `recordTypeVisibilities`, both the full API name (`Account.Field__c`) and its components (`Account`, `Field__c`) are checked against the prefix and allowlist so you can keep entire objects or individual fields.
+4. **Preserve untouched metadata.** Elements outside of the filtered sections (labels, descriptions, activation flags, etc.) are copied verbatim from the source permission set.
+
+The default output file follows the pattern `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml`. Use `--output` to provide a custom name (the `.xml` extension is appended automatically when omitted).
+
+#### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--permissionset`, `-p` | **Required.** File name (with or without `.permissionset-meta.xml`) located under the project’s permission-set folder. | N/A |
+| `--prefix`, `-f` | **Required.** Fragment that must appear in an entry for it to remain in the cleaned file. | N/A |
+| `--exclude`, `-e` | Path to a newline-delimited text file containing exact values that must always be kept. | None |
+| `--output`, `-o` | Name of the XML file written under `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
+| `--project-dir` | Optional root directory that holds `sfdx-project.json`. When omitted, the command walks up from the current working directory. | Auto-detected |
 
 ### `findtest` command
 
@@ -213,11 +243,12 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece tres flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece cuatro flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
+* `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -303,6 +334,35 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.js
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+### Comando `cleanps`
+
+Genera una versión depurada de un permission set con:
+
+```bash
+sf metadelta cleanps --permissionset <nombre> --prefix <fragmento> [banderas]
+```
+
+El comando identifica el directorio de paquete predeterminado declarado en `sfdx-project.json`, lee el XML ubicado en `<packageDir>/main/default/permissionsets` y produce una copia filtrada dentro de `<raiz-del-proyecto>/cleanps/` (la carpeta se crea automáticamente si no existe).
+
+#### Flujo de depuración
+
+1. **Coincidencias por fragmento.** Cada entrada candidata se evalúa contra el fragmento recibido en `--prefix`. Si algún valor relevante (por ejemplo, el nombre del objeto, del tipo de registro o de la pestaña) contiene el fragmento, el nodo completo se conserva.
+2. **Lista permitida opcional.** Al indicar `--exclude <archivo>`, el comando carga cada línea no vacía del archivo de texto (las rutas relativas se resuelven desde la raíz del proyecto). Cualquier entrada cuyo valor coincida exactamente con alguna de esas líneas se mantiene aunque no contenga el prefijo. Esto permite preservar objetos estándar o pestañas complementarias a tu solución.
+3. **Filtrado por secciones.** El limpiador recorre las secciones `applicationVisibilities`, `classAccesses`, `customPermissions`, `fieldPermissions`, `objectPermissions`, `pageAccesses`, `recordTypeVisibilities`, `tabSettings` y `userPermissions`. En campos compuestos como `fieldPermissions` y `recordTypeVisibilities`, se evalúa tanto el nombre completo (`Account.Campo__c`) como sus componentes (`Account`, `Campo__c`) para que puedas conservar objetos completos o campos individuales.
+4. **Metadatos restantes sin cambios.** Los elementos fuera de las secciones filtradas (etiquetas, descripciones, banderas de activación, etc.) se copian tal cual desde el permission set original.
+
+El archivo de salida predeterminado sigue el patrón `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml`. Usa `--output` para proporcionar un nombre personalizado (se agrega `.xml` automáticamente si se omite).
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--permissionset`, `-p` | **Requerida.** Nombre del archivo (con o sin `.permissionset-meta.xml`) ubicado en la carpeta de permission sets del proyecto. | N/A |
+| `--prefix`, `-f` | **Requerida.** Fragmento que debe aparecer en una entrada para que permanezca en el archivo depurado. | N/A |
+| `--exclude`, `-e` | Ruta a un archivo de texto (un valor por línea) con los nombres exactos que deben conservarse siempre. | Ninguno |
+| `--output`, `-o` | Nombre del XML generado dentro de `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
+| `--project-dir` | Directorio raíz opcional que contiene `sfdx-project.json`. Si se omite, el comando recorre los padres del directorio actual hasta encontrarlo. | Detectado automáticamente |
 
 ### Comando `findtest`
 
