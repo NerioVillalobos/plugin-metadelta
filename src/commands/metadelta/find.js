@@ -125,27 +125,34 @@ class Find extends SfCommand {
       };
       if (fs.existsSync(filePath)) {
         try {
+          const extension = path.extname(filePath).toLowerCase();
           let imported;
-          try {
-            imported = require(filePath);
-          } catch (err) {
-            if (err.code === 'ERR_REQUIRE_ESM') {
-              try {
-                imported = await import(pathToFileURL(filePath).href);
-              } catch (e) {
-                if (/module is not defined/.test(e.message)) {
-                  imported = loadCommonJs(filePath);
-                } else {
-                  throw e;
+          if (extension === '.json') {
+            const raw = fs.readFileSync(filePath, 'utf8');
+            const parsed = JSON.parse(raw);
+            imported = parsed;
+          } else {
+            try {
+              imported = require(filePath);
+            } catch (err) {
+              if (err.code === 'ERR_REQUIRE_ESM') {
+                try {
+                  imported = await import(pathToFileURL(filePath).href);
+                } catch (e) {
+                  if (/module is not defined/.test(e.message)) {
+                    imported = loadCommonJs(filePath);
+                  } else {
+                    throw e;
+                  }
                 }
+              } else if (/module is not defined/.test(err.message)) {
+                imported = loadCommonJs(filePath);
+              } else {
+                throw err;
               }
-            } else if (/module is not defined/.test(err.message)) {
-              imported = loadCommonJs(filePath);
-            } else {
-              throw err;
             }
           }
-          const candidate = imported.metadataTypes || imported.default?.metadataTypes || imported.default || imported;
+          const candidate = imported?.metadataTypes || imported?.default?.metadataTypes || imported?.default || imported;
           if (Array.isArray(candidate)) {
             metadataTypesToUse = candidate;
           } else {
