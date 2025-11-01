@@ -1,3 +1,5 @@
+> **Last update / Última actualización:** 2025-11-01 — `sf-metadelta` 0.6.0
+
 # Metadelta Salesforce CLI Plugin
 
 - [English](#english)
@@ -38,7 +40,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.5.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.6.0 (link)`.
 
 ### Usage
 
