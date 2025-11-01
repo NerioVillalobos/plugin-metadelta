@@ -1,3 +1,5 @@
+> **Last update / Última actualización:** 2025-11-01 — `sf-metadelta` 0.6.0
+
 # Metadelta Salesforce CLI Plugin
 
 - [English](#english)
@@ -38,7 +40,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.5.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.6.0 (link)`.
 
 ### Usage
 
@@ -55,7 +57,7 @@ The plugin compares metadata changes for the specified user and prints a table o
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
-| `--metafile` | Path to a JavaScript file exporting a `metadataTypes` array to override the default metadata types. | Built‑in list |
+| `--metafile` | Path to a JSON file listing the metadata types to override the default selection. | Built‑in list |
 | `--days` | Number of days in the past to inspect for modifications. | `3` |
 | `--namespace` | Vlocity namespace to query datapacks (enables Vlocity datapack checks). | None |
 | `--xml` | When set, generates `manifest/package-<branch_or_org>[-v#].xml` containing found metadata. | `false` |
@@ -66,29 +68,38 @@ The plugin compares metadata changes for the specified user and prints a table o
 
 By default, the command builds its metadata type list by running `sf force:mdapi:describemetadata --target-org` so it stays synchronized with the connected org. If the describe call fails, a built-in fallback list is used. The resulting list is further filtered to include only types that expose both `lastModifiedByName` and `lastModifiedDate`, avoiding unnecessary queries. A maximum of five metadata types are processed in parallel to limit resource usage.
 
-The `--metafile` flag allows you to override the built‑in metadata list. Create a JavaScript file that exports a `metadataTypes` array. Both CommonJS and ES module syntaxes are accepted, even in projects using `"type": "module"`. For CommonJS:
+The `--metafile` flag allows you to override the built‑in metadata list. Provide a JSON **(.json)** file that either contains a top-level array or an object with a `metadataTypes` array. The file must contain plain JSON (no `module.exports =` wrappers) and use UTF-8 encoding.
 
-```js
-module.exports = {
-  metadataTypes: [
-    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
-    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
-    'StaticResource','PermissionSetGroup'
+Create a file—for example `mismetadatos.json`—with the following content:
+
+```json
+{
+  "metadataTypes": [
+    "Bot", "BotVersion", "CustomPermission", "FlexiPage", "Flow",
+    "GenAiFunction", "GenAiPlanner", "GenAiPlugin", "GenAiPlannerBundle",
+    "PermissionSet", "Profile", "StaticResource", "PermissionSetGroup"
   ]
-};
+}
 ```
 
-ES modules are also supported:
+Minimal example using an array:
 
-```js
-export const metadataTypes = ['Bot','BotVersion'];
+```json
+[
+  "ApexClass",
+  "Flow"
+]
 ```
 
-Reference the file when running the command:
+Reference the file when running the command (prefix with `./` when the file lives in the current folder):
 
 ```bash
-sf metadelta find --org myOrg --metafile ./mismetadatos.js
+sf metadelta find --org myOrg --metafile ./mismetadatos.json
 ```
+
+> **Tip:** If you previously used a `.js` file with `module.exports`, rename it to end with `.json` and remove the assignment wrapper so only the JSON structure remains.
+>
+> **Note:** When the path to your metafile contains spaces or special characters, wrap it in quotes (for example, `--metafile "./metadata lists/mismetadatos.json"`).
 
 ### Examples
 
@@ -301,7 +312,7 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | Bandera | Descripción | Valor por defecto |
 |--------|-------------|-------------------|
 | `--org`, `-o` | **Requerido.** Alias o usuario de la org de destino. | N/A |
-| `--metafile` | Ruta a un archivo JavaScript que exporta un arreglo `metadataTypes` para reemplazar los tipos predeterminados. | Lista integrada |
+| `--metafile` | Ruta a un archivo JSON con la lista de tipos de metadatos que reemplazan la selección predeterminada. | Lista integrada |
 | `--days` | Número de días hacia atrás a inspeccionar por modificaciones. | `3` |
 | `--namespace` | Namespace de Vlocity para consultar datapacks (habilita las revisiones de datapacks). | Ninguno |
 | `--xml` | Si se especifica, genera `manifest/package-<rama_o_org>[-v#].xml` con los metadatos encontrados. | `false` |
@@ -312,29 +323,38 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 
 Por defecto, el comando construye la lista de tipos de metadatos ejecutando `sf force:mdapi:describemetadata --target-org`, de modo que se mantenga sincronizada con la org conectada. Si la llamada de describe falla, se utiliza una lista integrada de respaldo. La lista resultante se filtra para conservar solo los tipos que exponen `lastModifiedByName` y `lastModifiedDate`, evitando consultas innecesarias. Además, se procesan como máximo cinco tipos de metadatos en paralelo para no saturar la memoria.
 
-La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JavaScript que exporte un arreglo `metadataTypes`. Se aceptan sintaxis CommonJS y ES module, incluso en proyectos con `"type": "module"`. En CommonJS:
+La bandera `--metafile` permite reemplazar la lista integrada de tipos de metadatos. Crea un archivo JSON **(.json)** que contenga un arreglo en la raíz o un objeto con la propiedad `metadataTypes`. El archivo debe incluir únicamente JSON plano (sin `module.exports =`) y usar codificación UTF-8.
 
-```js
-module.exports = {
-  metadataTypes: [
-    'Bot','BotVersion','CustomPermission','FlexiPage','Flow','GenAiFunction',
-    'GenAiPlanner','GenAiPlugin','GenAiPlannerBundle','PermissionSet','Profile',
-    'StaticResource','PermissionSetGroup'
+Crea un archivo—for ejemplo `mismetadatos.json`—con el siguiente contenido:
+
+```json
+{
+  "metadataTypes": [
+    "Bot", "BotVersion", "CustomPermission", "FlexiPage", "Flow",
+    "GenAiFunction", "GenAiPlanner", "GenAiPlugin", "GenAiPlannerBundle",
+    "PermissionSet", "Profile", "StaticResource", "PermissionSetGroup"
   ]
-};
+}
 ```
 
-También se admite sintaxis de ES modules:
+Ejemplo minimalista usando un arreglo directo:
 
-```js
-export const metadataTypes = ['Bot','BotVersion'];
+```json
+[
+  "ApexClass",
+  "Flow"
+]
 ```
 
-Luego ejecuta el comando haciendo referencia al archivo:
+Luego ejecuta el comando haciendo referencia al archivo (agrega `./` si está en la carpeta actual):
 
 ```bash
-sf metadelta find --org miOrg --metafile ./mismetadatos.js
+sf metadelta find --org miOrg --metafile ./mismetadatos.json
 ```
+
+> **Consejo:** Si antes utilizabas un archivo `.js` con `module.exports`, cámbiale la extensión a `.json` y elimina la asignación para que solo quede la estructura JSON.
+>
+> **Nota:** Si la ruta al archivo contiene espacios o caracteres especiales, enciérrala entre comillas (por ejemplo, `--metafile "./listas metadata/mismetadatos.json"`).
 
 ### Ejemplos
 
