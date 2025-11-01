@@ -96,6 +96,8 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
 ```
 
 > **Tip:** If you previously used a `.js` file with `module.exports`, rename it to end with `.json` and remove the assignment wrapper so only the JSON structure remains.
+>
+> **Note:** When the path to your metafile contains spaces or special characters, wrap it in quotes (for example, `--metafile "./metadata lists/mismetadatos.json"`).
 
 ### Examples
 
@@ -349,6 +351,8 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
 ```
 
 > **Consejo:** Si antes utilizabas un archivo `.js` con `module.exports`, cámbiale la extensión a `.json` y elimina la asignación para que solo quede la estructura JSON.
+>
+> **Nota:** Si la ruta al archivo contiene espacios o caracteres especiales, enciérrala entre comillas (por ejemplo, `--metafile "./listas metadata/mismetadatos.json"`).
 
 ### Ejemplos
 
