@@ -8,6 +8,7 @@ const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const {spawn, spawnSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {fetchOrgApiVersion} = require('./orgApiVersion');
 
 class Find extends SfCommand {
   static id = 'metadelta:find';
@@ -32,6 +33,16 @@ class Find extends SfCommand {
     const generatePackageXML = flags.xml;
     const generatePackageYAML = flags.yaml;
     let auditUser = flags.audit;
+
+    let detectedApiVersion = null;
+    if (generatePackageXML) {
+      const {apiVersion, error: apiVersionError} = fetchOrgApiVersion(targetOrg);
+      if (apiVersionError) {
+        this.warn(`No se pudo obtener la versión de API de la org ${targetOrg ?? ''}: ${apiVersionError}`);
+      } else {
+        detectedApiVersion = apiVersion;
+      }
+    }
 
     const obtenerUsername = () => {
       const result = spawnSync(`sf org display --target-org ${targetOrg} --json`, {
@@ -324,7 +335,7 @@ class Find extends SfCommand {
       return ruta;
     };
 
-    const generarPackageXML = (allComponents) => {
+    const generarPackageXML = (allComponents, apiVersion) => {
       if (allComponents.length > 0) {
         const filename = construirRutaManifest('package', 'xml');
         const groupedByType = allComponents.reduce((acc, comp)=>{
@@ -341,7 +352,20 @@ class Find extends SfCommand {
           xml += `        <name>${type}</name>\n`;
           xml += `    </types>\n`;
         }
-        xml += `    <version>63.0</version>\n</Package>\n`;
+        const versionString = (() => {
+          if (!apiVersion) {
+            return '63.0';
+          }
+          const trimmed = String(apiVersion).trim();
+          if (!trimmed) {
+            return '63.0';
+          }
+          if (/^\d+$/.test(trimmed)) {
+            return `${trimmed}.0`;
+          }
+          return trimmed;
+        })();
+        xml += `    <version>${versionString}</version>\n</Package>\n`;
         fs.writeFileSync(filename, xml);
         console.log(`\nArchivo "${filename}" generado con éxito en el directorio "manifest".`);
       } else {
@@ -406,7 +430,10 @@ class Find extends SfCommand {
         );
       });
       if (generatePackageXML) {
-        generarPackageXML(resultadosTotales.filter(item => !Object.keys(datapackQueries).includes(item.type)));
+        generarPackageXML(
+          resultadosTotales.filter(item => !Object.keys(datapackQueries).includes(item.type)),
+          detectedApiVersion
+        );
       }
       if (generatePackageYAML && resultadosVlocity.length > 0) {
         generarPackageYAML(resultadosVlocity);
