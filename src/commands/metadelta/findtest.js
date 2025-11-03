@@ -331,7 +331,59 @@ const readPackageXml = (manifestPath) => {
   return parser.parse(xmlContent);
 };
 
-const writePackageXml = (manifestPath, packageObject) => {
+const fetchOrgApiVersion = (targetOrg) => {
+  if (!targetOrg) {
+    return {apiVersion: null, error: null};
+  }
+
+  const result = spawnSync('sf', ['org', 'display', '--target-org', targetOrg, '--json'], {
+    encoding: 'utf8'
+  });
+
+  if (result.error) {
+    return {apiVersion: null, error: result.error.message};
+  }
+
+  if (result.status !== 0) {
+    const stderr = (result.stderr || '').toString().trim();
+    const message = stderr || `El comando sf org display finalizó con código ${result.status}.`;
+    return {apiVersion: null, error: message};
+  }
+
+  const stdout = (result.stdout || '').toString();
+  if (!stdout.trim()) {
+    return {apiVersion: null, error: 'La respuesta de sf org display está vacía.'};
+  }
+
+  const jsonStart = stdout.indexOf('{');
+  const jsonEnd = stdout.lastIndexOf('}');
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
+    return {apiVersion: null, error: 'No se encontró contenido JSON en la salida de sf org display.'};
+  }
+
+  const jsonText = stdout.slice(jsonStart, jsonEnd + 1);
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch (error) {
+    return {apiVersion: null, error: `No se pudo interpretar la salida JSON: ${error.message}`};
+  }
+
+  const apiVersion =
+    parsed?.result?.apiVersion ?? parsed?.result?.ApiVersion ?? parsed?.result?.api_version ?? null;
+
+  if (!apiVersion) {
+    return {apiVersion: null, error: 'No se encontró el campo apiVersion en la respuesta de sf org display.'};
+  }
+
+  return {apiVersion: String(apiVersion), error: null};
+};
+
+const writePackageXml = (manifestPath, packageObject, apiVersion = null) => {
+  if (packageObject.Package && apiVersion) {
+    packageObject.Package.version = apiVersion;
+  }
   const builder = new XMLBuilder({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -811,8 +863,19 @@ class FindTest extends SfCommand {
 
         packageObject.Package.types = typesIsArray ? updatedTypes : updatedTypes[0];
 
+        let manifestApiVersion = null;
+        const orgAliasForVersion = flags.org || targetOrg;
+        const {apiVersion, error: apiVersionError} = fetchOrgApiVersion(orgAliasForVersion);
+        if (apiVersionError) {
+          this.warn(
+            `No se pudo obtener la versión de API de la org ${orgAliasForVersion ?? ''}: ${apiVersionError}`
+          );
+        } else {
+          manifestApiVersion = apiVersion;
+        }
+
         try {
-          writePackageXml(manifestFlagPath, packageObject);
+          writePackageXml(manifestFlagPath, packageObject, manifestApiVersion);
           manifestUpdated = true;
           manifestUpdateReason = `Se agregaron ${testsMissingInManifest.length} clases de prueba al package.xml.`;
           this.log(`\n${manifestUpdateReason}`);
