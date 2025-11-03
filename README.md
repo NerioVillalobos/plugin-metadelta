@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-11-01 — `sf-metadelta` 0.6.1
+> **Last update / Última actualización:** 2025-11-03 — `sf-metadelta` 0.6.1
 
 # Metadelta Salesforce CLI Plugin
 
