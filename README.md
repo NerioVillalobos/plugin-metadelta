@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-11-01 — `sf-metadelta` 0.6.0
+> **Last update / Última actualización:** 2025-11-01 — `sf-metadelta` 0.6.1
 
 # Metadelta Salesforce CLI Plugin
 
@@ -9,8 +9,8 @@
 
 Metadelta is a custom Salesforce CLI plugin that offers four complementary workflows:
 
-* `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration.
-* `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment.
+* `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
+* `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 
@@ -40,7 +40,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.6.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.6.1 (link)`.
 
 ### Usage
 
@@ -60,7 +60,7 @@ The plugin compares metadata changes for the specified user and prints a table o
 | `--metafile` | Path to a JSON file listing the metadata types to override the default selection. | Built‑in list |
 | `--days` | Number of days in the past to inspect for modifications. | `3` |
 | `--namespace` | Vlocity namespace to query datapacks (enables Vlocity datapack checks). | None |
-| `--xml` | When set, generates `manifest/package-<branch_or_org>[-v#].xml` containing found metadata. | `false` |
+| `--xml` | When set, generates `manifest/package-<branch_or_org>[-v#].xml` containing found metadata. The resulting file uses the API version fetched from the specified org when available. | `false` |
 | `--yaml` | When set, generates `manifest/package-vlocity-<branch_or_org>[-v#].yaml` with Vlocity datapack entries. | `false` |
 | `--audit` | Full name of the user to audit. If omitted, the command uses the org user associated with the provided alias. | Authenticated user |
 
@@ -156,6 +156,8 @@ sf metadelta findtest [flags]
 By default the command looks for `sfdx-project.json` in the current directory (or its parents) and inspects the `force-app/main/default/classes` folder.
 
 > **Tip:** After pulling plugin updates, run `sf plugins link .` again so the Salesforce CLI registers the new `findtest` command.
+
+When `--xml-name` points to a manifest that needs to be updated (for example to add detected tests), the command refreshes its `<version>` node with the API version reported by the target org when `--org`/`--target-org` is supplied.
 
 #### Quick start
 
@@ -264,8 +266,8 @@ This project is released under the [ISC License](LICENSE).
 
 Metadelta es un plugin personalizado de Salesforce CLI que ofrece cuatro flujos complementarios:
 
-* `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity.
-* `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue.
+* `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
+* `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 
@@ -315,7 +317,7 @@ El plugin compara los cambios de metadatos para el usuario especificado y muestr
 | `--metafile` | Ruta a un archivo JSON con la lista de tipos de metadatos que reemplazan la selección predeterminada. | Lista integrada |
 | `--days` | Número de días hacia atrás a inspeccionar por modificaciones. | `3` |
 | `--namespace` | Namespace de Vlocity para consultar datapacks (habilita las revisiones de datapacks). | Ninguno |
-| `--xml` | Si se especifica, genera `manifest/package-<rama_o_org>[-v#].xml` con los metadatos encontrados. | `false` |
+| `--xml` | Si se especifica, genera `manifest/package-<rama_o_org>[-v#].xml` con los metadatos encontrados. El archivo resultante utiliza la versión de API obtenida de la org indicada cuando está disponible. | `false` |
 | `--yaml` | Si se especifica, genera `manifest/package-vlocity-<rama_o_org>[-v#].yaml` con entradas de datapacks de Vlocity. | `false` |
 | `--audit` | Nombre completo del usuario a auditar. Si se omite, el comando utiliza el usuario asociado al alias proporcionado. | Usuario autenticado |
 
@@ -411,6 +413,8 @@ sf metadelta findtest [banderas]
 Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o en sus padres) y revisa la carpeta `force-app/main/default/classes`.
 
 > **Tip:** Después de actualizar el plugin ejecuta `sf plugins link .` nuevamente para que Salesforce CLI registre el comando `findtest`.
+
+Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, para agregar pruebas detectadas), el comando reemplaza el nodo `<version>` con la versión de API reportada por la org indicada mediante `--org`/`--target-org`.
 
 #### Guía rápida
 

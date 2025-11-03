@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const {spawnSync} = require('child_process');
 const {XMLParser, XMLBuilder} = require('fast-xml-parser');
+const {fetchOrgApiVersion} = require('./orgApiVersion');
 
 const TEST_NAME_PATTERN = /TEST|Test_|test_|_TEST|TEST_|Test|_test/i;
 
@@ -331,7 +332,10 @@ const readPackageXml = (manifestPath) => {
   return parser.parse(xmlContent);
 };
 
-const writePackageXml = (manifestPath, packageObject) => {
+const writePackageXml = (manifestPath, packageObject, apiVersion = null) => {
+  if (packageObject.Package && apiVersion) {
+    packageObject.Package.version = apiVersion;
+  }
   const builder = new XMLBuilder({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -811,8 +815,19 @@ class FindTest extends SfCommand {
 
         packageObject.Package.types = typesIsArray ? updatedTypes : updatedTypes[0];
 
+        let manifestApiVersion = null;
+        const orgAliasForVersion = flags.org || targetOrg;
+        const {apiVersion, error: apiVersionError} = fetchOrgApiVersion(orgAliasForVersion);
+        if (apiVersionError) {
+          this.warn(
+            `No se pudo obtener la versión de API de la org ${orgAliasForVersion ?? ''}: ${apiVersionError}`
+          );
+        } else {
+          manifestApiVersion = apiVersion;
+        }
+
         try {
-          writePackageXml(manifestFlagPath, packageObject);
+          writePackageXml(manifestFlagPath, packageObject, manifestApiVersion);
           manifestUpdated = true;
           manifestUpdateReason = `Se agregaron ${testsMissingInManifest.length} clases de prueba al package.xml.`;
           this.log(`\n${manifestUpdateReason}`);
