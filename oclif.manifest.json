@@ -313,6 +313,101 @@
         "metadelta",
         "cleanps.js"
       ]
+    },
+    "metadelta:manual:collect": {
+      "aliases": [],
+      "args": {},
+      "description": "Genera un consolidado de pasos manuales en formato markdown.",
+      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "docs": {
+          "char": "d",
+          "name": "docs",
+          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Ruta del archivo markdown generado.",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "partial": {
+          "name": "partial",
+          "summary": "Procesa solo los archivos tocados en un sprint específico.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "all": {
+          "name": "all",
+          "summary": "Procesa todos los archivos del directorio.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "sprint-branch": {
+          "name": "sprint-branch",
+          "summary": "Rama del sprint a analizar (requerida para --partial).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "sprint-name": {
+          "name": "sprint-name",
+          "summary": "Nombre del sprint para mostrar en el markdown.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-branch": {
+          "name": "base-branch",
+          "summary": "Rama base desde la cual se creó el sprint.",
+          "default": "master",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "order-by": {
+          "name": "order-by",
+          "summary": "Origen de la fecha usada para ordenar (mtime o git).",
+          "default": "mtime",
+          "options": [
+            "mtime",
+            "git"
+          ],
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:manual:collect",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "manual",
+        "collect.js"
+      ]
     }
   },
   "version": "0.6.1"

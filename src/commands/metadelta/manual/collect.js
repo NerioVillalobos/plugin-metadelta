@@ -1,28 +1,17 @@
-import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
-import { promises as fsPromises } from 'fs';
-import * as path from 'path';
-import { execFileSync } from 'child_process';
+const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
+const fs = require('fs');
+const path = require('path');
+const {execFileSync} = require('child_process');
 
-const { readdir, readFile, stat, mkdir } = fsPromises;
+const {readdir, readFile, stat, mkdir, writeFile} = fs.promises;
 
 const MANUAL_FILE_REGEX = /^OSS-?FSL-(Base|\d+)-(PRE|POST)\.md$/i;
 const BANNER_LINE = '===============================';
 
-interface ManualStepMetadata {
-  project: string;
-  story: string;
-  phase: 'PRE' | 'POST';
-  dateIso: string;
-  displayDate: string;
-  relativePath: string;
-  absolutePath: string;
-  content: string;
-}
+class ManualCollect extends SfCommand {
+  static summary = 'Genera un consolidado de pasos manuales en formato markdown.';
 
-export default class ManualCollect extends SfCommand<void> {
-  public static readonly summary = 'Genera un consolidado de pasos manuales en formato markdown.';
-
-  public static readonly flags = {
+  static flags = {
     docs: Flags.string({
       char: 'd',
       summary: 'Directorio que contiene los archivos markdown de pasos manuales.',
@@ -56,10 +45,10 @@ export default class ManualCollect extends SfCommand<void> {
       options: ['mtime', 'git'],
       default: 'mtime',
     }),
-  } as const;
+  };
 
-  public async run(): Promise<void> {
-    const { flags } = await this.parse(ManualCollect);
+  async run() {
+    const {flags} = await this.parse(ManualCollect);
 
     const docsDir = path.resolve(flags.docs);
     const outputFile = path.resolve(flags.output);
@@ -67,18 +56,22 @@ export default class ManualCollect extends SfCommand<void> {
 
     await this.ensureDirectory(docsDir);
 
+    if (flags.partial && flags.all) {
+      this.error('No puedes combinar --partial con --all.');
+    }
+
     const mode = flags.partial ? 'partial' : 'all';
 
     if (flags.partial && !flags['sprint-branch']) {
       this.error('Para usar --partial debes indicar --sprint-branch <rama-del-sprint>.');
     }
 
-    let relativeFiles: string[];
+    let relativeFiles;
     if (flags.partial) {
       relativeFiles = await this.getFilesFromSprint({
         docsRelativeForGit,
-        sprintBranch: flags['sprint-branch'] as string,
-        baseBranch: flags['base-branch'] as string,
+        sprintBranch: flags['sprint-branch'],
+        baseBranch: flags['base-branch'],
       });
     } else {
       relativeFiles = await this.getAllManualFiles(docsDir);
@@ -98,7 +91,7 @@ export default class ManualCollect extends SfCommand<void> {
     const entries = await this.buildManualStepMetadata({
       docsDir,
       relativeFiles,
-      orderBy: flags['order-by'] as 'mtime' | 'git',
+      orderBy: flags['order-by'] || 'mtime',
     });
 
     const markdown = renderManualSteps({
@@ -108,13 +101,13 @@ export default class ManualCollect extends SfCommand<void> {
       sprintName: flags['sprint-name'],
     });
 
-    await mkdir(path.dirname(outputFile), { recursive: true });
-    await fsPromises.writeFile(outputFile, markdown, 'utf8');
+    await mkdir(path.dirname(outputFile), {recursive: true});
+    await writeFile(outputFile, markdown, 'utf8');
 
     this.log(`Manual steps written to ${outputFile}`);
   }
 
-  private async ensureDirectory(dirPath: string): Promise<void> {
+  async ensureDirectory(dirPath) {
     try {
       const stats = await stat(dirPath);
       if (!stats.isDirectory()) {
@@ -125,36 +118,30 @@ export default class ManualCollect extends SfCommand<void> {
     }
   }
 
-  private async getAllManualFiles(docsDir: string): Promise<string[]> {
-    const entries = await readdir(docsDir, { withFileTypes: true });
+  async getAllManualFiles(docsDir) {
+    const entries = await readdir(docsDir, {withFileTypes: true});
     return entries
       .filter((entry) => entry.isFile() && isManualStepFile(entry.name))
       .map((entry) => entry.name)
       .sort();
   }
 
-  private async getFilesFromSprint(options: {
-    docsRelativeForGit: string;
-    sprintBranch: string;
-    baseBranch: string;
-  }): Promise<string[]> {
-    const { docsRelativeForGit, sprintBranch, baseBranch } = options;
-
-    let mergeBase: string;
+  async getFilesFromSprint({docsRelativeForGit, sprintBranch, baseBranch}) {
+    let mergeBase;
     try {
       mergeBase = runGit(['merge-base', baseBranch, sprintBranch]).trim();
     } catch (error) {
       this.error(`No se pudo calcular el merge-base entre ${baseBranch} y ${sprintBranch}.`);
     }
 
-    let logOutput: string;
+    let logOutput;
     try {
       logOutput = runGit(['log', '--name-only', `${mergeBase}..${sprintBranch}`, '--', docsRelativeForGit], false);
     } catch (error) {
       this.error(`No se pudo obtener el log de git para ${docsRelativeForGit}.`);
     }
 
-    const manualFiles = new Set<string>();
+    const manualFiles = new Set();
     const trimmedDocsPath = docsRelativeForGit.replace(/\/+$/, '');
     const normalizedPrefix = trimmedDocsPath === '' || trimmedDocsPath === '.' ? '' : `${trimmedDocsPath}/`;
 
@@ -176,13 +163,8 @@ export default class ManualCollect extends SfCommand<void> {
     return Array.from(manualFiles).sort();
   }
 
-  private async buildManualStepMetadata(options: {
-    docsDir: string;
-    relativeFiles: string[];
-    orderBy: 'mtime' | 'git';
-  }): Promise<ManualStepMetadata[]> {
-    const { docsDir, relativeFiles, orderBy } = options;
-    const results: ManualStepMetadata[] = [];
+  async buildManualStepMetadata({docsDir, relativeFiles, orderBy}) {
+    const results = [];
 
     for (const relativePath of relativeFiles) {
       const normalizedRelativePath = normalizePathForFs(relativePath);
@@ -196,7 +178,7 @@ export default class ManualCollect extends SfCommand<void> {
       const normalizedName = normalizeManualStepName(baseName);
       const parsed = parseManualStepName(normalizedName);
 
-      let fileStat: import('fs').Stats;
+      let fileStat;
       try {
         fileStat = await stat(absolutePath);
       } catch (error) {
@@ -224,7 +206,7 @@ export default class ManualCollect extends SfCommand<void> {
       });
     }
 
-    const phaseOrder: Record<'PRE' | 'POST', number> = { PRE: 0, POST: 1 };
+    const phaseOrder = {PRE: 0, POST: 1};
     results.sort((a, b) => {
       const phaseDiff = phaseOrder[a.phase] - phaseOrder[b.phase];
       if (phaseDiff !== 0) {
@@ -243,20 +225,15 @@ export default class ManualCollect extends SfCommand<void> {
   }
 }
 
-function isManualStepFile(fileName: string): boolean {
+function isManualStepFile(fileName) {
   return MANUAL_FILE_REGEX.test(fileName);
 }
 
-function normalizeManualStepName(fileName: string): string {
-  const normalized = fileName.replace(/^OSSFSL/i, 'OSS-FSL');
-  return normalized;
+function normalizeManualStepName(fileName) {
+  return fileName.replace(/^OSSFSL/i, 'OSS-FSL');
 }
 
-function parseManualStepName(fileName: string): {
-  project: string;
-  story: string;
-  phase: 'PRE' | 'POST';
-} {
+function parseManualStepName(fileName) {
   const withoutExtension = fileName.replace(/\.md$/i, '');
   const parts = withoutExtension.split('-');
   if (parts.length < 4) {
@@ -265,19 +242,13 @@ function parseManualStepName(fileName: string): {
 
   const project = `${parts[0]}-${parts[1]}`.toUpperCase();
   const story = parts[2].toUpperCase();
-  const phase = parts[3].toUpperCase() as 'PRE' | 'POST';
+  const phase = parts[3].toUpperCase();
 
-  return { project, story, phase };
+  return {project, story, phase};
 }
 
-function renderManualSteps(options: {
-  entries: ManualStepMetadata[];
-  mode: 'all' | 'partial';
-  sprintBranch?: string;
-  sprintName?: string;
-}): string {
-  const { entries, mode, sprintBranch, sprintName } = options;
-  const lines: string[] = [];
+function renderManualSteps({entries, mode, sprintBranch, sprintName}) {
+  const lines = [];
 
   lines.push('# Manual Steps');
   if (sprintName) {
@@ -326,7 +297,7 @@ function renderManualSteps(options: {
   return lines.join('\n');
 }
 
-function getGitDate(absolutePath: string): string | undefined {
+function getGitDate(absolutePath) {
   const gitPath = toGitPath(path.relative(process.cwd(), absolutePath));
   try {
     return runGit(['log', '-1', '--format=%ci', '--', gitPath]).trim();
@@ -335,15 +306,19 @@ function getGitDate(absolutePath: string): string | undefined {
   }
 }
 
-function runGit(args: string[], trim = true): string {
-  const output = execFileSync('git', args, { encoding: 'utf8' });
+function runGit(args, trim = true) {
+  const output = execFileSync('git', args, {encoding: 'utf8'});
   return trim ? output.trim() : output;
 }
 
-function toGitPath(filePath: string): string {
+function toGitPath(filePath) {
   return filePath.split(path.sep).join('/');
 }
 
-function normalizePathForFs(relativePath: string): string {
+function normalizePathForFs(relativePath) {
   return relativePath.split('/').join(path.sep);
 }
+
+module.exports = ManualCollect;
+module.exports.default = ManualCollect;
+
