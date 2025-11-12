@@ -188,7 +188,7 @@ class Merge extends SfCommand {
   getAllMatchingManifestFiles({manifestDir, xmlName}) {
     return fs
       .readdirSync(manifestDir)
-      .filter((file) => file.endsWith('.xml') && file.includes(xmlName))
+      .filter((file) => file.endsWith('.xml') && matchesXmlName(file, xmlName))
       .map((file) => ({
         relativePath: file,
         absolutePath: path.join(manifestDir, file)
@@ -230,12 +230,11 @@ class Merge extends SfCommand {
       } else {
         relative = line;
       }
-      const baseName = path.basename(relative);
-      if (!baseName.endsWith('.xml') || !baseName.includes(xmlName)) {
+      const normalizedRelative = normalizePathForFs(relative);
+      if (!normalizedRelative.endsWith('.xml') || !matchesXmlName(normalizedRelative, xmlName)) {
         continue;
       }
 
-      const normalizedRelative = normalizePathForFs(relative);
       if (seen.has(normalizedRelative)) {
         continue;
       }
@@ -263,4 +262,16 @@ function toGitPath(filePath) {
 
 function normalizePathForFs(relativePath) {
   return relativePath.split('/').join(path.sep);
+}
+
+function matchesXmlName(relativePath, xmlName) {
+  if (!xmlName) {
+    return true;
+  }
+  const normalized = relativePath.split(path.sep).join('/');
+  if (normalized.includes(xmlName)) {
+    return true;
+  }
+  const baseName = path.basename(relativePath);
+  return baseName.includes(xmlName);
 }
