@@ -127,25 +127,25 @@ class ManualCollect extends SfCommand {
   }
 
   async getFilesFromSprint({docsRelativeForGit, sprintBranch, baseBranch}) {
-    let mergeBase;
     try {
-      mergeBase = runGit(['merge-base', baseBranch, sprintBranch]).trim();
+      runGit(['merge-base', baseBranch, sprintBranch]).trim();
     } catch (error) {
       this.error(`No se pudo calcular el merge-base entre ${baseBranch} y ${sprintBranch}.`);
     }
 
-    let logOutput;
+    const compareRange = `${baseBranch}..${sprintBranch}`;
+    let diffOutput;
     try {
-      logOutput = runGit(['log', '--name-only', `${mergeBase}..${sprintBranch}`, '--', docsRelativeForGit], false);
+      diffOutput = runGit(['diff', '--name-only', compareRange, '--', docsRelativeForGit], false);
     } catch (error) {
-      this.error(`No se pudo obtener el log de git para ${docsRelativeForGit}.`);
+      this.error(`No se pudo obtener los cambios de git para ${docsRelativeForGit}.`);
     }
 
     const manualFiles = new Set();
     const trimmedDocsPath = docsRelativeForGit.replace(/\/+$/, '');
     const normalizedPrefix = trimmedDocsPath === '' || trimmedDocsPath === '.' ? '' : `${trimmedDocsPath}/`;
 
-    for (const rawLine of logOutput.split('\n')) {
+    for (const rawLine of diffOutput.split('\n')) {
       const line = rawLine.trim();
       if (!line) {
         continue;
