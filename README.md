@@ -11,6 +11,7 @@ Metadelta is a custom Salesforce CLI plugin that offers four complementary workf
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
+* `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 
@@ -22,6 +23,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta find`](#usage)
 - [`sf metadelta cleanps`](#cleanps-command)
 - [`sf metadelta findtest`](#findtest-command)
+- [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
 
 ### Installation
@@ -210,6 +212,44 @@ Every run starts with a summary line detailing how many classes came from the ma
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
 
+### `manual collect` command
+
+Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `OSS-FSL-<story>-<PRE|POST>.md` pattern—files that start with `OSSFSL` are normalized automatically. Run the command with:
+
+```bash
+sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
+```
+
+By default (or when passing `--all`) the command gathers every matching `.md`, sorts entries so `PRE` steps appear before `POST`, orders them chronologically (filesystem `mtime` unless `--order-by git` is provided), and emits a markdown file with an index, a metadata banner, and the original content per story.
+
+Enable partial mode to limit the output to the stories that are still pending merge between a sprint branch and its base branch. The command runs `git diff --name-only <base>..<sprint> -- <docs>` behind the scenes and filters the list to keep only the manual-step markdown files:
+
+```bash
+sf metadelta manual collect \
+  --docs ./docs \
+  --output ./docs/MANUAL-STEPS.md \
+  --partial \
+  --sprint-branch SP1/main \
+  --base-branch master \
+  --sprint-name SP1 \
+  --order-by git
+```
+
+If no qualifying files remain in the requested range the command stops with a friendly message so you can confirm whether the sprint actually merged any documentation. Leaving out both `--partial` and `--all` behaves the same as `--all` for convenience.
+
+#### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--docs`, `-d` | **Required.** Directory that hosts the manual-step `.md` files. | N/A |
+| `--output`, `-o` | **Required.** Destination markdown file that will contain the consolidated content. | N/A |
+| `--partial` | Restricts the output to the files pending merge between the base branch and the sprint branch. Requires `--sprint-branch`. | `false` |
+| `--all` | Forces the command to include every manual-step file in `--docs`. (This is also the default behaviour when `--partial` is not set.) | `false` |
+| `--sprint-branch` | Sprint branch used in partial mode. | N/A |
+| `--sprint-name` | Optional label shown in the markdown header/banner. | None |
+| `--base-branch` | Base branch used to compute the diff range when `--partial` is active. | `master` |
+| `--order-by` | Source for the ordering timestamp. Use `git` to rely on commit dates instead of file modification times. | `mtime` |
+
 ### `merge` command
 
 Combine multiple manifest fragments into a single package with:
@@ -218,7 +258,9 @@ Combine multiple manifest fragments into a single package with:
 sf metadelta merge --xml-name <substring> [flags]
 ```
 
-By default the command looks inside the `manifest/` directory for XML files whose filenames contain the provided substring. It merges their `<types>` entries, deduplicating members per metadata type and keeping the highest API version found across the inputs. The result is saved to `manifest/globalpackage.xml`, unless you override the filename.
+By default the command looks inside the `manifest/` directory for XML files whose filenames contain the provided substring. It merges their `<types>` entries, deduplicating members per metadata type and keeping the highest API version found across the inputs. Each `<members>` node in the resulting manifest now carries an inline `<!-- source -->` comment listing the contributing manifest filenames (without the `.xml` suffix) so you can trace every component. The result is saved to `manifest/globalpackage.xml`, unless you override the filename.
+
+When you add `--partial --sprint-branch <name> [--base-branch master]`, the command limits its search to manifest files that are still pending merge between the specified sprint branch and its base branch. Internally it runs `git diff --name-only <base>..<sprint> -- manifest/` (respecting `--directory`) and keeps only the matching XML files. If the diff is empty the command stops with a clear message so you can adjust the range or fallback to a full merge.
 
 #### Flags
 
@@ -227,6 +269,9 @@ By default the command looks inside the `manifest/` directory for XML files whos
 | `--xml-name`, `-x` | **Required.** Substring that matching manifest filenames must contain. | N/A |
 | `--directory`, `-d` | Directory that holds the manifest XML files to merge. | `manifest` |
 | `--output`, `-o` | Name of the combined manifest file to generate. | `globalpackage.xml` |
+| `--partial` | Restricts the merge to manifest files pending merge between the base branch and the sprint branch. Requires `--sprint-branch`. | `false` |
+| `--sprint-branch` | Sprint branch that contains the manifests you want to consolidate. | N/A |
+| `--base-branch` | Base branch already deployed to production. Used to compute the diff in partial mode. | `master` |
 
 #### Example
 
@@ -234,6 +279,12 @@ To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpa
 
 ```bash
 sf metadelta merge --xml-name OSSFSL
+
+To restrict the merge to manifests that have not been merged back into `master` yet:
+
+```bash
+sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+```
 ```
 
 #### Deployment flow (existing `package.xml`)
@@ -268,6 +319,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece cuatro flujos 
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
+* `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 
@@ -279,6 +331,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta find`](#uso)
 - [`sf metadelta cleanps`](#comando-cleanps)
 - [`sf metadelta findtest`](#comando-findtest)
+- [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
 
 ### Instalación
@@ -457,6 +510,44 @@ Cada ejecución inicia con una línea resumen indicando cuántas clases proviene
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
+### Comando `manual collect`
+
+Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `OSS-FSL-<historia>-<PRE|POST>.md` (las variantes con `OSSFSL` se normalizan automáticamente). Ejecuta el comando así:
+
+```bash
+sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
+```
+
+De forma predeterminada (o al usar `--all`) el comando procesa todos los `.md` válidos, ordena las entradas colocando primero los pasos `PRE`, respeta el orden cronológico (según `mtime` salvo que indiques `--order-by git`) y genera un markdown con índice, banner de metadatos y el contenido original de cada historia.
+
+Activa `--partial` para limitar el resultado a las historias que siguen pendientes de merge entre una rama de sprint y la rama base. Internamente se ejecuta `git diff --name-only <base>..<sprint> -- docs/` y se filtra la lista para conservar únicamente los documentos de pasos manuales:
+
+```bash
+sf metadelta manual collect \
+  --docs ./docs \
+  --output ./docs/MANUAL-STEPS.md \
+  --partial \
+  --sprint-branch SP1/main \
+  --base-branch master \
+  --sprint-name SP1 \
+  --order-by git
+```
+
+Si el rango solicitado no contiene archivos válidos, el comando se detiene con un mensaje claro para que verifiques si el sprint efectivamente mergeó documentación. Omitir `--partial` y `--all` produce el mismo comportamiento que `--all` para mayor comodidad.
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--docs`, `-d` | **Requerida.** Directorio que contiene los `.md` de pasos manuales. | N/A |
+| `--output`, `-o` | **Requerida.** Archivo markdown de salida que contendrá el consolidado. | N/A |
+| `--partial` | Limita la salida a los archivos pendientes de merge entre la rama base y la rama de sprint. Requiere `--sprint-branch`. | `false` |
+| `--all` | Fuerza la inclusión de todos los archivos válidos dentro de `--docs`. (También es el comportamiento predeterminado cuando no se usa `--partial`.) | `false` |
+| `--sprint-branch` | Rama de sprint a considerar en modo parcial. | N/A |
+| `--sprint-name` | Etiqueta opcional mostrada en el encabezado/banner del markdown. | Ninguno |
+| `--base-branch` | Rama base utilizada para calcular el diff cuando `--partial` está activo. | `master` |
+| `--order-by` | Fuente de la fecha utilizada para ordenar (`mtime` o `git`). | `mtime` |
+
 ### Comando `merge`
 
 Combina múltiples fragmentos de manifiesto en un solo paquete con:
@@ -465,7 +556,9 @@ Combina múltiples fragmentos de manifiesto en un solo paquete con:
 sf metadelta merge --xml-name <subcadena> [banderas]
 ```
 
-Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML cuyo nombre contenga la subcadena proporcionada. Luego fusiona sus nodos `<types>`, elimina duplicados por tipo de metadato y conserva la versión de API más alta encontrada. El resultado se guarda como `manifest/globalpackage.xml`, a menos que definas otro nombre.
+Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML cuyo nombre contenga la subcadena proporcionada. Luego fusiona sus nodos `<types>`, elimina duplicados por tipo de metadato y conserva la versión de API más alta encontrada. Cada nodo `<members>` del manifiesto final incorpora un comentario `<!-- origen -->` con los nombres de los manifests que aportaron ese componente (sin la extensión `.xml`) para que puedas rastrear su procedencia. El resultado se guarda como `manifest/globalpackage.xml`, a menos que definas otro nombre.
+
+Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el comando limita su búsqueda a los manifests que siguen pendientes de merge entre la rama de sprint y la base. Internamente ejecuta `git diff --name-only <base>..<sprint> -- manifest/` (respetando `--directory`) y conserva solo los archivos XML que coinciden con la subcadena indicada. Cuando el diff no contiene coincidencias, se detiene con un mensaje claro para que ajustes el rango o vuelvas al modo completo.
 
 #### Banderas
 
@@ -474,6 +567,9 @@ Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML
 | `--xml-name`, `-x` | **Requerida.** Subcadena que deben contener los nombres de los manifiestos a combinar. | N/A |
 | `--directory`, `-d` | Directorio que contiene los archivos XML de manifiesto a unir. | `manifest` |
 | `--output`, `-o` | Nombre del archivo combinado que se generará. | `globalpackage.xml` |
+| `--partial` | Limita la combinación a los manifests pendientes de merge entre la rama base y la rama de sprint. Requiere `--sprint-branch`. | `false` |
+| `--sprint-branch` | Rama de sprint que contiene los manifests recientes. | N/A |
+| `--base-branch` | Rama base que ya llegó a producción. Se usa para calcular el diff en modo parcial. | `master` |
 
 #### Ejemplo
 
@@ -481,6 +577,12 @@ Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globa
 
 ```bash
 sf metadelta merge --xml-name OSSFSL
+
+Para combinar únicamente los manifests que aún no se fusionaron en `master`:
+
+```bash
+sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+```
 ```
 
 #### Flujo de despliegue (package.xml existente)

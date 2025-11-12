@@ -1,7 +1,8 @@
 const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const fs = require('fs');
 const path = require('path');
-const {XMLParser, XMLBuilder} = require('fast-xml-parser');
+const {execFileSync} = require('child_process');
+const {XMLParser} = require('fast-xml-parser');
 
 class Merge extends SfCommand {
   static id = 'metadelta:merge';
@@ -23,6 +24,17 @@ class Merge extends SfCommand {
       char: 'o',
       summary: 'Nombre del archivo XML resultante',
       default: 'globalpackage.xml'
+    }),
+    partial: Flags.boolean({
+      summary: 'Combina únicamente los manifests pendientes de merge entre la rama base y la rama del sprint.',
+      default: false
+    }),
+    'sprint-branch': Flags.string({
+      summary: 'Rama del sprint que contiene los manifests recientes (requerida junto con --partial).'
+    }),
+    'base-branch': Flags.string({
+      summary: 'Rama base que ya llegó a producción.',
+      default: 'master'
     })
   };
 
@@ -30,25 +42,40 @@ class Merge extends SfCommand {
     const {flags} = await this.parse(Merge);
     const xmlName = flags['xml-name'];
     const manifestDir = path.resolve(flags.directory);
+    const manifestRelativeForGit = toGitPath(path.relative(process.cwd(), manifestDir) || '.');
 
-    if (!fs.existsSync(manifestDir) || !fs.statSync(manifestDir).isDirectory()) {
-      this.error(`El directorio ${manifestDir} no existe o no es un directorio válido.`);
+    this.ensureDirectory(manifestDir);
+
+    if (flags.partial && !flags['sprint-branch']) {
+      this.error('Para usar --partial debes indicar --sprint-branch <rama-del-sprint>.');
     }
 
-    const xmlFiles = fs
-      .readdirSync(manifestDir)
-      .filter((file) => file.endsWith('.xml') && file.includes(xmlName));
+    const manifests = flags.partial
+      ? this.getManifestFilesFromSprint({
+          manifestDir,
+          manifestRelativeForGit,
+          xmlName,
+          baseBranch: flags['base-branch'],
+          sprintBranch: flags['sprint-branch']
+        })
+      : this.getAllMatchingManifestFiles({manifestDir, xmlName});
 
-    if (xmlFiles.length === 0) {
+    if (manifests.length === 0) {
+      if (flags.partial) {
+        this.error(
+          `No se encontraron manifests pendientes para ${xmlName} en el rango ${flags['base-branch']}..${flags['sprint-branch']}.`
+        );
+      }
       this.error(`No se encontraron archivos XML en ${manifestDir} que contengan '${xmlName}'.`);
     }
+
+    const xmlFiles = manifests.map((entry) => entry.absolutePath);
 
     const parser = new XMLParser({ignoreAttributes: false, processEntities: true});
     const typeMembersMap = new Map();
     let maxVersion = null;
 
-    for (const fileName of xmlFiles) {
-      const filePath = path.join(manifestDir, fileName);
+    for (const filePath of xmlFiles) {
       let content;
       try {
         content = fs.readFileSync(filePath, 'utf8');
@@ -72,6 +99,7 @@ class Merge extends SfCommand {
       }
 
       const types = pkg.types ? (Array.isArray(pkg.types) ? pkg.types : [pkg.types]) : [];
+      const sourceLabel = path.basename(filePath, '.xml');
       for (const type of types) {
         const typeName = type?.name;
         if (!typeName) {
@@ -80,13 +108,21 @@ class Merge extends SfCommand {
         const members = type.members;
         const membersArray = Array.isArray(members) ? members : [members];
         if (!typeMembersMap.has(typeName)) {
-          typeMembersMap.set(typeName, new Set());
+          typeMembersMap.set(typeName, new Map());
         }
-        const membersSet = typeMembersMap.get(typeName);
+        const membersMap = typeMembersMap.get(typeName);
         for (const member of membersArray) {
-          if (member) {
-            membersSet.add(member);
+          if (!member) {
+            continue;
           }
+          const memberName = String(member).trim();
+          if (!memberName) {
+            continue;
+          }
+          if (!membersMap.has(memberName)) {
+            membersMap.set(memberName, new Set());
+          }
+          membersMap.get(memberName).add(sourceLabel);
         }
       }
 
@@ -105,25 +141,9 @@ class Merge extends SfCommand {
       }
     }
 
-    if (typeMembersMap.size === 0) {
+    if (!hasMembers(typeMembersMap)) {
       this.error('No se encontraron tipos de metadatos válidos para combinar.');
     }
-
-    const builder = new XMLBuilder({
-      ignoreAttributes: false,
-      format: true,
-      suppressEmptyNode: true,
-      declaration: {
-        encoding: 'UTF-8'
-      }
-    });
-
-    const typesArray = Array.from(typeMembersMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([typeName, membersSet]) => ({
-        members: Array.from(membersSet).sort((a, b) => a.localeCompare(b)),
-        name: typeName
-      }));
 
     const versionValue =
       maxVersion === null
@@ -132,15 +152,7 @@ class Merge extends SfCommand {
         ? maxVersion.toFixed(1)
         : String(maxVersion);
 
-    const packageObject = {
-      Package: {
-        '@_xmlns': 'http://soap.sforce.com/2006/04/metadata',
-        types: typesArray,
-        ...(versionValue ? {version: versionValue} : {})
-      }
-    };
-
-    const xmlOutput = builder.build(packageObject);
+    const xmlOutput = buildPackageXml({typeMembersMap, versionValue});
     const outputPath = path.join(manifestDir, flags.output);
 
     try {
@@ -151,6 +163,154 @@ class Merge extends SfCommand {
 
     this.log(`Archivo combinado generado en: ${outputPath}`);
   }
+
+  ensureDirectory(dirPath) {
+    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+      this.error(`El directorio ${dirPath} no existe o no es un directorio válido.`);
+    }
+  }
+
+  getAllMatchingManifestFiles({manifestDir, xmlName}) {
+    return fs
+      .readdirSync(manifestDir)
+      .filter((file) => file.endsWith('.xml') && matchesXmlName(file, xmlName))
+      .map((file) => ({
+        relativePath: file,
+        absolutePath: path.join(manifestDir, file)
+      }));
+  }
+
+  getManifestFilesFromSprint({manifestDir, manifestRelativeForGit, xmlName, baseBranch, sprintBranch}) {
+    try {
+      runGit(['merge-base', baseBranch, sprintBranch]).trim();
+    } catch (error) {
+      this.error(`No se pudo calcular el merge-base entre ${baseBranch} y ${sprintBranch}.`);
+    }
+
+    let diffOutput;
+    const compareRange = `${baseBranch}..${sprintBranch}`;
+    try {
+      diffOutput = runGit(['diff', '--name-only', compareRange, '--', manifestRelativeForGit], false);
+    } catch (error) {
+      this.error(`No se pudo obtener los cambios de git para ${manifestRelativeForGit}.`);
+    }
+
+    const trimmedPath = manifestRelativeForGit.replace(/\/+$/, '');
+    const normalizedPrefix = trimmedPath === '' || trimmedPath === '.' ? '' : `${trimmedPath}/`;
+    const manifestEntries = [];
+    const seen = new Set();
+
+    for (const rawLine of diffOutput.split('\n')) {
+      const line = rawLine.trim();
+      if (!line) {
+        continue;
+      }
+
+      let relative;
+      if (normalizedPrefix) {
+        if (!line.startsWith(normalizedPrefix)) {
+          continue;
+        }
+        relative = line.slice(normalizedPrefix.length);
+      } else {
+        relative = line;
+      }
+      const normalizedRelative = normalizePathForFs(relative);
+      if (!normalizedRelative.endsWith('.xml') || !matchesXmlName(normalizedRelative, xmlName)) {
+        continue;
+      }
+
+      if (seen.has(normalizedRelative)) {
+        continue;
+      }
+      seen.add(normalizedRelative);
+      manifestEntries.push({
+        relativePath: normalizedRelative,
+        absolutePath: path.join(manifestDir, normalizedRelative)
+      });
+    }
+
+    return manifestEntries;
+  }
 }
 
 module.exports = Merge;
+
+function runGit(args, trim = true) {
+  const output = execFileSync('git', args, {encoding: 'utf8'});
+  return trim ? output.trim() : output;
+}
+
+function toGitPath(filePath) {
+  return filePath.split(path.sep).join('/');
+}
+
+function normalizePathForFs(relativePath) {
+  return relativePath.split('/').join(path.sep);
+}
+
+function matchesXmlName(relativePath, xmlName) {
+  if (!xmlName) {
+    return true;
+  }
+  const normalized = relativePath.split(path.sep).join('/');
+  if (normalized.includes(xmlName)) {
+    return true;
+  }
+  const baseName = path.basename(relativePath);
+  return baseName.includes(xmlName);
+}
+
+function hasMembers(typeMembersMap) {
+  for (const membersMap of typeMembersMap.values()) {
+    if (membersMap.size > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function buildPackageXml({typeMembersMap, versionValue}) {
+  const lines = [];
+  lines.push('<Package xmlns="http://soap.sforce.com/2006/04/metadata">');
+  const sortedTypes = Array.from(typeMembersMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  for (const [typeName, membersMap] of sortedTypes) {
+    if (membersMap.size === 0) {
+      continue;
+    }
+    lines.push('  <types>');
+    const sortedMembers = Array.from(membersMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [memberName, sourcesSet] of sortedMembers) {
+      const comment = formatSourcesComment(sourcesSet);
+      lines.push(
+        `    <members>${escapeXml(memberName)}</members>${comment ? ` ${comment}` : ''}`
+      );
+    }
+    lines.push(`    <name>${escapeXml(typeName)}</name>`);
+    lines.push('  </types>');
+  }
+  if (versionValue) {
+    lines.push(`  <version>${escapeXml(versionValue)}</version>`);
+  }
+  lines.push('</Package>');
+  return `${lines.join('\n')}\n`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function formatSourcesComment(sourcesSet) {
+  if (!sourcesSet || sourcesSet.size === 0) {
+    return '';
+  }
+  const labels = Array.from(sourcesSet)
+    .map((label) => label.replace(/\.xml$/i, ''))
+    .sort((a, b) => a.localeCompare(b));
+  return `<!-- ${labels.join(', ')} -->`;
+}
