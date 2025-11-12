@@ -2,7 +2,7 @@ const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const fs = require('fs');
 const path = require('path');
 const {execFileSync} = require('child_process');
-const {XMLParser, XMLBuilder} = require('fast-xml-parser');
+const {XMLParser} = require('fast-xml-parser');
 
 class Merge extends SfCommand {
   static id = 'metadelta:merge';
@@ -99,6 +99,7 @@ class Merge extends SfCommand {
       }
 
       const types = pkg.types ? (Array.isArray(pkg.types) ? pkg.types : [pkg.types]) : [];
+      const sourceLabel = path.basename(filePath, '.xml');
       for (const type of types) {
         const typeName = type?.name;
         if (!typeName) {
@@ -107,13 +108,21 @@ class Merge extends SfCommand {
         const members = type.members;
         const membersArray = Array.isArray(members) ? members : [members];
         if (!typeMembersMap.has(typeName)) {
-          typeMembersMap.set(typeName, new Set());
+          typeMembersMap.set(typeName, new Map());
         }
-        const membersSet = typeMembersMap.get(typeName);
+        const membersMap = typeMembersMap.get(typeName);
         for (const member of membersArray) {
-          if (member) {
-            membersSet.add(member);
+          if (!member) {
+            continue;
           }
+          const memberName = String(member).trim();
+          if (!memberName) {
+            continue;
+          }
+          if (!membersMap.has(memberName)) {
+            membersMap.set(memberName, new Set());
+          }
+          membersMap.get(memberName).add(sourceLabel);
         }
       }
 
@@ -132,25 +141,9 @@ class Merge extends SfCommand {
       }
     }
 
-    if (typeMembersMap.size === 0) {
+    if (!hasMembers(typeMembersMap)) {
       this.error('No se encontraron tipos de metadatos válidos para combinar.');
     }
-
-    const builder = new XMLBuilder({
-      ignoreAttributes: false,
-      format: true,
-      suppressEmptyNode: true,
-      declaration: {
-        encoding: 'UTF-8'
-      }
-    });
-
-    const typesArray = Array.from(typeMembersMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([typeName, membersSet]) => ({
-        members: Array.from(membersSet).sort((a, b) => a.localeCompare(b)),
-        name: typeName
-      }));
 
     const versionValue =
       maxVersion === null
@@ -159,15 +152,7 @@ class Merge extends SfCommand {
         ? maxVersion.toFixed(1)
         : String(maxVersion);
 
-    const packageObject = {
-      Package: {
-        '@_xmlns': 'http://soap.sforce.com/2006/04/metadata',
-        types: typesArray,
-        ...(versionValue ? {version: versionValue} : {})
-      }
-    };
-
-    const xmlOutput = builder.build(packageObject);
+    const xmlOutput = buildPackageXml({typeMembersMap, versionValue});
     const outputPath = path.join(manifestDir, flags.output);
 
     try {
@@ -274,4 +259,58 @@ function matchesXmlName(relativePath, xmlName) {
   }
   const baseName = path.basename(relativePath);
   return baseName.includes(xmlName);
+}
+
+function hasMembers(typeMembersMap) {
+  for (const membersMap of typeMembersMap.values()) {
+    if (membersMap.size > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function buildPackageXml({typeMembersMap, versionValue}) {
+  const lines = [];
+  lines.push('<Package xmlns="http://soap.sforce.com/2006/04/metadata">');
+  const sortedTypes = Array.from(typeMembersMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  for (const [typeName, membersMap] of sortedTypes) {
+    if (membersMap.size === 0) {
+      continue;
+    }
+    lines.push('  <types>');
+    const sortedMembers = Array.from(membersMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [memberName, sourcesSet] of sortedMembers) {
+      const comment = formatSourcesComment(sourcesSet);
+      lines.push(
+        `    <members>${escapeXml(memberName)}</members>${comment ? ` ${comment}` : ''}`
+      );
+    }
+    lines.push(`    <name>${escapeXml(typeName)}</name>`);
+    lines.push('  </types>');
+  }
+  if (versionValue) {
+    lines.push(`  <version>${escapeXml(versionValue)}</version>`);
+  }
+  lines.push('</Package>');
+  return `${lines.join('\n')}\n`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function formatSourcesComment(sourcesSet) {
+  if (!sourcesSet || sourcesSet.size === 0) {
+    return '';
+  }
+  const labels = Array.from(sourcesSet)
+    .map((label) => label.replace(/\.xml$/i, ''))
+    .sort((a, b) => a.localeCompare(b));
+  return `<!-- ${labels.join(', ')} -->`;
 }

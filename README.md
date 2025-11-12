@@ -258,7 +258,7 @@ Combine multiple manifest fragments into a single package with:
 sf metadelta merge --xml-name <substring> [flags]
 ```
 
-By default the command looks inside the `manifest/` directory for XML files whose filenames contain the provided substring. It merges their `<types>` entries, deduplicating members per metadata type and keeping the highest API version found across the inputs. The result is saved to `manifest/globalpackage.xml`, unless you override the filename.
+By default the command looks inside the `manifest/` directory for XML files whose filenames contain the provided substring. It merges their `<types>` entries, deduplicating members per metadata type and keeping the highest API version found across the inputs. Each `<members>` node in the resulting manifest now carries an inline `<!-- source -->` comment listing the contributing manifest filenames (without the `.xml` suffix) so you can trace every component. The result is saved to `manifest/globalpackage.xml`, unless you override the filename.
 
 When you add `--partial --sprint-branch <name> [--base-branch master]`, the command limits its search to manifest files that are still pending merge between the specified sprint branch and its base branch. Internally it runs `git diff --name-only <base>..<sprint> -- manifest/` (respecting `--directory`) and keeps only the matching XML files. If the diff is empty the command stops with a clear message so you can adjust the range or fallback to a full merge.
 
@@ -556,7 +556,7 @@ Combina múltiples fragmentos de manifiesto en un solo paquete con:
 sf metadelta merge --xml-name <subcadena> [banderas]
 ```
 
-Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML cuyo nombre contenga la subcadena proporcionada. Luego fusiona sus nodos `<types>`, elimina duplicados por tipo de metadato y conserva la versión de API más alta encontrada. El resultado se guarda como `manifest/globalpackage.xml`, a menos que definas otro nombre.
+Por defecto el comando revisa el directorio `manifest/` y ubica los archivos XML cuyo nombre contenga la subcadena proporcionada. Luego fusiona sus nodos `<types>`, elimina duplicados por tipo de metadato y conserva la versión de API más alta encontrada. Cada nodo `<members>` del manifiesto final incorpora un comentario `<!-- origen -->` con los nombres de los manifests que aportaron ese componente (sin la extensión `.xml`) para que puedas rastrear su procedencia. El resultado se guarda como `manifest/globalpackage.xml`, a menos que definas otro nombre.
 
 Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el comando limita su búsqueda a los manifests que siguen pendientes de merge entre la rama de sprint y la base. Internamente ejecuta `git diff --name-only <base>..<sprint> -- manifest/` (respetando `--directory`) y conserva solo los archivos XML que coinciden con la subcadena indicada. Cuando el diff no contiene coincidencias, se detiene con un mensaje claro para que ajustes el rango o vuelvas al modo completo.
 
