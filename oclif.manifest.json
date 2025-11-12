@@ -225,6 +225,27 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
+        },
+        "partial": {
+          "name": "partial",
+          "summary": "Combina únicamente los manifests pendientes de merge entre la rama base y la rama del sprint.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "sprint-branch": {
+          "name": "sprint-branch",
+          "summary": "Rama del sprint que contiene los manifests recientes (requerida junto con --partial).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-branch": {
+          "name": "base-branch",
+          "summary": "Rama base que ya llegó a producción.",
+          "default": "master",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
         }
       },
       "hasDynamicHelp": false,

@@ -1,6 +1,7 @@
 const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const fs = require('fs');
 const path = require('path');
+const {execFileSync} = require('child_process');
 const {XMLParser, XMLBuilder} = require('fast-xml-parser');
 
 class Merge extends SfCommand {
@@ -23,6 +24,17 @@ class Merge extends SfCommand {
       char: 'o',
       summary: 'Nombre del archivo XML resultante',
       default: 'globalpackage.xml'
+    }),
+    partial: Flags.boolean({
+      summary: 'Combina únicamente los manifests pendientes de merge entre la rama base y la rama del sprint.',
+      default: false
+    }),
+    'sprint-branch': Flags.string({
+      summary: 'Rama del sprint que contiene los manifests recientes (requerida junto con --partial).'
+    }),
+    'base-branch': Flags.string({
+      summary: 'Rama base que ya llegó a producción.',
+      default: 'master'
     })
   };
 
@@ -30,25 +42,40 @@ class Merge extends SfCommand {
     const {flags} = await this.parse(Merge);
     const xmlName = flags['xml-name'];
     const manifestDir = path.resolve(flags.directory);
+    const manifestRelativeForGit = toGitPath(path.relative(process.cwd(), manifestDir) || '.');
 
-    if (!fs.existsSync(manifestDir) || !fs.statSync(manifestDir).isDirectory()) {
-      this.error(`El directorio ${manifestDir} no existe o no es un directorio válido.`);
+    this.ensureDirectory(manifestDir);
+
+    if (flags.partial && !flags['sprint-branch']) {
+      this.error('Para usar --partial debes indicar --sprint-branch <rama-del-sprint>.');
     }
 
-    const xmlFiles = fs
-      .readdirSync(manifestDir)
-      .filter((file) => file.endsWith('.xml') && file.includes(xmlName));
+    const manifests = flags.partial
+      ? this.getManifestFilesFromSprint({
+          manifestDir,
+          manifestRelativeForGit,
+          xmlName,
+          baseBranch: flags['base-branch'],
+          sprintBranch: flags['sprint-branch']
+        })
+      : this.getAllMatchingManifestFiles({manifestDir, xmlName});
 
-    if (xmlFiles.length === 0) {
+    if (manifests.length === 0) {
+      if (flags.partial) {
+        this.error(
+          `No se encontraron manifests pendientes para ${xmlName} en el rango ${flags['base-branch']}..${flags['sprint-branch']}.`
+        );
+      }
       this.error(`No se encontraron archivos XML en ${manifestDir} que contengan '${xmlName}'.`);
     }
+
+    const xmlFiles = manifests.map((entry) => entry.absolutePath);
 
     const parser = new XMLParser({ignoreAttributes: false, processEntities: true});
     const typeMembersMap = new Map();
     let maxVersion = null;
 
-    for (const fileName of xmlFiles) {
-      const filePath = path.join(manifestDir, fileName);
+    for (const filePath of xmlFiles) {
       let content;
       try {
         content = fs.readFileSync(filePath, 'utf8');
@@ -151,6 +178,89 @@ class Merge extends SfCommand {
 
     this.log(`Archivo combinado generado en: ${outputPath}`);
   }
+
+  ensureDirectory(dirPath) {
+    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+      this.error(`El directorio ${dirPath} no existe o no es un directorio válido.`);
+    }
+  }
+
+  getAllMatchingManifestFiles({manifestDir, xmlName}) {
+    return fs
+      .readdirSync(manifestDir)
+      .filter((file) => file.endsWith('.xml') && file.includes(xmlName))
+      .map((file) => ({
+        relativePath: file,
+        absolutePath: path.join(manifestDir, file)
+      }));
+  }
+
+  getManifestFilesFromSprint({manifestDir, manifestRelativeForGit, xmlName, baseBranch, sprintBranch}) {
+    try {
+      runGit(['merge-base', baseBranch, sprintBranch]).trim();
+    } catch (error) {
+      this.error(`No se pudo calcular el merge-base entre ${baseBranch} y ${sprintBranch}.`);
+    }
+
+    let diffOutput;
+    const compareRange = `${baseBranch}..${sprintBranch}`;
+    try {
+      diffOutput = runGit(['diff', '--name-only', compareRange, '--', manifestRelativeForGit], false);
+    } catch (error) {
+      this.error(`No se pudo obtener los cambios de git para ${manifestRelativeForGit}.`);
+    }
+
+    const trimmedPath = manifestRelativeForGit.replace(/\/+$/, '');
+    const normalizedPrefix = trimmedPath === '' || trimmedPath === '.' ? '' : `${trimmedPath}/`;
+    const manifestEntries = [];
+    const seen = new Set();
+
+    for (const rawLine of diffOutput.split('\n')) {
+      const line = rawLine.trim();
+      if (!line) {
+        continue;
+      }
+
+      let relative;
+      if (normalizedPrefix) {
+        if (!line.startsWith(normalizedPrefix)) {
+          continue;
+        }
+        relative = line.slice(normalizedPrefix.length);
+      } else {
+        relative = line;
+      }
+      const baseName = path.basename(relative);
+      if (!baseName.endsWith('.xml') || !baseName.includes(xmlName)) {
+        continue;
+      }
+
+      const normalizedRelative = normalizePathForFs(relative);
+      if (seen.has(normalizedRelative)) {
+        continue;
+      }
+      seen.add(normalizedRelative);
+      manifestEntries.push({
+        relativePath: normalizedRelative,
+        absolutePath: path.join(manifestDir, normalizedRelative)
+      });
+    }
+
+    return manifestEntries;
+  }
 }
 
 module.exports = Merge;
+
+function runGit(args, trim = true) {
+  const output = execFileSync('git', args, {encoding: 'utf8'});
+  return trim ? output.trim() : output;
+}
+
+function toGitPath(filePath) {
+  return filePath.split(path.sep).join('/');
+}
+
+function normalizePathForFs(relativePath) {
+  return relativePath.split('/').join(path.sep);
+}
