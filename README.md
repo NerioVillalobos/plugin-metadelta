@@ -25,6 +25,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta findtest`](#findtest-command)
 - [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
+- [`sf metadelta postvalidate`](#postvalidate-command)
 
 ### Installation
 
@@ -117,6 +118,18 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+
+### `postvalidate` command
+
+Compare recently deployed components against local sources by retrieving the manifests you already used for deployment.
+
+**Vlocity in a dedicated folder.** If your Vlocity datapacks live under a folder named `Vlocity`, point the command there with `--base-dir` while referencing the YAML manifest and target org:
+
+```bash
+sf metadelta postvalidate --yaml manifest/vlocity.yaml --vlocity-org my-vlocity-org --base-dir Vlocity
+```
+
+The command creates a temporary retrieve directory, normalizes whitespace and comments, and prints a `Component | Name | Diff` table marking differences with `✗` and matches with `✓`.
 
 ### `cleanps` command
 

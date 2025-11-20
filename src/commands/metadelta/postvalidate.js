@@ -14,6 +14,12 @@ class PostValidate extends SfCommand {
   directorio temporal utilizado.
   `;
 
+  static examples = [
+    'sf metadelta:postvalidate --xml manifest/package.xml --org my-core-org',
+    'sf metadelta:postvalidate --yaml manifest/vlocity.yaml --vlocity-org my-vlocity-org --base-dir Vlocity',
+    'sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-core-org --vlocity-org my-vlocity-org',
+  ];
+
   static flags = {
     org: Flags.string({char: 'o', summary: 'Alias o username del ambiente para Salesforce Core', required: false}),
     'vlocity-org': Flags.string({summary: 'Alias o username del ambiente para Vlocity (si es distinto al org principal)'}),
