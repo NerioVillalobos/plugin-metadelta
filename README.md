@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-11-03 — `sf-metadelta` 0.6.1
+> **Last update / Última actualización:** 2025-11-20 — `sf-metadelta` 0.7.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -43,7 +43,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.6.1 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.7.0 (link)`.
 
 ### Usage
 
@@ -121,15 +121,44 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
 
 ### `postvalidate` command
 
-Compare recently deployed components against local sources by retrieving the manifests you already used for deployment.
+Validates a deployment by re‑retrieving the manifests you used (XML for Salesforce Core and/or YAML for Vlocity) into a temporary folder, comparing the downloaded files against your local sources, and rendering a colorized `Component | Name | Diff` table with `✓` for matches and `✗` for differences.
 
-**Vlocity in a dedicated folder.** If your Vlocity datapacks live under a folder named `Vlocity`, point the command there with `--vlocity-dir` while referencing the YAML manifest and target org:
+**What it does**
 
-```bash
-sf metadelta postvalidate --yaml manifest/vlocity.yaml --org my-vlocity-org --vlocity-dir Vlocity
-```
+1. Creates a temporary retrieve directory and hides the raw command output behind a spinner while the retrieves run.
+2. For Salesforce Core (`--xml`), runs `sf project retrieve start --manifest <xml> --target-org <org> --output-dir <tempDir>`.
+3. For Vlocity (`--yaml`), runs `vlocity --sfdx.username <org> -job <yaml> packExport --maxDepth 0` into the same temp directory.
+4. Maps retrieved Core files back to your repo using `sfdx-project.json` package directories (including `main/default`), and datapacks against the directory you pass in `--vlocity-dir` (default `Vlocity`).
+5. Compares folder-to-folder ignoring whitespace, blank lines, XML/JS/YAML comments, Vlocity `GlobalKey` lines, and skips noise files like `VlocityBuildErrors.log`, `VlocityBuildLog.yaml`, and the `vlocity-temp/` directory.
+6. Prints a box-style table with colored headers and status symbols, then deletes the temporary folder.
 
-The command creates a temporary retrieve directory, normalizes whitespace and comments, and prints a `Component | Name | Diff` table marking differences with `✗` and matches with `✓`.
+**Flags**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--xml` | Path to the `package.xml` used for the Core deployment. Requires `--org`. | None |
+| `--yaml` | Path to the Vlocity manifest used for the datapack deployment. Requires `--org`. | None |
+| `--org`, `-o` | Alias or username for both Core and Vlocity retrieves. | CLI default |
+| `--vlocity-dir` | Local folder that stores your datapacks. Also probed when manifests contain a `Vlocity/` prefix. | `Vlocity` |
+
+> Provide at least one manifest (`--xml` or `--yaml`). When both are present, the retrieves share the same temp folder and a single comparison pass.
+
+**Usage examples**
+
+- Core only:
+  ```bash
+  sf metadelta postvalidate --xml manifest/SP1.2.11.0.xml --org TelecomPY-prod
+  ```
+- Vlocity only from a custom folder:
+  ```bash
+  sf metadelta postvalidate --yaml manifest/vlo-manifest.yaml --org Telecom-Demo02 --vlocity-dir Vlocity
+  ```
+- Core + Vlocity in one run:
+  ```bash
+  sf metadelta postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity
+  ```
+
+Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
 
 ### `cleanps` command
 
