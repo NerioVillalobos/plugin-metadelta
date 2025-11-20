@@ -429,7 +429,67 @@
         "manual",
         "collect.js"
       ]
+    },
+    "metadelta:postvalidate": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias o username del ambiente (Salesforce Core o Vlocity)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Ruta al manifest XML (package.xml) usado en el despliegue",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Ruta al manifest YAML usado en el despliegue Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "vlocity-dir": {
+          "name": "vlocity-dir",
+          "summary": "Directorio base donde se encuentran los componentes Vlocity locales",
+          "default": "Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:postvalidate",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "postvalidate.js"
+      ]
     }
   },
-  "version": "0.6.1"
+  "version": "0.7.0"
 }
