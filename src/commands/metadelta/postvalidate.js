@@ -2,7 +2,7 @@ const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const {spawnSync} = require('child_process');
+const {spawn} = require('child_process');
 
 class PostValidate extends SfCommand {
   static id = 'metadelta:postvalidate';
@@ -48,9 +48,8 @@ class PostValidate extends SfCommand {
           this.error('Para procesar el manifest XML debes indicar el alias del ambiente con --org.');
         }
         const xmlPath = path.resolve(flags.xml);
-        this.log('🔄 Ejecutando retrieve de Salesforce Core...');
         const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --output-dir ${tempDir}`;
-        this.runCommandAndCheck(retrieveCmd, 'retrieve de Salesforce Core');
+        await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core');
       }
 
       if (flags.yaml) {
@@ -58,9 +57,8 @@ class PostValidate extends SfCommand {
           this.error('Para procesar el manifest YAML debes indicar el alias del ambiente con --org.');
         }
         const yamlPath = path.resolve(flags.yaml);
-        this.log('🔄 Ejecutando retrieve de Vlocity...');
         const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
-        this.runCommandAndCheck(vlocityCmd, 'retrieve de Vlocity', tempDir);
+        await this.runCommandAndCheck(vlocityCmd, 'Retrieve de Vlocity', tempDir);
       }
 
       const differences = this.compareFolders({tempDir, projectRoot, vlocityDir});
@@ -71,11 +69,49 @@ class PostValidate extends SfCommand {
     }
   }
 
+  startSpinner(label) {
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let index = 0;
+    process.stdout.write(`${frames[index]} ${label}`);
+    const timer = setInterval(() => {
+      index = (index + 1) % frames.length;
+      process.stdout.write(`\r${frames[index]} ${label}`);
+    }, 90);
+
+    return () => {
+      clearInterval(timer);
+      process.stdout.write('\r\x1b[K');
+    };
+  }
+
   runCommandAndCheck(command, label, cwd) {
-    const result = spawnSync(command, {shell: true, cwd, stdio: 'inherit'});
-    if (result.status !== 0) {
-      this.error(`Error al ejecutar ${label}. Código: ${result.status ?? 'desconocido'}`);
-    }
+    return new Promise((resolve, reject) => {
+      const stop = this.startSpinner(label);
+      const child = spawn(command, {shell: true, cwd, stdio: ['ignore', 'pipe', 'pipe']});
+      let stderr = '';
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('error', (error) => {
+        stop();
+        this.error(`No se pudo iniciar ${label}: ${error.message}`);
+      });
+
+      child.on('close', (code) => {
+        stop();
+        if (code !== 0) {
+          const extra = stderr ? ` Detalle: ${stderr.trim()}` : '';
+          this.error(`Error al ejecutar ${label}. Código: ${code ?? 'desconocido'}.${extra}`);
+          reject(new Error('command failed'));
+          return;
+        }
+
+        this.log(`✅ ${label} completado.`);
+        resolve();
+      });
+    });
   }
 
   compareFolders({tempDir, projectRoot, vlocityDir}) {
