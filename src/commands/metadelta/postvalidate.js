@@ -168,18 +168,28 @@ class PostValidate extends SfCommand {
       headers[2].length
     ];
 
-    const line = (values) =>
-      values
-        .map((val, index) => String(val).padEnd(widths[index]))
-        .join(' | ');
+    const color = {
+      header: (text) => `\x1b[36m\x1b[1m${text}\x1b[0m`,
+      ok: (text) => `\x1b[32m${text}\x1b[0m`,
+      error: (text) => `\x1b[31m${text}\x1b[0m`,
+    };
 
-    this.log(line(headers));
-    this.log(`${'-'.repeat(widths[0])}-+-${'-'.repeat(widths[1])}-+-${'-'.repeat(widths[2])}`);
+    const divider = (left, middle, right) =>
+      `${left}${'─'.repeat(widths[0] + 2)}${middle}${'─'.repeat(widths[1] + 2)}${middle}${'─'.repeat(widths[2] + 2)}${right}`;
+
+    const formatRow = (values) =>
+      `│ ${String(values[0]).padEnd(widths[0])} │ ${String(values[1]).padEnd(widths[1])} │ ${String(values[2]).padEnd(widths[2])} │`;
+
+    this.log(divider('┌', '┬', '┐', '─'));
+    this.log(formatRow(headers.map((h) => color.header(h))));
+    this.log(divider('├', '┼', '┤', '─'));
 
     for (const row of rows) {
-      const diffSymbol = row.isDifferent ? '✗' : '✓';
-      this.log(line([row.component, row.name, diffSymbol]));
+      const diffSymbol = row.isDifferent ? color.error('✗') : color.ok('✓');
+      this.log(formatRow([row.component, row.name, diffSymbol]));
     }
+
+    this.log(divider('└', '┴', '┘', '─'));
   }
 }
 
