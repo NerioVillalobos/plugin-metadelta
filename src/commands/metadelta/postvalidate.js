@@ -89,9 +89,15 @@ class PostValidate extends SfCommand {
       const stop = this.startSpinner(label);
       const child = spawn(command, {shell: true, cwd, stdio: ['ignore', 'pipe', 'pipe']});
       let stderr = '';
+      let stdout = '';
 
       child.stderr.on('data', (data) => {
         stderr += data.toString();
+      });
+
+      child.stdout.on('data', (data) => {
+        // Consumimos stdout para evitar bloqueos por buffer lleno, pero sin mostrarlo.
+        stdout += data.toString();
       });
 
       child.on('error', (error) => {
@@ -102,7 +108,8 @@ class PostValidate extends SfCommand {
       child.on('close', (code) => {
         stop();
         if (code !== 0) {
-          const extra = stderr ? ` Detalle: ${stderr.trim()}` : '';
+          const combined = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n');
+          const extra = combined ? ` Detalle: ${combined}` : '';
           this.error(`Error al ejecutar ${label}. Código: ${code ?? 'desconocido'}.${extra}`);
           reject(new Error('command failed'));
           return;
