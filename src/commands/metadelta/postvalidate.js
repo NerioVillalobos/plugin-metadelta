@@ -35,6 +35,7 @@ class PostValidate extends SfCommand {
     }
 
     const projectRoot = process.cwd();
+    this.packageDirectories = this.loadPackageDirectories(projectRoot);
     const vlocityDir = path.resolve(flags['vlocity-dir']);
     const orgAlias = flags.org;
 
@@ -97,6 +98,25 @@ class PostValidate extends SfCommand {
     return rows;
   }
 
+  loadPackageDirectories(projectRoot) {
+    const sfdxConfigPath = path.join(projectRoot, 'sfdx-project.json');
+    try {
+      if (!fs.existsSync(sfdxConfigPath)) {
+        return [];
+      }
+      const config = JSON.parse(fs.readFileSync(sfdxConfigPath, 'utf8'));
+      if (!Array.isArray(config.packageDirectories)) {
+        return [];
+      }
+      return config.packageDirectories
+        .map((pkg) => pkg.path)
+        .filter((p) => typeof p === 'string' && p.length > 0);
+    } catch (error) {
+      this.warn(`No se pudo leer sfdx-project.json para resolver rutas: ${error.message}`);
+      return [];
+    }
+  }
+
   collectFiles(dir) {
     const entries = fs.readdirSync(dir, {withFileTypes: true});
     const files = [];
@@ -123,16 +143,34 @@ class PostValidate extends SfCommand {
 
   resolveBaseFile({relative, projectRoot, vlocityDir}) {
     const parts = relative.split(path.sep);
-    const candidates = [
-      path.join(projectRoot, relative),
-      path.join(vlocityDir, relative),
-    ];
+    const candidates = [path.join(projectRoot, relative), path.join(vlocityDir, relative)];
 
     if (parts[0] === path.basename(vlocityDir)) {
       candidates.push(path.join(vlocityDir, ...parts.slice(1)));
     }
 
-    return candidates.find((candidate) => fs.existsSync(candidate));
+    for (const pkgDir of this.packageDirectories || []) {
+      const pkgRoot = path.join(projectRoot, pkgDir);
+      const relativeWithoutPkg = relative.startsWith(`${pkgDir}${path.sep}`)
+        ? relative.slice(pkgDir.length + 1)
+        : relative;
+
+      candidates.push(path.join(pkgRoot, relativeWithoutPkg));
+      candidates.push(path.join(pkgRoot, 'main', 'default', relativeWithoutPkg));
+    }
+
+    const seen = new Set();
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) {
+        continue;
+      }
+      seen.add(candidate);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return undefined;
   }
 
   readAndNormalize(filePath) {
