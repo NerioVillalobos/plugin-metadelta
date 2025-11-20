@@ -165,7 +165,7 @@ class PostValidate extends SfCommand {
     const widths = [
       Math.max(headers[0].length, ...rows.map((r) => r.component.length)),
       Math.max(headers[1].length, ...rows.map((r) => r.name.length)),
-      headers[2].length
+      headers[2].length,
     ];
 
     const color = {
@@ -177,19 +177,30 @@ class PostValidate extends SfCommand {
     const divider = (left, middle, right) =>
       `${left}${'─'.repeat(widths[0] + 2)}${middle}${'─'.repeat(widths[1] + 2)}${middle}${'─'.repeat(widths[2] + 2)}${right}`;
 
-    const formatRow = (values) =>
-      `│ ${String(values[0]).padEnd(widths[0])} │ ${String(values[1]).padEnd(widths[1])} │ ${String(values[2]).padEnd(widths[2])} │`;
+    const formatRow = (cells) => {
+      const padded = cells.map(({text, colorFn}, index) => {
+        const base = String(text).padEnd(widths[index]);
+        return colorFn ? colorFn(base) : base;
+      });
+      return `│ ${padded[0]} │ ${padded[1]} │ ${padded[2]} │`;
+    };
 
-    this.log(divider('┌', '┬', '┐', '─'));
-    this.log(formatRow(headers.map((h) => color.header(h))));
-    this.log(divider('├', '┼', '┤', '─'));
+    const headerCells = headers.map((h) => ({text: h, colorFn: color.header}));
+    this.log(divider('┌', '┬', '┐'));
+    this.log(formatRow(headerCells));
+    this.log(divider('├', '┼', '┤'));
 
     for (const row of rows) {
-      const diffSymbol = row.isDifferent ? color.error('✗') : color.ok('✓');
-      this.log(formatRow([row.component, row.name, diffSymbol]));
+      const diffSymbol = row.isDifferent ? '✗' : '✓';
+      const diffColor = row.isDifferent ? color.error : color.ok;
+      this.log(formatRow([
+        {text: row.component},
+        {text: row.name},
+        {text: diffSymbol, colorFn: diffColor},
+      ]));
     }
 
-    this.log(divider('└', '┴', '┘', '─'));
+    this.log(divider('└', '┴', '┘'));
   }
 }
 
