@@ -123,10 +123,10 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
 
 Compare recently deployed components against local sources by retrieving the manifests you already used for deployment.
 
-**Vlocity in a dedicated folder.** If your Vlocity datapacks live under a folder named `Vlocity`, point the command there with `--base-dir` while referencing the YAML manifest and target org:
+**Vlocity in a dedicated folder.** If your Vlocity datapacks live under a folder named `Vlocity`, point the command there with `--vlocity-dir` while referencing the YAML manifest and target org:
 
 ```bash
-sf metadelta postvalidate --yaml manifest/vlocity.yaml --vlocity-org my-vlocity-org --base-dir Vlocity
+sf metadelta postvalidate --yaml manifest/vlocity.yaml --org my-vlocity-org --vlocity-dir Vlocity
 ```
 
 The command creates a temporary retrieve directory, normalizes whitespace and comments, and prints a `Component | Name | Diff` table marking differences with `✗` and matches with `✓`.

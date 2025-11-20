@@ -16,16 +16,15 @@ class PostValidate extends SfCommand {
 
   static examples = [
     'sf metadelta:postvalidate --xml manifest/package.xml --org my-core-org',
-    'sf metadelta:postvalidate --yaml manifest/vlocity.yaml --vlocity-org my-vlocity-org --base-dir Vlocity',
-    'sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-core-org --vlocity-org my-vlocity-org',
+    'sf metadelta:postvalidate --yaml manifest/vlocity.yaml --org my-vlocity-org --vlocity-dir Vlocity',
+    'sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity',
   ];
 
   static flags = {
-    org: Flags.string({char: 'o', summary: 'Alias o username del ambiente para Salesforce Core', required: false}),
-    'vlocity-org': Flags.string({summary: 'Alias o username del ambiente para Vlocity (si es distinto al org principal)'}),
+    org: Flags.string({char: 'o', summary: 'Alias o username del ambiente (Salesforce Core o Vlocity)', required: false}),
     xml: Flags.string({summary: 'Ruta al manifest XML (package.xml) usado en el despliegue'}),
     yaml: Flags.string({summary: 'Ruta al manifest YAML usado en el despliegue Vlocity'}),
-    'base-dir': Flags.string({summary: 'Directorio base del proyecto que contiene los componentes', default: '.'}),
+    'vlocity-dir': Flags.string({summary: 'Directorio base donde se encuentran los componentes Vlocity locales', default: 'Vlocity'}),
   };
 
   async run() {
@@ -35,9 +34,9 @@ class PostValidate extends SfCommand {
       this.error('Debes proporcionar al menos un archivo manifest: --xml <ruta> o --yaml <ruta>.');
     }
 
-    const baseDir = path.resolve(flags['base-dir']);
+    const projectRoot = process.cwd();
+    const vlocityDir = path.resolve(flags['vlocity-dir']);
     const orgAlias = flags.org;
-    const vlocityOrg = flags['vlocity-org'] || orgAlias;
 
     const tempDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'metadelta-postvalidate-'));
     this.log(`📂 Directorio temporal creado: ${tempDir}`);
@@ -54,16 +53,16 @@ class PostValidate extends SfCommand {
       }
 
       if (flags.yaml) {
-        if (!vlocityOrg) {
-          this.error('Para procesar el manifest YAML debes indicar el alias del ambiente con --vlocity-org o --org.');
+        if (!orgAlias) {
+          this.error('Para procesar el manifest YAML debes indicar el alias del ambiente con --org.');
         }
         const yamlPath = path.resolve(flags.yaml);
         this.log('🔄 Ejecutando retrieve de Vlocity...');
-        const vlocityCmd = `vlocity --sfdx.username ${vlocityOrg} -job ${yamlPath} packExport --maxDepth 0`;
+        const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
         this.runCommandAndCheck(vlocityCmd, 'retrieve de Vlocity', tempDir);
       }
 
-      const differences = this.compareFolders(baseDir, tempDir);
+      const differences = this.compareFolders({tempDir, projectRoot, vlocityDir});
       this.printTable(differences);
     } finally {
       fs.rmSync(tempDir, {recursive: true, force: true});
@@ -78,18 +77,18 @@ class PostValidate extends SfCommand {
     }
   }
 
-  compareFolders(baseDir, tempDir) {
+  compareFolders({tempDir, projectRoot, vlocityDir}) {
     const retrievedFiles = this.collectFiles(tempDir);
     const rows = [];
 
     for (const filePath of retrievedFiles) {
       const relative = path.relative(tempDir, filePath);
-      const baseFile = path.join(baseDir, relative);
       const component = relative.split(path.sep)[0] || path.basename(relative);
       const name = path.basename(relative);
 
       const retrievedContent = this.readAndNormalize(filePath);
-      const baseContent = fs.existsSync(baseFile) ? this.readAndNormalize(baseFile) : null;
+      const baseFile = this.resolveBaseFile({relative, projectRoot, vlocityDir});
+      const baseContent = baseFile && fs.existsSync(baseFile) ? this.readAndNormalize(baseFile) : null;
 
       const isDifferent = baseContent === null ? true : retrievedContent !== baseContent;
       rows.push({component, name, isDifferent});
@@ -102,6 +101,9 @@ class PostValidate extends SfCommand {
     const entries = fs.readdirSync(dir, {withFileTypes: true});
     const files = [];
     for (const entry of entries) {
+      if (this.shouldIgnoreEntry(entry)) {
+        continue;
+      }
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         files.push(...this.collectFiles(fullPath));
@@ -110,6 +112,27 @@ class PostValidate extends SfCommand {
       }
     }
     return files;
+  }
+
+  shouldIgnoreEntry(entry) {
+    if (entry.name === 'vlocity-temp') {
+      return true;
+    }
+    return ['VlocityBuildErrors.log', 'VlocityBuildLog.yaml'].includes(entry.name);
+  }
+
+  resolveBaseFile({relative, projectRoot, vlocityDir}) {
+    const parts = relative.split(path.sep);
+    const candidates = [
+      path.join(projectRoot, relative),
+      path.join(vlocityDir, relative),
+    ];
+
+    if (parts[0] === path.basename(vlocityDir)) {
+      candidates.push(path.join(vlocityDir, ...parts.slice(1)));
+    }
+
+    return candidates.find((candidate) => fs.existsSync(candidate));
   }
 
   readAndNormalize(filePath) {

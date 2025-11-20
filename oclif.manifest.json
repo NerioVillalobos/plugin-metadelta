@@ -446,14 +446,7 @@
         "org": {
           "char": "o",
           "name": "org",
-          "summary": "Alias o username del ambiente para Salesforce Core",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "vlocity-org": {
-          "name": "vlocity-org",
-          "summary": "Alias o username del ambiente para Vlocity (si es distinto al org principal)",
+          "summary": "Alias o username del ambiente (Salesforce Core o Vlocity)",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -472,10 +465,10 @@
           "multiple": false,
           "type": "option"
         },
-        "base-dir": {
-          "name": "base-dir",
-          "summary": "Directorio base del proyecto que contiene los componentes",
-          "default": ".",
+        "vlocity-dir": {
+          "name": "vlocity-dir",
+          "summary": "Directorio base donde se encuentran los componentes Vlocity locales",
+          "default": "Vlocity",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
