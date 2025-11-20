@@ -429,6 +429,73 @@
         "manual",
         "collect.js"
       ]
+    },
+    "metadelta:postvalidate": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias o username del ambiente para Salesforce Core",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "vlocity-org": {
+          "name": "vlocity-org",
+          "summary": "Alias o username del ambiente para Vlocity (si es distinto al org principal)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Ruta al manifest XML (package.xml) usado en el despliegue",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Ruta al manifest YAML usado en el despliegue Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-dir": {
+          "name": "base-dir",
+          "summary": "Directorio base del proyecto que contiene los componentes",
+          "default": ".",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:postvalidate",
+      "pluginAlias": "sf-metadelta",
+      "pluginName": "sf-metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "SF_ENV": "SF_ENV",
+      "isESM": false,
+      "relativePath": [
+        "src",
+        "commands",
+        "metadelta",
+        "postvalidate.js"
+      ]
     }
   },
   "version": "0.6.1"
