@@ -130,9 +130,15 @@ class PostValidate extends SfCommand {
       const component = relative.split(path.sep)[0] || path.basename(relative);
       const name = path.basename(relative);
 
-      const retrievedContent = this.readAndNormalize(filePath);
+      const isVlocity = this.isVlocityFile({relative, vlocityDir, baseFile: undefined});
       const baseFile = this.resolveBaseFile({relative, projectRoot, vlocityDir});
-      const baseContent = baseFile && fs.existsSync(baseFile) ? this.readAndNormalize(baseFile) : null;
+      const isVlocityResolved = this.isVlocityFile({relative, vlocityDir, baseFile});
+
+      const retrievedContent = this.readAndNormalize(filePath, {ignoreGlobalKey: isVlocity || isVlocityResolved});
+      const baseContent =
+        baseFile && fs.existsSync(baseFile)
+          ? this.readAndNormalize(baseFile, {ignoreGlobalKey: isVlocity || isVlocityResolved})
+          : null;
 
       const isDifferent = baseContent === null ? true : retrievedContent !== baseContent;
       rows.push({component, name, isDifferent});
@@ -216,7 +222,7 @@ class PostValidate extends SfCommand {
     return undefined;
   }
 
-  readAndNormalize(filePath) {
+  readAndNormalize(filePath, options = {}) {
     let content = '';
     try {
       content = fs.readFileSync(filePath, 'utf8');
@@ -224,16 +230,40 @@ class PostValidate extends SfCommand {
       this.warn(`No se pudo leer el archivo ${filePath}: ${error.message}`);
       return '';
     }
-    return this.normalizeContent(content);
+    return this.normalizeContent(content, options);
   }
 
-  normalizeContent(content) {
+  normalizeContent(content, options = {}) {
+    const {ignoreGlobalKey = false} = options;
     const withoutXmlComments = content.replace(/<!--[\s\S]*?-->/g, '');
     const withoutBlockComments = withoutXmlComments.replace(/\/\*[\s\S]*?\*\//g, '');
     const withoutLineComments = withoutBlockComments
       .replace(/^\s*#.*$/gm, '')
       .replace(/(^|\s)\/\/.*$/gm, '$1');
-    return withoutLineComments.replace(/\s+/g, '');
+    const withoutGlobalKey = ignoreGlobalKey
+      ? withoutLineComments
+          .split(/\r?\n/)
+          .filter((line) => !line.includes('GlobalKey'))
+          .join('\n')
+      : withoutLineComments;
+    return withoutGlobalKey.replace(/\s+/g, '');
+  }
+
+  isVlocityFile({relative, vlocityDir, baseFile}) {
+    const resolvedVlocityDir = path.resolve(vlocityDir || '');
+    if (baseFile) {
+      const resolvedBase = path.resolve(baseFile);
+      if (resolvedBase.startsWith(resolvedVlocityDir)) {
+        return true;
+      }
+    }
+
+    const firstSegment = relative.split(path.sep)[0] || '';
+    if (firstSegment.toLowerCase().includes('vlocity')) {
+      return true;
+    }
+
+    return false;
   }
 
   printTable(rows) {
