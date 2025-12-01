@@ -764,10 +764,13 @@ class FindTest extends SfCommand {
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
 
       if (!apexType) {
-        this.log(
-          `\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con ${fallbackTestLevel}.`
-        );
-        deployArgs.push('-l', fallbackTestLevel);
+        const noApexMessage = fallbackTestLevel
+          ? `\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con ${fallbackTestLevel}.`
+          : '\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue sin especificar nivel de pruebas.';
+        this.log(noApexMessage);
+        if (fallbackTestLevel) {
+          deployArgs.push('-l', fallbackTestLevel);
+        }
         if (useDryRun) {
           deployArgs.push('--dry-run');
         }
