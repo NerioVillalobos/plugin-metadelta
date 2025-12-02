@@ -6,9 +6,13 @@ Metadelta es un plugin profesional para Salesforce CLI (sf) que ayuda a auditar 
 
 ### Desde GitHub Releases
 
+El tarball publicado conserva el scope de npm (`nervill`), por lo que el nombre correcto del artefacto es **`nervill-metadelta-<version>.tgz`**. Usa el enlace exacto del Release correspondiente, por ejemplo:
+
 ```bash
-sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
+sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/nervill-metadelta-1.0.0.tgz
 ```
+
+Ajusta la versión en la URL según el tag publicado (p. ej. `v1.0.3` → `nervill-metadelta-1.0.3.tgz`). Usar un nombre de archivo sin el scope (`metadelta-*.tgz`) o un tag inexistente provocará el 404 mostrado por npm.
 
 ### Instalación local (tarball generado con `npm pack`)
 
@@ -46,7 +50,7 @@ Si quieres distribuir el plugin para que otros lo instalen sin clonar el reposit
 3. **Espera al workflow de Release**: el flujo `Build & Release Metadelta` construirá el plugin, ejecutará `npm pack` y adjuntará el tarball al Release.
 4. **Instala desde GitHub Releases** usando la URL del artefacto generado:
    ```bash
-   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/nervill-metadelta-1.0.0.tgz
    ```
 
 ## Comandos principales
@@ -104,15 +108,15 @@ Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
    ```bash
    npm run build
    ```
-3. **Empaqueta el plugin** (genera `metadelta-1.0.0.tgz` en el directorio actual)
+3. **Empaqueta el plugin** (genera `nervill-metadelta-1.0.0.tgz` en el directorio actual)
    ```bash
    npm pack
    ```
 4. **Instala desde el tarball local** (usa ruta absoluta o `file:`)
    ```bash
-   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   sf plugins install file://$(pwd)/nervill-metadelta-1.0.0.tgz
    # alternativa desde el mismo directorio
-   sf plugins install file:metadelta-1.0.0.tgz
+   sf plugins install file:nervill-metadelta-1.0.0.tgz
    ```
 5. **Autoriza el plugin sin firmar (si es necesario)**
    ```bash
@@ -128,7 +132,7 @@ Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
    - El workflow `Build & Release Metadelta` se ejecutará, construirá el plugin, adjuntará el tarball al release y publicará en npm si `NPM_TOKEN` está configurado.
 7. **Instala desde GitHub Releases** (una vez generado el release):
    ```bash
-   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/nervill-metadelta-1.0.0.tgz
    ```
 
 ## Solución de problemas comunes
@@ -178,22 +182,22 @@ npm run build
 
 ### Error: `npm ERR! 404 ... https://github.com/./metadelta-1.0.0.tgz`
 
-El error aparece cuando `sf plugins install` interpreta la ruta del tarball como URL de GitHub (por ejemplo, por usar `./metadelta-1.0.0.tgz` fuera del directorio que contiene el archivo, o por reescritura automática en ramas que no son `master`).
+El error aparece cuando `sf plugins install` interpreta la ruta del tarball como URL de GitHub (por ejemplo, por usar `./nervill-metadelta-1.0.0.tgz` fuera del directorio que contiene el archivo, o por reescritura automática en ramas que no son `master`).
 
 1. Verifica que el tarball existe en tu directorio actual.
    ```bash
-   ls -l metadelta-1.0.0.tgz
+   ls -l nervill-metadelta-1.0.0.tgz
    ```
 2. Instala usando ruta absoluta o con prefijo `file:` desde el directorio que tiene el tarball.
    ```bash
-   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   sf plugins install file://$(pwd)/nervill-metadelta-1.0.0.tgz
    # alternativa desde el mismo directorio
-   sf plugins install file:metadelta-1.0.0.tgz
+   sf plugins install file:nervill-metadelta-1.0.0.tgz
    ```
 3. Si sigues viendo el 404, elimina instalaciones previas e intenta de nuevo con la ruta absoluta.
    ```bash
    sf plugins uninstall @nervill/metadelta
-   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   sf plugins install file://$(pwd)/nervill-metadelta-1.0.0.tgz
    ```
 
 ### Error: `npm ERR! enoent ... nervill-metadelta-1.0.0.tgz`
