@@ -9,10 +9,16 @@ Metadelta es un plugin profesional para Salesforce CLI (sf) que ayuda a auditar 
 El tarball publicado conserva el scope de npm (`nervill`), por lo que el nombre correcto del artefacto es **`nervill-metadelta-<version>.tgz`**. Usa el enlace exacto del Release correspondiente, por ejemplo:
 
 ```bash
-sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/nervill-metadelta-1.0.0.tgz
+sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.5/nervill-metadelta-1.0.5.tgz
 ```
 
-Ajusta la versión en la URL según el tag publicado (p. ej. `v1.0.3` → `nervill-metadelta-1.0.3.tgz`). Usar un nombre de archivo sin el scope (`metadelta-*.tgz`) o un tag inexistente provocará el 404 mostrado por npm.
+Para evitar errores 404 por escribir el nombre sin scope, el Release adjunta también un alias **`metadelta-<version>.tgz`** que apunta al mismo paquete:
+
+```bash
+sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.5/metadelta-1.0.5.tgz
+```
+
+Ajusta la versión en la URL según el tag publicado (p. ej. `v1.0.6` → `nervill-metadelta-1.0.6.tgz` o `metadelta-1.0.6.tgz`).
 
 ### Instalación local (tarball generado con `npm pack`)
 
@@ -42,15 +48,17 @@ Si quieres distribuir el plugin para que otros lo instalen sin clonar el reposit
    git merge <tu-rama-de-trabajo>
    git push origin master
    ```
-2. **Etiqueta la versión** (sigue el esquema `v*`, por ejemplo `v1.0.0`):
+2. **Etiqueta la versión** (sigue el esquema `v*`, por ejemplo `v1.0.5`):
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v1.0.5
+   git push origin v1.0.5
    ```
-3. **Espera al workflow de Release**: el flujo `Build & Release Metadelta` construirá el plugin, ejecutará `npm pack` y adjuntará el tarball al Release.
-4. **Instala desde GitHub Releases** usando la URL del artefacto generado:
+3. **Espera al workflow de Release**: el flujo `Build & Release Metadelta` construirá el plugin, ejecutará `npm pack` y adjuntará dos tarballs al Release: `nervill-metadelta-<version>.tgz` y su alias `metadelta-<version>.tgz`.
+4. **Instala desde GitHub Releases** usando cualquiera de las URLs del artefacto generado:
    ```bash
-   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/nervill-metadelta-1.0.0.tgz
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.5/nervill-metadelta-1.0.5.tgz
+   # o bien, el alias sin scope
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.5/metadelta-1.0.5.tgz
    ```
 
 ## Comandos principales
