@@ -12,11 +12,13 @@ sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/
 
 ### Instalación local (tarball generado con `npm pack`)
 
-Usa una ruta absoluta o prefija con `file:` para evitar que npm intente resolver el tarball como URL de GitHub:
+Usa **siempre** ruta absoluta o prefija con `file:` para evitar que npm intente resolver el tarball como URL de GitHub (sucede al estar en ramas distintas a `master` o cuando npm reescribe `./` como host GitHub):
 
 ```bash
 # después de ejecutar `npm pack` en el repo
 sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+# o, desde el mismo directorio, usando prefijo file: explícito
+sf plugins install file:metadelta-1.0.0.tgz
 ```
 
 ### Allowlist para plugins sin firmar
@@ -88,6 +90,8 @@ Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
 4. **Instala desde el tarball local** (usa ruta absoluta o `file:`)
    ```bash
    sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   # alternativa desde el mismo directorio
+   sf plugins install file:metadelta-1.0.0.tgz
    ```
 5. **Autoriza el plugin sin firmar (si es necesario)**
    ```bash
@@ -153,7 +157,7 @@ npm run build
 
 ### Error: `npm ERR! 404 ... https://github.com/./metadelta-1.0.0.tgz`
 
-El error aparece cuando `sf plugins install` interpreta la ruta del tarball como URL de GitHub (por ejemplo, por usar `./metadelta-1.0.0.tgz` fuera del directorio que contiene el archivo).
+El error aparece cuando `sf plugins install` interpreta la ruta del tarball como URL de GitHub (por ejemplo, por usar `./metadelta-1.0.0.tgz` fuera del directorio que contiene el archivo, o por reescritura automática en ramas que no son `master`).
 
 1. Verifica que el tarball existe en tu directorio actual.
    ```bash
@@ -162,6 +166,8 @@ El error aparece cuando `sf plugins install` interpreta la ruta del tarball como
 2. Instala usando ruta absoluta o con prefijo `file:` desde el directorio que tiene el tarball.
    ```bash
    sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   # alternativa desde el mismo directorio
+   sf plugins install file:metadelta-1.0.0.tgz
    ```
 3. Si sigues viendo el 404, elimina instalaciones previas e intenta de nuevo con la ruta absoluta.
    ```bash
