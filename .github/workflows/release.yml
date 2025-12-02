@@ -29,6 +29,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           npm version "$VERSION" --no-git-tag-version
+          echo "PKG_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build
         run: npm run build
@@ -37,6 +38,8 @@ jobs:
         run: |
           PKG=$(npm pack --silent | tail -n 1 | tr -d '\r')
           echo "TARBALL_NAME=$PKG" >> $GITHUB_ENV
+          cp "$PKG" "metadelta-${PKG_VERSION}.tgz"
+          echo "ALIAS_TARBALL_NAME=metadelta-${PKG_VERSION}.tgz" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -46,5 +49,7 @@ jobs:
           name: "Release ${{ github.ref_name }}"
           body: |
             ⚡ Auto Release para Metadelta
-          files: ${{ env.TARBALL_NAME }}
+          files: |
+            ${{ env.TARBALL_NAME }}
+            ${{ env.ALIAS_TARBALL_NAME }}
 
