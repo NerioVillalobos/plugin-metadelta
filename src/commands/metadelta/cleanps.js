@@ -1,7 +1,7 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {XMLParser, XMLBuilder} = require('fast-xml-parser');
+import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {XMLParser, XMLBuilder} from 'fast-xml-parser';
 
 const METADATA_NAMESPACE = 'http://soap.sforce.com/2006/04/metadata';
 
@@ -360,4 +360,4 @@ class CleanPs extends SfCommand {
   }
 }
 
-module.exports = CleanPs;
+export default CleanPs;

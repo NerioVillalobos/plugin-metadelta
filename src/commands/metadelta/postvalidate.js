@@ -1,8 +1,8 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const {spawn} = require('child_process');
+import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
 
 class PostValidate extends SfCommand {
   static id = 'metadelta:postvalidate';
@@ -315,4 +315,4 @@ class PostValidate extends SfCommand {
   }
 }
 
-module.exports = PostValidate;
+export default PostValidate;

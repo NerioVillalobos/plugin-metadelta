@@ -1,8 +1,8 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {execFileSync} = require('child_process');
-const {XMLParser} = require('fast-xml-parser');
+import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {XMLParser} from 'fast-xml-parser';
 
 class Merge extends SfCommand {
   static id = 'metadelta:merge';
@@ -234,7 +234,7 @@ class Merge extends SfCommand {
   }
 }
 
-module.exports = Merge;
+export default Merge;
 
 function runGit(args, trim = true) {
   const output = execFileSync('git', args, {encoding: 'utf8'});

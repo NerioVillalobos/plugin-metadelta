@@ -1,7 +1,7 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {execFileSync} = require('child_process');
+import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 
 const {readdir, readFile, stat, mkdir, writeFile} = fs.promises;
 
@@ -319,6 +319,5 @@ function normalizePathForFs(relativePath) {
   return relativePath.split('/').join(path.sep);
 }
 
-module.exports = ManualCollect;
-module.exports.default = ManualCollect;
+export default ManualCollect;
 
