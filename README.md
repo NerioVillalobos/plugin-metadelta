@@ -65,3 +65,40 @@ El flujo `.github/workflows/release.yml` construye el plugin al crear un tag `v*
 - `oclif.manifest.json`: manifiesto generado para OCLIF.
 
 Metadelta se distribuye con `"type": "module"` y es totalmente compatible con instalaciones desde tarball sin necesidad de clonar el repositorio.
+
+## Próximos pasos para publicar o instalar
+
+Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
+
+1. **Instala dependencias**
+   ```bash
+   npm install
+   ```
+2. **Compila y genera el manifiesto**
+   ```bash
+   npm run build
+   ```
+3. **Empaqueta el plugin** (genera `metadelta-1.0.0.tgz` en el directorio actual)
+   ```bash
+   npm pack
+   ```
+4. **Instala desde el tarball local**
+   ```bash
+   sf plugins install ./metadelta-1.0.0.tgz
+   ```
+5. **Autoriza el plugin sin firmar (si es necesario)**
+   ```bash
+   echo '{ "unsignedPluginAllowList": ["@nervill/metadelta"] }' \
+   > ~/.config/sf/unsignedPluginAllowList.json
+   ```
+6. **Publica una versión automática**
+   - Crea un tag siguiendo el esquema `v*`, por ejemplo `v1.0.0`:
+     ```bash
+     git tag v1.0.0
+     git push origin v1.0.0
+     ```
+   - El workflow `Build & Release Metadelta` se ejecutará, construirá el plugin, adjuntará el tarball al release y publicará en npm si `NPM_TOKEN` está configurado.
+7. **Instala desde GitHub Releases** (una vez generado el release):
+   ```bash
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
+   ```
