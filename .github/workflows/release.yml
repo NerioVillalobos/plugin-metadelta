@@ -39,20 +39,12 @@ jobs:
           echo "TARBALL_NAME=$PKG" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
           body: |
             ⚡ Auto Release para Metadelta
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload tarball to Release
-        uses: softprops/action-gh-release@v2
-        with:
           files: ${{ env.TARBALL_NAME }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
