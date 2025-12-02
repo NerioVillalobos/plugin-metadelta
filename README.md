@@ -132,3 +132,18 @@ rm -rf node_modules
 npm install
 npm run build
 ```
+
+### Error: `sh: oclif: not found`
+
+1. Asegúrate de estar en la versión más reciente del repositorio (el script de build ya no depende de tener `oclif` en tu PATH).
+   ```bash
+   git pull origin main
+   ```
+2. Reinstala dependencias para regenerar `node_modules/.bin`.
+   ```bash
+   npm install
+   ```
+3. Ejecuta nuevamente el build (ahora usa `tsc` y `node scripts/generate-manifest.mjs`).
+   ```bash
+   npm run build
+   ```

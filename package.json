@@ -13,8 +13,8 @@
     "oclif.manifest.json"
   ],
   "scripts": {
-    "clean": "rimraf lib oclif.manifest.json",
-    "build": "npm run clean && oclif manifest && tsc",
+    "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
+    "build": "npm run clean && tsc && node scripts/generate-manifest.mjs",
     "prepack": "npm run build",
     "pack": "npm pack"
   },
@@ -44,7 +44,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
-    "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
   },
   "oclif": {
