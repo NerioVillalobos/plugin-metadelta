@@ -102,3 +102,33 @@ Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
    ```bash
    sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
    ```
+
+## Solución de problemas comunes
+
+### Error: `npm ERR! Missing script: "build"`
+
+1. Verifica que estás en la carpeta del proyecto (debe existir `package.json` con el script `build`).
+   ```bash
+   pwd
+   ls
+   cat package.json | grep '"build"'
+   ```
+2. Asegúrate de tener la última versión del repositorio con el `package.json` actualizado.
+   ```bash
+   git pull origin main
+   ```
+3. Instala dependencias antes de compilar.
+   ```bash
+   npm install
+   ```
+4. Ejecuta nuevamente el build.
+   ```bash
+   npm run build
+   ```
+
+Si el problema persiste, elimina `node_modules` y reinstala dependencias:
+```bash
+rm -rf node_modules
+npm install
+npm run build
+```
