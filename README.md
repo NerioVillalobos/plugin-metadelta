@@ -28,6 +28,28 @@ sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/
    sf plugins install file:/home/usuario/plugin-metadelta/nervill-metadelta-1.0.0.tgz
    ```
 
+### Instalación remota (Release oficial)
+
+Si quieres distribuir el plugin para que otros lo instalen sin clonar el repositorio:
+
+1. **Fusiona la rama de trabajo a `master` (o `main`)**
+   ```bash
+   git checkout master
+   git merge <tu-rama-de-trabajo>
+   git push origin master
+   ```
+2. **Etiqueta la versión** (sigue el esquema `v*`, por ejemplo `v1.0.0`):
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+3. **Espera al workflow de Release**: el flujo `Build & Release Metadelta` construirá el plugin, ejecutará `npm pack` y adjuntará el tarball al Release.
+4. **Instala desde GitHub Releases** usando la URL del artefacto generado:
+   ```bash
+   sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
+   ```
+5. (Opcional) **Publica en npm**: configura `NPM_TOKEN` como secreto en el repositorio. El job `publish-npm` se activará automáticamente al crear el tag.
+
 ### Allowlist para plugins sin firmar
 
 ```bash
