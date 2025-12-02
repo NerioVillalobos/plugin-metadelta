@@ -337,6 +337,45 @@
         "merge.js"
       ]
     },
+    "metadelta:orgApiVersion": {
+      "aliases": [],
+      "args": {},
+      "description": "Ejecuta sf org display --json para recuperar la versión de API de la organización indicada.",
+      "flags": {
+        "json": {
+          "description": "Format output as json.",
+          "helpGroup": "GLOBAL",
+          "name": "json",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias o nombre de usuario de la organización objetivo.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:orgApiVersion",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Obtiene la versión de API de una organización objetivo.",
+      "SF_ENV": "SF_ENV",
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "orgApiVersion.js"
+      ]
+    },
     "metadelta:postvalidate": {
       "aliases": [],
       "args": {},
