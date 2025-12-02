@@ -12,8 +12,11 @@ sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/
 
 ### Instalación local (tarball generado con `npm pack`)
 
+Usa una ruta absoluta o prefija con `file:` para evitar que npm intente resolver el tarball como URL de GitHub:
+
 ```bash
-sf plugins install ./metadelta-1.0.0.tgz
+# después de ejecutar `npm pack` en el repo
+sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
 ```
 
 ### Allowlist para plugins sin firmar
@@ -82,9 +85,9 @@ Sigue esta guía paso a paso para usar lo que ya está en el repositorio:
    ```bash
    npm pack
    ```
-4. **Instala desde el tarball local**
+4. **Instala desde el tarball local** (usa ruta absoluta o `file:`)
    ```bash
-   sf plugins install ./metadelta-1.0.0.tgz
+   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
    ```
 5. **Autoriza el plugin sin firmar (si es necesario)**
    ```bash
@@ -146,4 +149,22 @@ npm run build
 3. Ejecuta nuevamente el build (ahora usa `tsc` y `node scripts/generate-manifest.mjs`).
    ```bash
    npm run build
+   ```
+
+### Error: `npm ERR! 404 ... https://github.com/./metadelta-1.0.0.tgz`
+
+El error aparece cuando `sf plugins install` interpreta la ruta del tarball como URL de GitHub (por ejemplo, por usar `./metadelta-1.0.0.tgz` fuera del directorio que contiene el archivo).
+
+1. Verifica que el tarball existe en tu directorio actual.
+   ```bash
+   ls -l metadelta-1.0.0.tgz
+   ```
+2. Instala usando ruta absoluta o con prefijo `file:` desde el directorio que tiene el tarball.
+   ```bash
+   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   ```
+3. Si sigues viendo el 404, elimina instalaciones previas e intenta de nuevo con la ruta absoluta.
+   ```bash
+   sf plugins uninstall @nervill/metadelta
+   sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
    ```
