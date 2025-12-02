@@ -12,14 +12,21 @@ sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/
 
 ### Instalación local (tarball generado con `npm pack`)
 
-Usa **siempre** ruta absoluta o prefija con `file:` para evitar que npm intente resolver el tarball como URL de GitHub (sucede al estar en ramas distintas a `master` o cuando npm reescribe `./` como host GitHub):
-
-```bash
-# después de ejecutar `npm pack` en el repo
-sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
-# o, desde el mismo directorio, usando prefijo file: explícito
-sf plugins install file:metadelta-1.0.0.tgz
-```
+1. Genera el tarball (el nombre exacto incluye el scope: **`nervill-metadelta-1.0.0.tgz`**):
+   ```bash
+   npm pack
+   ls -l nervill-metadelta-1.0.0.tgz
+   ```
+2. Instala usando **ruta absoluta** o prefijo `file:` apuntando a ese archivo. Esto evita que npm reescriba la ruta como URL de GitHub cuando estás en otra rama:
+   ```bash
+   sf plugins install file://$(pwd)/nervill-metadelta-1.0.0.tgz
+   # alternativa desde el mismo directorio
+   sf plugins install file:nervill-metadelta-1.0.0.tgz
+   ```
+3. Si usas otro directorio, ajusta la ruta absoluta, por ejemplo:
+   ```bash
+   sf plugins install file:/home/usuario/plugin-metadelta/nervill-metadelta-1.0.0.tgz
+   ```
 
 ### Allowlist para plugins sin firmar
 
@@ -173,4 +180,21 @@ El error aparece cuando `sf plugins install` interpreta la ruta del tarball como
    ```bash
    sf plugins uninstall @nervill/metadelta
    sf plugins install file://$(pwd)/metadelta-1.0.0.tgz
+   ```
+
+### Error: `npm ERR! enoent ... nervill-metadelta-1.0.0.tgz`
+
+1. Verifica que el archivo **nervill-metadelta-1.0.0.tgz** existe en el directorio desde el que instalas.
+   ```bash
+   ls -l nervill-metadelta-1.0.0.tgz
+   ```
+2. Si no existe, vuelve a generar el tarball con `npm pack` (esto también recompila el plugin).
+   ```bash
+   npm pack
+   ```
+3. Instala con ruta absoluta o `file:` apuntando a ese archivo, sin moverlo a otros directorios ocultos.
+   ```bash
+   sf plugins install file://$(pwd)/nervill-metadelta-1.0.0.tgz
+   # o bien, especifica la ruta absoluta completa
+   sf plugins install file:/home/usuario/plugin-metadelta/nervill-metadelta-1.0.0.tgz
    ```
