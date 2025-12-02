@@ -1,6 +1,6 @@
 {
   "name": "@nervill/metadelta",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
@@ -17,7 +17,7 @@
     "build": "npm run clean && tsc && node scripts/generate-manifest.mjs",
     "prepack": "npm run build",
     "pack": "npm pack",
-    "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist"
+    "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
   },
   "keywords": [
     "salesforce",
