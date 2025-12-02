@@ -48,14 +48,6 @@ Si quieres distribuir el plugin para que otros lo instalen sin clonar el reposit
    ```bash
    sf plugins install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.0/metadelta-1.0.0.tgz
    ```
-5. (Opcional) **Publica en npm**: configura `NPM_TOKEN` como secreto en el repositorio. El job `publish-npm` se activará automáticamente al crear el tag.
-
-### Allowlist para plugins sin firmar
-
-```bash
-echo '{ "unsignedPluginAllowList": ["@nervill/metadelta"] }' \
-> ~/.config/sf/unsignedPluginAllowList.json
-```
 
 ## Comandos principales
 
