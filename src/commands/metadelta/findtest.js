@@ -450,6 +450,10 @@ class FindTest extends SfCommand {
     'run-deploy': Flags.boolean({
       summary: 'Ejecuta el despliegue sin agregar la bandera --dry-run.'
     }),
+    'run-deploy-prod': Flags.boolean({
+      summary:
+        'Ejecuta el despliegue sin --dry-run y evita NoTestRun cuando no hay clases de prueba (producción).'
+    }),
     'only-local': Flags.boolean({
       summary: 'Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.'
     }),
@@ -479,7 +483,9 @@ class FindTest extends SfCommand {
     }
 
     const targetOrg = flags['target-org'] || flags.org;
-    const useDryRun = !flags['run-deploy'];
+    const runDeployProd = Boolean(flags['run-deploy-prod']);
+    const useDryRun = !(flags['run-deploy'] || runDeployProd);
+    const fallbackTestLevel = runDeployProd ? null : 'NoTestRun';
 
     let projectRoot;
     if (flags['project-dir']) {
@@ -663,13 +669,15 @@ class FindTest extends SfCommand {
     }
 
     if (finalClasses.length === 0) {
-      if (usedManifest) {
-        if (manifestNonTestMembers.length === 0) {
-          const continuationMessage = targetOrg
-            ? 'El package.xml indicado no contiene clases Apex para validar. Se continuará con NoTestRun.'
-            : 'El package.xml indicado no contiene clases Apex para validar.';
-          this.log(continuationMessage);
-        } else {
+        if (usedManifest) {
+          if (manifestNonTestMembers.length === 0) {
+            const continuationMessage = targetOrg
+              ? fallbackTestLevel
+                ? `El package.xml indicado no contiene clases Apex para validar. Se continuará con ${fallbackTestLevel}.`
+                : 'El package.xml indicado no contiene clases Apex para validar. Se continuará con el despliegue sin especificar nivel de pruebas.'
+              : 'El package.xml indicado no contiene clases Apex para validar.';
+            this.log(continuationMessage);
+          } else {
           const presentInRepo = manifestNonTestMembers.filter((name) => filesystemClasses.has(name));
 
           if (presentInRepo.length === 0) {
@@ -756,8 +764,13 @@ class FindTest extends SfCommand {
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
 
       if (!apexType) {
-        this.log('\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con NoTestRun.');
-        deployArgs.push('-l', 'NoTestRun');
+        const noApexMessage = fallbackTestLevel
+          ? `\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con ${fallbackTestLevel}.`
+          : '\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue sin especificar nivel de pruebas.';
+        this.log(noApexMessage);
+        if (fallbackTestLevel) {
+          deployArgs.push('-l', fallbackTestLevel);
+        }
         if (useDryRun) {
           deployArgs.push('--dry-run');
         }
@@ -863,8 +876,16 @@ class FindTest extends SfCommand {
       blockingWarnings.forEach((message) => this.warn(message));
 
       if (testsToRun.length === 0) {
-        this.log('\nNo se detectaron clases Apex a validar. Se ejecutará NoTestRun.');
-        deployArgs.push('-l', 'NoTestRun');
+        const noTestsMessage =
+          fallbackTestLevel === null
+            ? '\nNo se detectaron clases Apex a validar. Se ejecutará el despliegue sin especificar nivel de pruebas.'
+            : `\nNo se detectaron clases Apex a validar. Se ejecutará ${fallbackTestLevel}.`;
+
+        this.log(noTestsMessage);
+
+        if (fallbackTestLevel) {
+          deployArgs.push('-l', fallbackTestLevel);
+        }
       } else {
         deployArgs.push('-l', 'RunSpecifiedTests');
         testsToRun.forEach((testName) => {

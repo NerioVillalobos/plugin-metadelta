@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-11-20 — `sf-metadelta` 0.7.0
+> **Last update / Última actualización:** 2025-12-02 — `sf-metadelta` 0.8.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -43,7 +43,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.7.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.8.0 (link)`.
 
 ### Usage
 
@@ -211,6 +211,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
 | Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
 | Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -242,6 +243,7 @@ Once the functional and test pools are separated, the command evaluates each cla
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
 | `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
+| `--run-deploy-prod` | Production deployment helper that omits the `-l` flag when the manifest lacks Apex classes and uses `-l RunSpecifiedTests` with the detected test names when they exist. | `false` |
 | `--only-local` | Ignores the manifest (if any) and analyses only the Apex classes present in the local repository. | `false` |
 | `--ignore-managed`, `--no-ignore-managed` | Skip (`true`) or include (`false`) classes whose names start with `namespace__`. | `true` |
 | `--ignore-communities`, `--no-ignore-communities` | Skip (`true`) or include (`false`) the built-in Communities controllers (ChangePasswordController, etc.). | `true` |
@@ -519,6 +521,7 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
 | Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
 | Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -540,6 +543,7 @@ Si no existe una coincidencia directa, `findtest` recurre a una heurística basa
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
 | `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente agrega `--dry-run` para mantener la validación no destructiva. | `false` |
+| `--run-deploy-prod` | Asistente de despliegue para producción que omite la bandera `-l` cuando el manifiesto no contiene clases Apex y usa `-l RunSpecifiedTests` con las pruebas detectadas cuando sí existen. | `false` |
 | `--only-local` | Ignora el manifiesto (si existe) y analiza únicamente las clases Apex presentes en el repositorio local. | `false` |
 | `--ignore-managed`, `--no-ignore-managed` | Omite (`true`) o incluye (`false`) clases cuyos nombres comienzan con `namespace__`. | `true` |
 | `--ignore-communities`, `--no-ignore-communities` | Omite (`true`) o incluye (`false`) los controladores estándar de Communities (ChangePasswordController, etc.). | `true` |
