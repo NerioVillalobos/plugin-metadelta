@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+import {run} from '@oclif/core';
+
+async function main() {
+  await run(undefined, import.meta.url);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = error?.oclif?.exit ?? 1;
+});

@@ -1,9 +1,9 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {spawnSync} = require('child_process');
-const {XMLParser, XMLBuilder} = require('fast-xml-parser');
-const {fetchOrgApiVersion} = require('./orgApiVersion');
+import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {XMLParser, XMLBuilder} from 'fast-xml-parser';
+import {fetchOrgApiVersion} from './orgApiVersion.js';
 
 const TEST_NAME_PATTERN = /TEST|Test_|test_|_TEST|TEST_|Test|_test/i;
 
@@ -926,5 +926,4 @@ class FindTest extends SfCommand {
   }
 }
 
-module.exports = FindTest;
-module.exports.default = FindTest;
+export default FindTest;

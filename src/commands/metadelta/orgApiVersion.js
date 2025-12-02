@@ -1,6 +1,6 @@
-const {spawnSync} = require('child_process');
+import {spawnSync} from 'node:child_process';
 
-const fetchOrgApiVersion = (targetOrg) => {
+export const fetchOrgApiVersion = (targetOrg) => {
   if (!targetOrg) {
     return {apiVersion: null, error: null};
   }
@@ -48,5 +48,3 @@ const fetchOrgApiVersion = (targetOrg) => {
 
   return {apiVersion: String(apiVersion), error: null};
 };
-
-module.exports = {fetchOrgApiVersion};
