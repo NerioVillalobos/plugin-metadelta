@@ -1,6 +1,6 @@
 {
   "name": "@nervill/metadelta",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
@@ -16,7 +16,8 @@
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
     "build": "npm run clean && tsc && node scripts/generate-manifest.mjs",
     "prepack": "npm run build",
-    "pack": "npm pack"
+    "pack": "npm pack",
+    "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist"
   },
   "keywords": [
     "salesforce",
