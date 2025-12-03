@@ -39,9 +39,9 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@oclif/core": "^3.15.1",
-    "@salesforce/sf-plugins-core": "^3.0.0",
-    "fast-xml-parser": "^4.3.5"
+    "@oclif/core": "^4.8.0",
+    "@salesforce/sf-plugins-core": "^12.2.6",
+    "fast-xml-parser": "^5.3.2"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
@@ -52,6 +52,11 @@
     "commands": "./lib/commands"
   },
   "bundledDependencies": [
+    "@oclif/core",
+    "@salesforce/sf-plugins-core",
+    "fast-xml-parser"
+  ],
+  "bundleDependencies": [
     "@oclif/core",
     "@salesforce/sf-plugins-core",
     "fast-xml-parser"
