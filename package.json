@@ -50,5 +50,10 @@
   "oclif": {
     "bin": "metadelta",
     "commands": "./lib/commands"
-  }
+  },
+  "bundledDependencies": [
+    "@oclif/core",
+    "@salesforce/sf-plugins-core",
+    "fast-xml-parser"
+  ]
 }
