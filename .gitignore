@@ -4,3 +4,4 @@ manifest/
 .sf
 .vscode
 /dist/
+*.tgz
