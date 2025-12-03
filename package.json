@@ -55,10 +55,5 @@
     "@oclif/core",
     "@salesforce/sf-plugins-core",
     "fast-xml-parser"
-  ],
-  "bundleDependencies": [
-    "@oclif/core",
-    "@salesforce/sf-plugins-core",
-    "fast-xml-parser"
   ]
 }
