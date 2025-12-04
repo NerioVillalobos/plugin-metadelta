@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
-    "build": "npm run clean && tsc && node scripts/generate-manifest.mjs",
+    "build": "npm run clean && tsc",
+    "postbuild": "npx oclif manifest",
     "prepack": "npm run build",
     "pack": "npm pack",
     "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"

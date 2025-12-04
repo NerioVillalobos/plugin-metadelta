@@ -31,10 +31,10 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           echo "PKG_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Build (compile TypeScript and generate manifest)
         run: npm run build
 
-      - name: Regenerate oclif manifest
+      - name: Ensure manifest is up-to-date after build
         run: npx oclif manifest
 
       - name: Remove node_modules before packaging
@@ -58,4 +58,3 @@ jobs:
           files: |
             ${{ env.TARBALL_NAME }}
             ${{ env.ALIAS_TARBALL_NAME }}
-
