@@ -1,11 +1,11 @@
 {
   "name": "@nervill/metadelta",
-  "version": "1.0.8",
+  "version": "1.0.17",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
   "bin": {
-    "metadelta": "bin/run"
+    "sf": "bin/run"
   },
   "files": [
     "lib",
@@ -48,8 +48,10 @@
     "typescript": "^5.6.3"
   },
   "oclif": {
-    "bin": "metadelta",
-    "commands": "./lib/commands"
+    "bin": "sf",
+    "commands": "./lib/commands",
+    "dirname": "metadelta",
+    "pluginType": "sf"
   },
   "bundledDependencies": [
     "@oclif/core",
