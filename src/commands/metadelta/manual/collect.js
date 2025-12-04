@@ -1,4 +1,4 @@
-import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -8,7 +8,7 @@ const {readdir, readFile, stat, mkdir, writeFile} = fs.promises;
 const MANUAL_FILE_REGEX = /^OSS-?FSL-(Base|\d+)-(PRE|POST)\.md$/i;
 const BANNER_LINE = '===============================';
 
-class ManualCollect extends SfCommand {
+class ManualCollect extends Command {
   static summary = 'Genera un consolidado de pasos manuales en formato markdown.';
 
   static flags = {

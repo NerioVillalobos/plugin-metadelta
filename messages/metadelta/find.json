@@ -1,0 +1,8 @@
+{
+  "summary": "Find metadata changes made by a user in a Salesforce org.",
+  "description": "Searches metadata in the target org and surfaces components changed by the specified user within the configured window, optionally generating package.xml or Vlocity package.yaml outputs.",
+  "examples": [
+    "sf metadelta find --org myOrg --days 3 --xml",
+    "sf metadelta find --org myOrg --audit \"Jane Doe\" --namespace vlocity"
+  ]
+}

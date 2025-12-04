@@ -5,21 +5,6 @@
       "args": {},
       "description": "Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "prefix": {
           "char": "f",
           "name": "prefix",
@@ -65,12 +50,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:cleanps",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -84,21 +69,6 @@
       "args": {},
       "description": "Find metadata changes made by a user in a Salesforce org",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "org": {
           "char": "o",
           "name": "org",
@@ -153,12 +123,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:find",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Find metadata changes made by a user in a Salesforce org",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -172,20 +142,6 @@
       "args": {},
       "description": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
       "flags": {
-        "json": {
-          "name": "json",
-          "summary": "Emite un resumen en formato JSON con métricas de filtrado.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "project-dir": {
           "name": "project-dir",
           "summary": "Ruta al directorio raíz del proyecto Salesforce (contiene sfdx-project.json).",
@@ -265,16 +221,22 @@
           "summary": "Muestra avisos detallados de clases omitidas por filtros o ausencia local.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "json": {
+          "name": "json",
+          "summary": "Emite un resumen en formato JSON con métricas de filtrado.",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:findtest",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -288,21 +250,6 @@
       "args": {},
       "description": "Busca archivos XML dentro del directorio manifest cuyo nombre contenga el valor proporcionado y genera un globalpackage.xml con la unión de sus metadatos.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "xml-name": {
           "char": "x",
           "name": "xml-name",
@@ -355,12 +302,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:merge",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -374,21 +321,6 @@
       "args": {},
       "description": "Ejecuta sf org display --json para recuperar la versión de API de la organización indicada.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "org": {
           "char": "o",
           "name": "org",
@@ -402,12 +334,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:orgApiVersion",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Obtiene la versión de API de una organización objetivo.",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -426,21 +358,6 @@
         "sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity"
       ],
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "org": {
           "char": "o",
           "name": "org",
@@ -476,12 +393,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:postvalidate",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -494,21 +411,6 @@
       "aliases": [],
       "args": {},
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "flags-dir": {
-          "helpGroup": "GLOBAL",
-          "name": "flags-dir",
-          "summary": "Import flag values from a directory.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
         "docs": {
           "char": "d",
           "name": "docs",
@@ -577,12 +479,12 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:manual:collect",
-      "pluginAlias": "@nervill/aaa-metadelta",
-      "pluginName": "@nervill/aaa-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Genera un consolidado de pasos manuales en formato markdown.",
-      "enableJsonFlag": true,
+      "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
         "lib",
@@ -593,5 +495,5 @@
       ]
     }
   },
-  "version": "1.0.8"
+  "version": "1.0.17"
 }
