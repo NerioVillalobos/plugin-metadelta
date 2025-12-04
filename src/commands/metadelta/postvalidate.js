@@ -1,10 +1,10 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const {spawn} = require('child_process');
+import {Command, Flags} from '@oclif/core';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {spawn} from 'node:child_process';
 
-class PostValidate extends SfCommand {
+class PostValidate extends Command {
   static id = 'metadelta:postvalidate';
   static summary = 'Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.';
   static description = `
@@ -315,4 +315,4 @@ class PostValidate extends SfCommand {
   }
 }
 
-module.exports = PostValidate;
+export default PostValidate;

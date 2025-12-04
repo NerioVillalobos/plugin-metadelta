@@ -4,13 +4,13 @@ Fecha : 8/04/2025
 */
 
 
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const {spawn, spawnSync} = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const {fetchOrgApiVersion} = require('./orgApiVersion');
+import {Command, Flags} from '@oclif/core';
+import {spawn, spawnSync} from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fetchOrgApiVersion} from './orgApiVersion.js';
 
-class Find extends SfCommand {
+class Find extends Command {
   static id = 'metadelta:find';
   static summary = 'Find metadata changes made by a user in a Salesforce org';
   static description = 'Find metadata changes made by a user in a Salesforce org';
@@ -447,5 +447,4 @@ class Find extends SfCommand {
   }
 }
 
-module.exports = Find;
-module.exports.default = Find;
+export default Find;

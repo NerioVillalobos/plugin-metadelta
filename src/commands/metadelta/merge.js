@@ -1,10 +1,10 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {execFileSync} = require('child_process');
-const {XMLParser} = require('fast-xml-parser');
+import {Command, Flags} from '@oclif/core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {XMLParser} from 'fast-xml-parser';
 
-class Merge extends SfCommand {
+class Merge extends Command {
   static id = 'metadelta:merge';
   static summary = 'Combina archivos de manifiesto en un paquete global sin duplicados.';
   static description = 'Busca archivos XML dentro del directorio manifest cuyo nombre contenga el valor proporcionado y genera un globalpackage.xml con la unión de sus metadatos.';
@@ -234,7 +234,7 @@ class Merge extends SfCommand {
   }
 }
 
-module.exports = Merge;
+export default Merge;
 
 function runGit(args, trim = true) {
   const output = execFileSync('git', args, {encoding: 'utf8'});

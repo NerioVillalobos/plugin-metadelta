@@ -1,10 +1,23 @@
 {
-  "name": "@nevill/metadelta",
-  "version": "0.8.0",
+  "name": "@nervill/metadelta",
+  "version": "0.9.0",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
-  "main": "index.js",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": "./lib/index.js",
+  "files": [
+    "lib/",
+    "messages/",
+    "oclif.manifest.json",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
+    "build": "npm run clean && tsc",
+    "postbuild": "node scripts/generate-manifest.mjs",
+    "manifest": "node scripts/generate-manifest.mjs",
+    "pack": "npm pack --ignore-scripts",
+    "pack:tarball": "mkdir -p dist && npm pack --ignore-scripts --pack-destination dist && node scripts/create-tarball-alias.mjs"
   },
   "keywords": [
     "salesforce",
@@ -12,16 +25,31 @@
     "plugin",
     "metadata"
   ],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "author": "Nerio Villalobos",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NerioVillalobos/plugin-metadelta.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NerioVillalobos/plugin-metadelta/issues"
+  },
+  "homepage": "https://github.com/NerioVillalobos/plugin-metadelta",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@salesforce/sf-plugins-core": "^3.0.0",
-    "@oclif/core": "^3.15.1",
-    "fast-xml-parser": "^4.3.5"
+    "@oclif/core": "^4.8.0",
+    "fast-xml-parser": "^5.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
   },
   "oclif": {
     "bin": "sf",
-    "commands": "./src/commands"
+    "commands": "./lib/commands",
+    "dirname": "metadelta",
+    "pluginType": "sf"
   }
 }

@@ -1,0 +1,8 @@
+{
+  "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+  "description": "Ejecuta consultas de metadatos para contrastar los componentes desplegados en el org objetivo con los declarados en los manifests locales, generando reportes de diferencias.",
+  "examples": [
+    "sf metadelta postvalidate --org myOrg --xml manifest/package.xml",
+    "sf metadelta postvalidate --org myOrg --yaml manifest/package.yaml"
+  ]
+}

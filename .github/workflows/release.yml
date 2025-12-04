@@ -1,0 +1,60 @@
+name: Build & Release Metadelta
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Align package version to tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          echo "PKG_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build (compile TypeScript)
+        run: npm run build
+
+      - name: Generate manifest after build (while dependencies exist)
+        run: npm run manifest
+
+      - name: Remove node_modules before packaging
+        run: rm -rf node_modules
+
+      - name: Generate tarball
+        run: |
+          PKG=$(npm pack --ignore-scripts --silent | tail -n 1 | tr -d '\r')
+          echo "TARBALL_NAME=$PKG" >> $GITHUB_ENV
+          cp "$PKG" "metadelta-${PKG_VERSION}.tgz"
+          echo "ALIAS_TARBALL_NAME=metadelta-${PKG_VERSION}.tgz" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body: |
+            ⚡ Auto Release para Metadelta
+          files: |
+            ${{ env.TARBALL_NAME }}
+            ${{ env.ALIAS_TARBALL_NAME }}

@@ -1,14 +1,14 @@
-const {SfCommand, Flags} = require('@salesforce/sf-plugins-core');
-const fs = require('fs');
-const path = require('path');
-const {execFileSync} = require('child_process');
+import {Command, Flags} from '@oclif/core';
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 
 const {readdir, readFile, stat, mkdir, writeFile} = fs.promises;
 
 const MANUAL_FILE_REGEX = /^OSS-?FSL-(Base|\d+)-(PRE|POST)\.md$/i;
 const BANNER_LINE = '===============================';
 
-class ManualCollect extends SfCommand {
+class ManualCollect extends Command {
   static summary = 'Genera un consolidado de pasos manuales en formato markdown.';
 
   static flags = {
@@ -319,6 +319,5 @@ function normalizePathForFs(relativePath) {
   return relativePath.split('/').join(path.sep);
 }
 
-module.exports = ManualCollect;
-module.exports.default = ManualCollect;
+export default ManualCollect;
 

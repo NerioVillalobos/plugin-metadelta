@@ -1,6 +1,7 @@
-const {spawnSync} = require('child_process');
+import {Command, Flags} from '@oclif/core';
+import {spawnSync} from 'node:child_process';
 
-const fetchOrgApiVersion = (targetOrg) => {
+export const fetchOrgApiVersion = (targetOrg) => {
   if (!targetOrg) {
     return {apiVersion: null, error: null};
   }
@@ -49,4 +50,33 @@ const fetchOrgApiVersion = (targetOrg) => {
   return {apiVersion: String(apiVersion), error: null};
 };
 
-module.exports = {fetchOrgApiVersion};
+class OrgApiVersion extends Command {
+  static id = 'metadelta:orgApiVersion';
+
+  static summary = 'Obtiene la versión de API de una organización objetivo.';
+
+  static description =
+    'Ejecuta sf org display --json para recuperar la versión de API de la organización indicada.';
+
+  static flags = {
+    org: Flags.string({
+      char: 'o',
+      summary: 'Alias o nombre de usuario de la organización objetivo.',
+      required: true
+    })
+  };
+
+  async run() {
+    const {flags} = await this.parse(OrgApiVersion);
+    const {apiVersion, error} = fetchOrgApiVersion(flags.org);
+
+    if (error) {
+      this.error(error);
+    }
+
+    this.log(apiVersion);
+    return {apiVersion};
+  }
+}
+
+export default OrgApiVersion;

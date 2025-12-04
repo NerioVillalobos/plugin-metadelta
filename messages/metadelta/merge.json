@@ -1,0 +1,8 @@
+{
+  "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+  "description": "Busca manifests dentro del directorio manifest que coincidan con un patrón, fusiona sus metadatos y genera un globalpackage.xml consolidado.",
+  "examples": [
+    "sf metadelta merge --pattern UAT",
+    "sf metadelta merge --pattern hotfix --output merged.xml"
+  ]
+}

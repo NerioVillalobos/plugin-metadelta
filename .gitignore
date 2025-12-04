@@ -3,3 +3,5 @@ manifest/
 .sfdx
 .sf
 .vscode
+/dist/
+*.tgz
