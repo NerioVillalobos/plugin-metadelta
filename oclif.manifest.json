@@ -1,18 +1,74 @@
 {
   "commands": {
+    "metadelta:cleanps": {
+      "aliases": [],
+      "args": {},
+      "description": "Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.",
+      "flags": {
+        "prefix": {
+          "char": "f",
+          "name": "prefix",
+          "required": true,
+          "summary": "Fragmento que deben contener los miembros para conservarse.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "permissionset": {
+          "char": "p",
+          "name": "permissionset",
+          "required": true,
+          "summary": "Nombre del Permission Set a filtrar (sin extensión o nombre de archivo).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "exclude": {
+          "char": "e",
+          "name": "exclude",
+          "summary": "Ruta al archivo con nombres exactos a conservar (uno por línea).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Nombre del archivo XML de salida que se creará dentro de la carpeta cleanps.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "project-dir": {
+          "name": "project-dir",
+          "summary": "Ruta al directorio raíz del proyecto (contiene sfdx-project.json).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:cleanps",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "cleanps.js"
+      ]
+    },
     "metadelta:find": {
       "aliases": [],
       "args": {},
       "description": "Find metadata changes made by a user in a Salesforce org",
-      "summary": "Find metadata changes made by a user in a Salesforce org",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
         "org": {
           "char": "o",
           "name": "org",
@@ -24,7 +80,7 @@
         },
         "metafile": {
           "name": "metafile",
-          "summary": "Path to a JS file exporting metadataTypes array",
+          "summary": "Path to a JSON file listing the metadata types to inspect",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -67,14 +123,15 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:find",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
+      "summary": "Find metadata changes made by a user in a Salesforce org",
+      "enableJsonFlag": false,
+      "isESM": true,
       "relativePath": [
-        "src",
+        "lib",
         "commands",
         "metadelta",
         "find.js"
@@ -84,15 +141,7 @@
       "aliases": [],
       "args": {},
       "description": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
-      "summary": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
         "project-dir": {
           "name": "project-dir",
           "summary": "Ruta al directorio raíz del proyecto Salesforce (contiene sfdx-project.json).",
@@ -143,6 +192,12 @@
           "allowNo": false,
           "type": "boolean"
         },
+        "run-deploy-prod": {
+          "name": "run-deploy-prod",
+          "summary": "Ejecuta el despliegue sin --dry-run y evita NoTestRun cuando no hay clases de prueba (producción).",
+          "allowNo": false,
+          "type": "boolean"
+        },
         "only-local": {
           "name": "only-local",
           "summary": "Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.",
@@ -152,14 +207,12 @@
         "ignore-managed": {
           "name": "ignore-managed",
           "summary": "Omite miembros de paquetes gestionados (namespace__Clase).",
-          "default": true,
           "allowNo": true,
           "type": "boolean"
         },
         "ignore-communities": {
           "name": "ignore-communities",
           "summary": "Omite controladores estándar de Communities.",
-          "default": true,
           "allowNo": true,
           "type": "boolean"
         },
@@ -168,19 +221,25 @@
           "summary": "Muestra avisos detallados de clases omitidas por filtros o ausencia local.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "json": {
+          "name": "json",
+          "summary": "Emite un resumen en formato JSON con métricas de filtrado.",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:findtest",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
+      "enableJsonFlag": false,
+      "isESM": true,
       "relativePath": [
-        "src",
+        "lib",
         "commands",
         "metadelta",
         "findtest.js"
@@ -189,16 +248,8 @@
     "metadelta:merge": {
       "aliases": [],
       "args": {},
-      "description": "Combina archivos de manifiesto en un paquete global sin duplicados.",
-      "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+      "description": "Busca archivos XML dentro del directorio manifest cuyo nombre contenga el valor proporcionado y genera un globalpackage.xml con la unión de sus metadatos.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
         "xml-name": {
           "char": "x",
           "name": "xml-name",
@@ -251,69 +302,30 @@
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:merge",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
+      "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+      "enableJsonFlag": false,
+      "isESM": true,
       "relativePath": [
-        "src",
+        "lib",
         "commands",
         "metadelta",
         "merge.js"
       ]
     },
-    "metadelta:cleanps": {
+    "metadelta:orgApiVersion": {
       "aliases": [],
       "args": {},
-      "description": "Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.",
-      "summary": "Genera una versión depurada de un Permission Set filtrando por prefijo y exclusiones.",
+      "description": "Ejecuta sf org display --json para recuperar la versión de API de la organización indicada.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "prefix": {
-          "char": "f",
-          "name": "prefix",
-          "summary": "Prefijo que deben tener los miembros para ser conservados.",
-          "required": true,
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "permissionset": {
-          "char": "p",
-          "name": "permissionset",
-          "summary": "Nombre del Permission Set a filtrar (sin extensión o nombre de archivo).",
-          "required": true,
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "exclude": {
-          "char": "e",
-          "name": "exclude",
-          "summary": "Ruta al archivo de exclusiones (uno por línea).",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "output": {
+        "org": {
           "char": "o",
-          "name": "output",
-          "summary": "Nombre del archivo XML de salida que se creará dentro de la carpeta cleanps.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "project-dir": {
-          "name": "project-dir",
-          "summary": "Ruta al directorio raíz del proyecto (contiene sfdx-project.json).",
+          "name": "org",
+          "required": true,
+          "summary": "Alias o nombre de usuario de la organización objetivo.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -321,38 +333,89 @@
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
-      "id": "metadelta:cleanps",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
+      "id": "metadelta:orgApiVersion",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
+      "summary": "Obtiene la versión de API de una organización objetivo.",
+      "enableJsonFlag": false,
+      "isESM": true,
       "relativePath": [
-        "src",
+        "lib",
         "commands",
         "metadelta",
-        "cleanps.js"
+        "orgApiVersion.js"
+      ]
+    },
+    "metadelta:postvalidate": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Ejecuta un retrieve temporal usando los manifests proporcionados (Salesforce Core y/o Vlocity) y\n  compara los archivos obtenidos contra el proyecto local, ignorando espacios en blanco, saltos de\n  línea y comentarios. Al finalizar muestra una tabla con los componentes que difieren y elimina el\n  directorio temporal utilizado.\n  ",
+      "examples": [
+        "sf metadelta:postvalidate --xml manifest/package.xml --org my-core-org",
+        "sf metadelta:postvalidate --yaml manifest/vlocity.yaml --org my-vlocity-org --vlocity-dir Vlocity",
+        "sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias o username del ambiente (Salesforce Core o Vlocity)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Ruta al manifest XML (package.xml) usado en el despliegue",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Ruta al manifest YAML usado en el despliegue Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "vlocity-dir": {
+          "name": "vlocity-dir",
+          "summary": "Directorio base donde se encuentran los componentes Vlocity locales",
+          "default": "Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:postvalidate",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "postvalidate.js"
       ]
     },
     "metadelta:manual:collect": {
       "aliases": [],
       "args": {},
-      "description": "Genera un consolidado de pasos manuales en formato markdown.",
-      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
       "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
         "docs": {
           "char": "d",
           "name": "docs",
-          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
           "required": true,
+          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -360,8 +423,8 @@
         "output": {
           "char": "o",
           "name": "output",
-          "summary": "Ruta del archivo markdown generado.",
           "required": true,
+          "summary": "Ruta del archivo markdown generado.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -404,92 +467,33 @@
           "name": "order-by",
           "summary": "Origen de la fecha usada para ordenar (mtime o git).",
           "default": "mtime",
+          "hasDynamicHelp": false,
+          "multiple": false,
           "options": [
             "mtime",
             "git"
           ],
-          "hasDynamicHelp": false,
-          "multiple": false,
           "type": "option"
         }
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:manual:collect",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
+      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
+      "enableJsonFlag": false,
+      "isESM": true,
       "relativePath": [
-        "src",
+        "lib",
         "commands",
         "metadelta",
         "manual",
         "collect.js"
       ]
-    },
-    "metadelta:postvalidate": {
-      "aliases": [],
-      "args": {},
-      "description": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
-      "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
-      "flags": {
-        "json": {
-          "description": "Format output as json.",
-          "helpGroup": "GLOBAL",
-          "name": "json",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "org": {
-          "char": "o",
-          "name": "org",
-          "summary": "Alias o username del ambiente (Salesforce Core o Vlocity)",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "xml": {
-          "name": "xml",
-          "summary": "Ruta al manifest XML (package.xml) usado en el despliegue",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "yaml": {
-          "name": "yaml",
-          "summary": "Ruta al manifest YAML usado en el despliegue Vlocity",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "vlocity-dir": {
-          "name": "vlocity-dir",
-          "summary": "Directorio base donde se encuentran los componentes Vlocity locales",
-          "default": "Vlocity",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:postvalidate",
-      "pluginAlias": "sf-metadelta",
-      "pluginName": "sf-metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "SF_ENV": "SF_ENV",
-      "isESM": false,
-      "relativePath": [
-        "src",
-        "commands",
-        "metadelta",
-        "postvalidate.js"
-      ]
     }
   },
-  "version": "0.7.0"
+  "version": "0.8.0"
 }
