@@ -1,4 +1,4 @@
-import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import {XMLParser, XMLBuilder} from 'fast-xml-parser';
@@ -175,7 +175,7 @@ const buildOutputObject = (originalPermissionSet, filteredSections) => {
   return {PermissionSet: output};
 };
 
-class CleanPs extends SfCommand {
+class CleanPs extends Command {
   static id = 'metadelta:cleanps';
   static summary = 'Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.';
   static description =

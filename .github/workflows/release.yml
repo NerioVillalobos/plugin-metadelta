@@ -35,7 +35,7 @@ jobs:
         run: npm run build
 
       - name: Ensure manifest is up-to-date after build
-        run: npx oclif manifest
+        run: npm run manifest
 
       - name: Remove node_modules before packaging
         run: rm -rf node_modules

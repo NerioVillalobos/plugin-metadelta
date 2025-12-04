@@ -14,7 +14,8 @@
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
     "build": "npm run clean && tsc",
-    "postbuild": "npx oclif manifest",
+    "postbuild": "node scripts/generate-manifest.mjs",
+    "manifest": "node scripts/generate-manifest.mjs",
     "prepack": "npm run build",
     "pack": "npm pack",
     "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
@@ -40,7 +41,6 @@
   },
   "dependencies": {
     "@oclif/core": "^4.8.0",
-    "@salesforce/sf-plugins-core": "^12.2.6",
     "fast-xml-parser": "^5.3.2"
   },
   "devDependencies": {
