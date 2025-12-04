@@ -1,0 +1,7 @@
+{
+  "summary": "Obtiene la versión de API de una organización objetivo.",
+  "description": "Ejecuta el comando sf org display en modo JSON para retornar únicamente la versión de API configurada en la org indicada.",
+  "examples": [
+    "sf metadelta orgApiVersion --target-org myOrg"
+  ]
+}

@@ -1,23 +1,23 @@
 {
   "name": "@nervill/metadelta",
-  "version": "1.0.8",
+  "version": "1.0.17",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
-  "bin": {
-    "metadelta": "bin/run"
-  },
+  "exports": "./lib/index.js",
   "files": [
-    "lib",
-    "bin",
-    "oclif.manifest.json"
+    "lib/",
+    "messages/",
+    "oclif.manifest.json",
+    "README.md"
   ],
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
-    "build": "npm run clean && tsc && node scripts/generate-manifest.mjs",
-    "prepack": "npm run build",
-    "pack": "npm pack",
-    "pack:tarball": "mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
+    "build": "npm run clean && tsc",
+    "postbuild": "node scripts/generate-manifest.mjs",
+    "manifest": "node scripts/generate-manifest.mjs",
+    "pack": "npm pack --ignore-scripts",
+    "pack:tarball": "mkdir -p dist && npm pack --ignore-scripts --pack-destination dist && node scripts/create-tarball-alias.mjs"
   },
   "keywords": [
     "salesforce",
@@ -40,7 +40,6 @@
   },
   "dependencies": {
     "@oclif/core": "^4.8.0",
-    "@salesforce/sf-plugins-core": "^12.2.6",
     "fast-xml-parser": "^5.3.2"
   },
   "devDependencies": {
@@ -48,12 +47,9 @@
     "typescript": "^5.6.3"
   },
   "oclif": {
-    "bin": "metadelta",
-    "commands": "./lib/commands"
-  },
-  "bundledDependencies": [
-    "@oclif/core",
-    "@salesforce/sf-plugins-core",
-    "fast-xml-parser"
-  ]
+    "bin": "sf",
+    "commands": "./lib/commands",
+    "dirname": "metadelta",
+    "pluginType": "sf"
+  }
 }

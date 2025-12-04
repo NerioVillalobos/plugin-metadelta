@@ -1,4 +1,4 @@
-import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import {Command, Flags} from '@oclif/core';
 import {spawnSync} from 'node:child_process';
 
 export const fetchOrgApiVersion = (targetOrg) => {
@@ -50,7 +50,7 @@ export const fetchOrgApiVersion = (targetOrg) => {
   return {apiVersion: String(apiVersion), error: null};
 };
 
-class OrgApiVersion extends SfCommand {
+class OrgApiVersion extends Command {
   static id = 'metadelta:orgApiVersion';
 
   static summary = 'Obtiene la versión de API de una organización objetivo.';

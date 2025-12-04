@@ -1,0 +1,7 @@
+{
+  "summary": "Genera un consolidado de pasos manuales en formato markdown.",
+  "description": "Procesa archivos markdown con prefijos definidos, recopila las secciones de pasos manuales y construye un documento consolidado en la carpeta manualsteps.",
+  "examples": [
+    "sf metadelta manual collect --input ./manual --output ./manualsteps/combined.md"
+  ]
+}

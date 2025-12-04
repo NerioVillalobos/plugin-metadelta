@@ -23,7 +23,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Align package version to tag
         run: |
@@ -31,12 +31,18 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           echo "PKG_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build
+      - name: Build (compile TypeScript)
         run: npm run build
+
+      - name: Generate manifest after build (while dependencies exist)
+        run: npm run manifest
+
+      - name: Remove node_modules before packaging
+        run: rm -rf node_modules
 
       - name: Generate tarball
         run: |
-          PKG=$(npm pack --silent | tail -n 1 | tr -d '\r')
+          PKG=$(npm pack --ignore-scripts --silent | tail -n 1 | tr -d '\r')
           echo "TARBALL_NAME=$PKG" >> $GITHUB_ENV
           cp "$PKG" "metadelta-${PKG_VERSION}.tgz"
           echo "ALIAS_TARBALL_NAME=metadelta-${PKG_VERSION}.tgz" >> $GITHUB_ENV
@@ -52,4 +58,3 @@ jobs:
           files: |
             ${{ env.TARBALL_NAME }}
             ${{ env.ALIAS_TARBALL_NAME }}
-

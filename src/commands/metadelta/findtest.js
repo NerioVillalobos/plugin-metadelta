@@ -1,4 +1,4 @@
-import {SfCommand, Flags} from '@salesforce/sf-plugins-core';
+import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -423,7 +423,7 @@ const gatherTestsForDeployment = (
   };
 };
 
-class FindTest extends SfCommand {
+class FindTest extends Command {
   static description = 'Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.';
 
   static flags = {

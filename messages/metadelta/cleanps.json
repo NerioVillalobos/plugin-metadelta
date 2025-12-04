@@ -1,0 +1,8 @@
+{
+  "summary": "Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.",
+  "description": "Lee un Permission Set desde el proyecto, elimina entradas no deseadas según un archivo de exclusiones y produce un Permission Set reducido dentro de la carpeta cleanps.",
+  "examples": [
+    "sf metadelta cleanps --permissionset MyPerm --exclude cleanup.txt",
+    "sf metadelta cleanps --permissionset Billing --match Account"
+  ]
+}
