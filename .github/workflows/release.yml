@@ -23,7 +23,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Align package version to tag
         run: |
@@ -33,6 +33,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Regenerate oclif manifest
+        run: npx oclif manifest
+
+      - name: Remove node_modules before packaging
+        run: rm -rf node_modules
 
       - name: Generate tarball
         run: |
