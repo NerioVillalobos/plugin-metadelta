@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-12-02 — `sf-metadelta` 0.9.0
+> **Last update / Última actualización:** 2025-12-02 — `@nervill/metadelta` 0.9.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -37,7 +37,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.9.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.0`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -49,7 +49,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `sf-metadelta 0.9.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.0 (link)`.
 
 ### Usage
 
@@ -356,7 +356,7 @@ The command prints each matching component with its type, full name, last modifi
 
 To unlink the plugin from your Salesforce CLI:
 ```bash
-sf plugins unlink sf-metadelta
+sf plugins unlink @nervill/metadelta
 ```
 
 ### License
@@ -400,7 +400,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `sf-metadelta`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
 
 ### Uso
 
@@ -656,7 +656,7 @@ El comando imprime cada componente coincidente con su tipo, nombre completo, fec
 
 Para desvincular el plugin de tu Salesforce CLI:
 ```bash
-sf plugins unlink sf-metadelta
+sf plugins unlink @nervill/metadelta
 ```
 
 ### Licencia
