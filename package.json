@@ -4,13 +4,12 @@
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
-  "bin": {
-    "sf": "bin/run"
-  },
+  "exports": "./lib/index.js",
   "files": [
-    "lib",
-    "bin",
-    "oclif.manifest.json"
+    "lib/",
+    "messages/",
+    "oclif.manifest.json",
+    "README.md"
   ],
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
@@ -52,10 +51,5 @@
     "commands": "./lib/commands",
     "dirname": "metadelta",
     "pluginType": "sf"
-  },
-  "bundledDependencies": [
-    "@oclif/core",
-    "@salesforce/sf-plugins-core",
-    "fast-xml-parser"
-  ]
+  }
 }

@@ -1,0 +1,8 @@
+{
+  "summary": "Busca clases Apex y determina las clases de prueba asociadas.",
+  "description": "Localiza clases Apex en el proyecto, infiere las clases de prueba relacionadas y genera manifests XML o YAML listos para despliegue o validación.",
+  "examples": [
+    "sf metadelta findtest --org myOrg --apexdir force-app/main/default/classes",
+    "sf metadelta findtest --org myOrg --yaml"
+  ]
+}

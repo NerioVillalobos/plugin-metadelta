@@ -1,0 +1,9 @@
+# Exclude everything by default
+*
+
+# Include necessary files
+!lib/
+!messages/
+!oclif.manifest.json
+!package.json
+!README.md
