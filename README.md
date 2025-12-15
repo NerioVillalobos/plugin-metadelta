@@ -153,11 +153,11 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
 
 - Core only:
   ```bash
-  sf metadelta postvalidate --xml manifest/SP1.2.11.0.xml --org TelecomPY-prod
+  sf metadelta postvalidate --xml manifest/SP1.2.11.0.xml --org SFOrg-prod
   ```
 - Vlocity only from a custom folder:
   ```bash
-  sf metadelta postvalidate --yaml manifest/vlo-manifest.yaml --org Telecom-Demo02 --vlocity-dir Vlocity
+  sf metadelta postvalidate --yaml manifest/vlo-manifest.yaml --org SFOrg-Demo02 --vlocity-dir Vlocity
   ```
 - Core + Vlocity in one run:
   ```bash
@@ -215,9 +215,9 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
-| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy-prod` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -525,9 +525,9 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss` |
-| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy` |
-| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org TelecomPY-devoss --run-deploy-prod` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
