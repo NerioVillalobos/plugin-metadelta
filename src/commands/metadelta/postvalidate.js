@@ -39,8 +39,10 @@ class PostValidate extends Command {
     const vlocityDir = path.resolve(flags['vlocity-dir']);
     const orgAlias = flags.org;
 
-    const tempDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'metadelta-postvalidate-'));
-    this.log(`📂 Directorio temporal creado: ${tempDir}`);
+    const tempBase = path.join(projectRoot, '.metadelta', 'postvalidate-');
+    fs.mkdirSync(path.dirname(tempBase), {recursive: true});
+    const tempDir = fs.mkdtempSync(tempBase);
+    this.log(`📂 Directorio temporal creado dentro del proyecto: ${tempDir}`);
 
     try {
       if (flags.xml) {
