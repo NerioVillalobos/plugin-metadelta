@@ -50,7 +50,7 @@ class PostValidate extends Command {
           this.error('Para procesar el manifest XML debes indicar el alias del ambiente con --org.');
         }
         const xmlPath = path.resolve(flags.xml);
-        const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --output-dir ${relativeTempDir}`;
+        const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --target-metadata-dir ${relativeTempDir}`;
         this.log(`🔎 Ejecutando retrieve de Salesforce Core: ${retrieveCmd}`);
         this.log(`📂 Directorio de trabajo del retrieve: ${projectRoot}`);
         await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', projectRoot);
