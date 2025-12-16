@@ -66,8 +66,9 @@ class PostValidate extends Command {
       const differences = this.compareFolders({tempDir, projectRoot, vlocityDir});
       this.printTable(differences);
     } finally {
-      fs.rmSync(tempDir, {recursive: true, force: true});
-      this.log('🗑️ Directorio temporal eliminado.');
+      // Eliminación temporal comentada para pruebas de retrieve.
+      // fs.rmSync(tempDir, {recursive: true, force: true});
+      // this.log('🗑️ Directorio temporal eliminado.');
     }
   }
 
