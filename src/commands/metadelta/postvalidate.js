@@ -51,6 +51,8 @@ class PostValidate extends Command {
         }
         const xmlPath = path.resolve(flags.xml);
         const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --output-dir ${relativeTempDir}`;
+        this.log(`🔎 Ejecutando retrieve de Salesforce Core: ${retrieveCmd}`);
+        this.log(`📂 Directorio de trabajo del retrieve: ${projectRoot}`);
         await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', projectRoot);
       }
 
