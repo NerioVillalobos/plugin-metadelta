@@ -44,6 +44,8 @@ class PostValidate extends Command {
     const relativeTempDir = path.relative(projectRoot, tempDir) || '.';
     this.log(`📂 Directorio temporal creado dentro del proyecto: ${tempDir}`);
 
+    const comparisonRoots = [];
+
     try {
       if (flags.xml) {
         if (!orgAlias) {
@@ -54,6 +56,19 @@ class PostValidate extends Command {
         this.log(`🔎 Ejecutando retrieve de Salesforce Core: ${retrieveCmd}`);
         this.log(`📂 Directorio de trabajo del retrieve: ${projectRoot}`);
         await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', projectRoot);
+
+        const mdapiRoot = this.findPackageXml(tempDir);
+        if (!mdapiRoot) {
+          this.error('No se encontró package.xml en el resultado del retrieve para convertir a formato SFDX.');
+        }
+
+        const sfdxOutputDir = path.join(tempDir, 'sfdx');
+        fs.rmSync(sfdxOutputDir, {recursive: true, force: true});
+        const convertCmd = `sf project convert mdapi --root-dir ${mdapiRoot} --output-dir ${sfdxOutputDir}`;
+        this.log(`🔄 Convirtiendo metadata MDAPI a SFDX: ${convertCmd}`);
+        this.log(`📂 Directorio de trabajo de la conversión: ${projectRoot}`);
+        await this.runCommandAndCheck(convertCmd, 'Conversión a SFDX', projectRoot);
+        comparisonRoots.push(sfdxOutputDir);
       }
 
       if (flags.yaml) {
@@ -62,10 +77,16 @@ class PostValidate extends Command {
         }
         const yamlPath = path.resolve(flags.yaml);
         const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
-        await this.runCommandAndCheck(vlocityCmd, 'Retrieve de Vlocity', tempDir);
+        const vlocityTarget = comparisonRoots[0] ?? tempDir;
+        await this.runCommandAndCheck(vlocityCmd, 'Retrieve de Vlocity', vlocityTarget);
+        comparisonRoots.push(vlocityTarget);
       }
 
-      const differences = this.compareFolders({tempDir, projectRoot, vlocityDir});
+      if (comparisonRoots.length === 0) {
+        comparisonRoots.push(tempDir);
+      }
+
+      const differences = this.compareFolders({tempDirs: comparisonRoots, projectRoot, vlocityDir});
       this.printTable(differences);
     } finally {
       // Eliminación temporal comentada para pruebas de retrieve.
@@ -126,12 +147,14 @@ class PostValidate extends Command {
     });
   }
 
-  compareFolders({tempDir, projectRoot, vlocityDir}) {
-    const retrievedFiles = this.collectFiles(tempDir);
+  compareFolders({tempDirs, projectRoot, vlocityDir}) {
+    const roots = Array.isArray(tempDirs) && tempDirs.length > 0 ? tempDirs : [tempDirs].filter(Boolean);
+    const retrievedFiles = roots.flatMap((dir) => this.collectFiles(dir));
     const rows = [];
 
     for (const filePath of retrievedFiles) {
-      const relative = path.relative(tempDir, filePath);
+      const baseRoot = roots.find((dir) => filePath.startsWith(dir)) ?? roots[0];
+      const relative = path.relative(baseRoot, filePath);
       const component = relative.split(path.sep)[0] || path.basename(relative);
       const name = path.basename(relative);
 
@@ -193,6 +216,33 @@ class PostValidate extends Command {
       return true;
     }
     return ['VlocityBuildErrors.log', 'VlocityBuildLog.yaml'].includes(entry.name);
+  }
+
+  findPackageXml(baseDir) {
+    const stack = [baseDir];
+    const seen = new Set();
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current || seen.has(current)) {
+        continue;
+      }
+      seen.add(current);
+
+      const packagePath = path.join(current, 'package.xml');
+      if (fs.existsSync(packagePath)) {
+        return current;
+      }
+
+      const entries = fs.readdirSync(current, {withFileTypes: true});
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          stack.push(path.join(current, entry.name));
+        }
+      }
+    }
+
+    return undefined;
   }
 
   resolveBaseFile({relative, projectRoot, vlocityDir}) {
