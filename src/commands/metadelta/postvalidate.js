@@ -86,7 +86,7 @@ class PostValidate extends Command {
         }
         const yamlPath = path.resolve(flags.yaml);
         const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
-        const vlocityTarget = path.join(tempDir, 'vlocity');
+        const vlocityTarget = path.join(tempDir, packagePath, 'vlocity');
         fs.mkdirSync(vlocityTarget, {recursive: true});
         await this.runCommandAndCheck(vlocityCmd, 'Retrieve de Vlocity', vlocityTarget);
         comparisonRoots.push(vlocityTarget);
@@ -99,9 +99,8 @@ class PostValidate extends Command {
       const differences = this.compareFolders({tempDirs: comparisonRoots, projectRoot, vlocityDir});
       this.printTable(differences);
     } finally {
-      // Eliminación temporal comentada para pruebas de retrieve.
-      // fs.rmSync(tempDir, {recursive: true, force: true});
-      // this.log('🗑️ Directorio temporal eliminado.');
+      fs.rmSync(tempDir, {recursive: true, force: true});
+      this.log('🗑️ Directorio temporal eliminado.');
     }
   }
 
