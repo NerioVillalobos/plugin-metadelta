@@ -1,6 +1,7 @@
 import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import {spawn} from 'node:child_process';
 
 class PostValidate extends Command {
@@ -34,15 +35,21 @@ class PostValidate extends Command {
     }
 
     const projectRoot = process.cwd();
+    this.ignoreNames = new Set(['sfdx-project.json']);
     this.packageDirectories = this.loadPackageDirectories(projectRoot);
     const vlocityDir = path.resolve(flags['vlocity-dir']);
     const orgAlias = flags.org;
 
-    const tempBase = path.join(projectRoot, '.metadelta', 'postvalidate-');
-    fs.mkdirSync(path.dirname(tempBase), {recursive: true});
+    if (orgAlias) {
+      this.log(`🏷️ Ambiente objetivo: ${orgAlias}`);
+    }
+
+    const tempBase = path.join(os.tmpdir(), 'metadelta-');
     const tempDir = fs.mkdtempSync(tempBase);
-    const relativeTempDir = path.relative(projectRoot, tempDir) || '.';
-    this.log(`📂 Directorio temporal creado dentro del proyecto: ${tempDir}`);
+    const packagePath = '.';
+    this.log('📂 Directorio temporal creado.');
+
+    const comparisonRoots = [];
 
     try {
       if (flags.xml) {
@@ -50,8 +57,30 @@ class PostValidate extends Command {
           this.error('Para procesar el manifest XML debes indicar el alias del ambiente con --org.');
         }
         const xmlPath = path.resolve(flags.xml);
-        const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --output-dir ${relativeTempDir}`;
-        await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', projectRoot);
+        const xmlCopyPath = path.join(tempDir, path.basename(xmlPath));
+        fs.copyFileSync(xmlPath, xmlCopyPath);
+        this.ignoreNames.add(path.basename(xmlCopyPath));
+
+        const tempSfdxProject = {
+          packageDirectories: [
+            {
+              path: packagePath,
+              default: true,
+            },
+          ],
+          name: 'metadelta',
+          namespace: '',
+          sfdcLoginUrl: 'https://login.salesforce.com',
+          sourceApiVersion: '65.0',
+        };
+        fs.writeFileSync(path.join(tempDir, 'sfdx-project.json'), JSON.stringify(tempSfdxProject, null, 2));
+
+        const retrieveCmd = `sf project retrieve start --manifest ${xmlCopyPath} --target-org ${orgAlias}`;
+        const retrieveLabel = `Retrieve de Salesforce Core (${orgAlias})`;
+        await this.runCommandAndCheck(retrieveCmd, retrieveLabel, tempDir);
+
+        const packageDirPath = path.resolve(tempDir, packagePath);
+        comparisonRoots.push(packageDirPath);
       }
 
       if (flags.yaml) {
@@ -60,10 +89,18 @@ class PostValidate extends Command {
         }
         const yamlPath = path.resolve(flags.yaml);
         const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
-        await this.runCommandAndCheck(vlocityCmd, 'Retrieve de Vlocity', tempDir);
+        const vlocityTarget = path.join(tempDir, packagePath, 'vlocity');
+        fs.mkdirSync(vlocityTarget, {recursive: true});
+        const vlocityLabel = `Retrieve de Vlocity (${orgAlias})`;
+        await this.runCommandAndCheck(vlocityCmd, vlocityLabel, vlocityTarget);
+        comparisonRoots.push(vlocityTarget);
       }
 
-      const differences = this.compareFolders({tempDir, projectRoot, vlocityDir});
+      if (comparisonRoots.length === 0) {
+        comparisonRoots.push(tempDir);
+      }
+
+      const differences = this.compareFolders({tempDirs: comparisonRoots, projectRoot, vlocityDir});
       this.printTable(differences);
     } finally {
       fs.rmSync(tempDir, {recursive: true, force: true});
@@ -123,13 +160,14 @@ class PostValidate extends Command {
     });
   }
 
-  compareFolders({tempDir, projectRoot, vlocityDir}) {
-    const retrievedFiles = this.collectFiles(tempDir);
+  compareFolders({tempDirs, projectRoot, vlocityDir}) {
+    const roots = Array.isArray(tempDirs) && tempDirs.length > 0 ? tempDirs : [tempDirs].filter(Boolean);
+    const retrievedFiles = roots.flatMap((dir) => this.collectFiles(dir));
     const rows = [];
 
     for (const filePath of retrievedFiles) {
-      const relative = path.relative(tempDir, filePath);
-      const component = relative.split(path.sep)[0] || path.basename(relative);
+      const baseRoot = roots.find((dir) => filePath.startsWith(dir)) ?? roots[0];
+      const relative = path.relative(baseRoot, filePath);
       const name = path.basename(relative);
 
       const isVlocity = this.isVlocityFile({relative, vlocityDir, baseFile: undefined});
@@ -143,7 +181,7 @@ class PostValidate extends Command {
           : null;
 
       const isDifferent = baseContent === null ? true : retrievedContent !== baseContent;
-      rows.push({component, name, isDifferent});
+      rows.push({name, isDifferent});
     }
 
     return rows;
@@ -186,6 +224,9 @@ class PostValidate extends Command {
   }
 
   shouldIgnoreEntry(entry) {
+    if (this.ignoreNames && this.ignoreNames.has(entry.name)) {
+      return true;
+    }
     if (entry.name === 'vlocity-temp') {
       return true;
     }
@@ -274,11 +315,10 @@ class PostValidate extends Command {
       return;
     }
 
-    const headers = ['Component', 'Name', 'Diff'];
+    const headers = ['Name', 'Equal'];
     const widths = [
-      Math.max(headers[0].length, ...rows.map((r) => r.component.length)),
-      Math.max(headers[1].length, ...rows.map((r) => r.name.length)),
-      headers[2].length,
+      Math.max(headers[0].length, ...rows.map((r) => r.name.length)),
+      headers[1].length,
     ];
 
     const color = {
@@ -288,14 +328,14 @@ class PostValidate extends Command {
     };
 
     const divider = (left, middle, right) =>
-      `${left}${'─'.repeat(widths[0] + 2)}${middle}${'─'.repeat(widths[1] + 2)}${middle}${'─'.repeat(widths[2] + 2)}${right}`;
+      `${left}${'─'.repeat(widths[0] + 2)}${middle}${'─'.repeat(widths[1] + 2)}${right}`;
 
     const formatRow = (cells) => {
       const padded = cells.map(({text, colorFn}, index) => {
         const base = String(text).padEnd(widths[index]);
         return colorFn ? colorFn(base) : base;
       });
-      return `│ ${padded[0]} │ ${padded[1]} │ ${padded[2]} │`;
+      return `│ ${padded[0]} │ ${padded[1]} │`;
     };
 
     const headerCells = headers.map((h) => ({text: h, colorFn: color.header}));
@@ -307,7 +347,6 @@ class PostValidate extends Command {
       const diffSymbol = row.isDifferent ? '✗' : '✓';
       const diffColor = row.isDifferent ? color.error : color.ok;
       this.log(formatRow([
-        {text: row.component},
         {text: row.name},
         {text: diffSymbol, colorFn: diffColor},
       ]));
