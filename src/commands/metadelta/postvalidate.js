@@ -1,6 +1,7 @@
 import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import {spawn} from 'node:child_process';
 
 class PostValidate extends Command {
@@ -38,11 +39,10 @@ class PostValidate extends Command {
     const vlocityDir = path.resolve(flags['vlocity-dir']);
     const orgAlias = flags.org;
 
-    const tempBase = path.join(projectRoot, '.metadelta', 'postvalidate-');
-    fs.mkdirSync(path.dirname(tempBase), {recursive: true});
+    const tempBase = path.join(os.tmpdir(), 'metadelta-');
     const tempDir = fs.mkdtempSync(tempBase);
-    const relativeTempDir = path.relative(projectRoot, tempDir) || '.';
-    this.log(`📂 Directorio temporal creado dentro del proyecto: ${tempDir}`);
+    const packagePath = '.';
+    this.log(`📂 Directorio temporal creado fuera del proyecto: ${tempDir}`);
 
     const comparisonRoots = [];
 
@@ -52,20 +52,30 @@ class PostValidate extends Command {
           this.error('Para procesar el manifest XML debes indicar el alias del ambiente con --org.');
         }
         const xmlPath = path.resolve(flags.xml);
-        const retrieveCmd = `sf project retrieve start --manifest ${xmlPath} --target-org ${orgAlias} --target-metadata-dir ${relativeTempDir} --unzip`;
+        const xmlCopyPath = path.join(tempDir, path.basename(xmlPath));
+        fs.copyFileSync(xmlPath, xmlCopyPath);
+
+        const tempSfdxProject = {
+          packageDirectories: [
+            {
+              path: packagePath,
+              default: true,
+            },
+          ],
+          name: 'metadelta',
+          namespace: '',
+          sfdcLoginUrl: 'https://login.salesforce.com',
+          sourceApiVersion: '65.0',
+        };
+        fs.writeFileSync(path.join(tempDir, 'sfdx-project.json'), JSON.stringify(tempSfdxProject, null, 2));
+
+        const retrieveCmd = `sf project retrieve start --manifest ${xmlCopyPath} --target-org ${orgAlias}`;
         this.log(`🔎 Ejecutando retrieve de Salesforce Core: ${retrieveCmd}`);
-        this.log(`📂 Directorio de trabajo del retrieve: ${projectRoot}`);
-        await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', projectRoot);
+        this.log(`📂 Directorio de trabajo del retrieve: ${tempDir}`);
+        await this.runCommandAndCheck(retrieveCmd, 'Retrieve de Salesforce Core', tempDir);
 
-        const mdapiRoot = this.findPackageXml(tempDir);
-        if (!mdapiRoot) {
-          this.error('No se encontró package.xml en el resultado del retrieve para convertir a formato SFDX.');
-        }
-
-        const sfdxOutputDir = path.join(tempDir, 'sfdx');
-        fs.rmSync(sfdxOutputDir, {recursive: true, force: true});
-        await this.convertMdapiToSfdx({mdapiRoot, sfdxOutputDir, projectRoot});
-        comparisonRoots.push(sfdxOutputDir);
+        const packageDirPath = path.resolve(tempDir, packagePath);
+        comparisonRoots.push(packageDirPath);
       }
 
       if (flags.yaml) {
@@ -145,38 +155,6 @@ class PostValidate extends Command {
     });
   }
 
-  async convertMdapiToSfdx({mdapiRoot, sfdxOutputDir, projectRoot}) {
-    const conversions = [
-      {
-        label: 'Conversión a SFDX (sf)',
-        command: `sf project convert mdapi --root-dir ${mdapiRoot} --output-dir ${sfdxOutputDir}`,
-        cwd: projectRoot,
-      },
-      {
-        label: 'Conversión a SFDX (sfdx fallback)',
-        command: `sfdx force:mdapi:convert -r ${mdapiRoot} -d ${sfdxOutputDir}`,
-        cwd: projectRoot,
-      },
-    ];
-
-    let lastError;
-
-    for (const conversion of conversions) {
-      this.log(`🔄 Convirtiendo metadata MDAPI a SFDX: ${conversion.command}`);
-      this.log(`📂 Directorio de trabajo de la conversión: ${conversion.cwd}`);
-      try {
-        await this.runCommandAndCheck(conversion.command, conversion.label, conversion.cwd);
-        return;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    if (lastError) {
-      throw lastError;
-    }
-  }
-
   compareFolders({tempDirs, projectRoot, vlocityDir}) {
     const roots = Array.isArray(tempDirs) && tempDirs.length > 0 ? tempDirs : [tempDirs].filter(Boolean);
     const retrievedFiles = roots.flatMap((dir) => this.collectFiles(dir));
@@ -246,33 +224,6 @@ class PostValidate extends Command {
       return true;
     }
     return ['VlocityBuildErrors.log', 'VlocityBuildLog.yaml'].includes(entry.name);
-  }
-
-  findPackageXml(baseDir) {
-    const stack = [baseDir];
-    const seen = new Set();
-
-    while (stack.length > 0) {
-      const current = stack.pop();
-      if (!current || seen.has(current)) {
-        continue;
-      }
-      seen.add(current);
-
-      const packagePath = path.join(current, 'package.xml');
-      if (fs.existsSync(packagePath)) {
-        return current;
-      }
-
-      const entries = fs.readdirSync(current, {withFileTypes: true});
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          stack.push(path.join(current, entry.name));
-        }
-      }
-    }
-
-    return undefined;
   }
 
   resolveBaseFile({relative, projectRoot, vlocityDir}) {
