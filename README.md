@@ -236,6 +236,21 @@ Tu respuesta debe:
 No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
 ```
 
+**How to connect the AI provider**
+
+1. Export the API key:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+2. (Optional) override the model:
+   ```bash
+   export OPENAI_MODEL="gpt-4o-mini"
+   ```
+3. Run the command with `--ai`:
+   ```bash
+   sf metadelta gitanalyze --repo . --output-dir reports/git --ai
+   ```
+
 **Example output (Markdown extract)**
 
 ```
@@ -652,6 +667,21 @@ Tu respuesta debe:
 
 No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
 ```
+
+**Cómo conectar la IA**
+
+1. Exporta la API key:
+   ```bash
+   export OPENAI_API_KEY="sk-..."
+   ```
+2. (Opcional) define el modelo:
+   ```bash
+   export OPENAI_MODEL="gpt-4o-mini"
+   ```
+3. Ejecuta el comando con `--ai`:
+   ```bash
+   sf metadelta gitanalyze --repo . --output-dir reports/git --ai
+   ```
 
 **Ejemplo de salida (Markdown)**
 
