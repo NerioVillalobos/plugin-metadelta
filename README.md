@@ -7,7 +7,7 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers six complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers seven complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
@@ -15,6 +15,7 @@ Metadelta is a custom Salesforce CLI plugin that offers six complementary workfl
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
+* `sf metadelta gitanalyze` inspects a local Git repository for risky integrations, reports structured events, and (optionally) asks an LLM to explain the findings in human language.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -27,6 +28,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
+- [`sf metadelta gitanalyze`](#gitanalyze-command)
 
 ### Installation
 
@@ -166,6 +168,110 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
   ```
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
+
+### `gitanalyze` command
+
+Professional Git integrity analysis for CI/CD pipelines and local audits. The command does **not** clone and does **not** require network access; it only inspects the local Git repository and emits structured events plus an optional AI explanation.
+
+**Architecture**
+
+```
+src/git-integrity/
+├─ ai.js                # LLM prompt builder + OpenAI client adapter
+├─ constants.js         # thresholds, keywords, scoring weights
+├─ extractor.js         # Git log + reflog extraction
+├─ git.js               # Git helper utilities (repo/root/mainline)
+├─ index.js             # Orchestrator: extract → detect → score → report
+├─ report.js            # JSON + Markdown report builders
+└─ detectors/
+   ├─ directCommits.js
+   ├─ historyRewrite.js
+   ├─ largeCommits.js
+   ├─ mergeCommits.js
+   └─ suspiciousPatterns.js
+```
+
+**Detectors covered**
+
+- Direct commits on the effective mainline (auto-detected, no hardcoded `main`/`master`).
+- Merge commits (with heuristic conflict detection).
+- Large commits (files/lines thresholds + “huge commit” escalation).
+- Suspicious commit messages and chained reverts.
+- History rewrite signals from reflog (rebase/reset/force-push hints).
+
+**Usage**
+
+```bash
+sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/git
+```
+
+**Flags**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--repo`, `-r` | Local Git repo to analyze | `.` |
+| `--range` | Git range (e.g. `base..HEAD`) | Auto-detected mainline |
+| `--max-commits` | Max commits to inspect | `200` |
+| `--large-files` | File threshold for large commits | `20` |
+| `--large-lines` | Line threshold for large commits | `500` |
+| `--huge-files` | File threshold for massive commits | `50` |
+| `--huge-lines` | Line threshold for massive commits | `1500` |
+| `--json` | Output JSON report path | None |
+| `--markdown` | Output Markdown report path | None |
+| `--output-dir` | Output directory for both reports | None |
+| `--ai` | Enable AI explanation (requires `OPENAI_API_KEY`) | `false` |
+| `--ai-provider` | AI provider (currently `openai`) | `openai` |
+| `--ai-model` | AI model | `gpt-4o-mini` |
+
+**AI prompt (reusable)**
+
+```
+Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
+Tu respuesta debe:
+1) Explicar qué ocurrió.
+2) Explicar por qué es riesgoso.
+3) Explicar el impacto posible.
+4) Recomendar acciones concretas.
+
+No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
+```
+
+**Example output (Markdown extract)**
+
+```
+Repositorio: /workspace/my-repo
+Referencia principal: origin/main
+Rango analizado: origin/main..HEAD
+Riesgo global: ALTO (score 23)
+
+- direct_commit_mainline (medium) - Hotfix urgent on prod
+  - Commit: 9f7c2c1
+  - Autor: DevOps Bot
+```
+
+**Example output (JSON extract)**
+
+```json
+{
+  "metadata": {
+    "repoPath": "/workspace/my-repo",
+    "mainlineRef": "origin/main",
+    "range": "origin/main..HEAD"
+  },
+  "scoring": {
+    "level": "ALTO",
+    "score": 23
+  }
+}
+```
+
+**Standalone Python**
+
+For pipelines that prefer a single-file runtime, use `scripts/git-integrity-standalone.py`. The Python script mirrors the same detection rules and outputs JSON/Markdown.
+
+```bash
+python3 scripts/git-integrity-standalone.py --repo . --range origin/HEAD..HEAD --output-dir reports/git
+```
 
 ### `cleanps` command
 
@@ -366,7 +472,7 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece seis flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece siete flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
@@ -374,6 +480,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece seis flujos co
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
+* `sf metadelta gitanalyze` inspecciona un repositorio Git local para detectar integraciones de riesgo, genera eventos estructurados y opcionalmente pide a la IA explicar los hallazgos.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -385,6 +492,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
+- [`sf metadelta gitanalyze`](#comando-gitanalyze)
 
 ### Instalación
 
@@ -477,6 +585,110 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+### Comando `gitanalyze`
+
+Auditoría profesional de integridad Git para pipelines CI/CD y revisiones locales. El comando **no clona** ni requiere red: analiza el repositorio local y emite eventos estructurados, además de una explicación por IA opcional.
+
+**Arquitectura**
+
+```
+src/git-integrity/
+├─ ai.js                # Prompt reusable + adaptador OpenAI
+├─ constants.js         # umbrales, keywords, scoring
+├─ extractor.js         # extracción de log y reflog
+├─ git.js               # utilidades Git (repo/root/mainline)
+├─ index.js             # orquestador
+├─ report.js            # reportes JSON/Markdown
+└─ detectors/
+   ├─ directCommits.js
+   ├─ historyRewrite.js
+   ├─ largeCommits.js
+   ├─ mergeCommits.js
+   └─ suspiciousPatterns.js
+```
+
+**Detecciones incluidas**
+
+- Commits directos en la línea principal detectada automáticamente.
+- Merge commits (incluye heurística para conflictos).
+- Commits grandes y muy grandes (por archivos y líneas).
+- Mensajes sospechosos y reverts encadenados.
+- Reescritura de historia basada en reflog (rebase/reset/force-push hints).
+
+**Uso rápido**
+
+```bash
+sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/git --ai
+```
+
+**Banderas**
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--repo`, `-r` | Repositorio Git local a analizar | `.` |
+| `--range` | Rango Git (ej: `base..HEAD`) | Referencia principal detectada |
+| `--max-commits` | Máximo de commits a analizar | `200` |
+| `--large-files` | Umbral de archivos para cambios grandes | `20` |
+| `--large-lines` | Umbral de líneas para cambios grandes | `500` |
+| `--huge-files` | Umbral de archivos para cambios masivos | `50` |
+| `--huge-lines` | Umbral de líneas para cambios masivos | `1500` |
+| `--json` | Ruta de salida para JSON | Ninguno |
+| `--markdown` | Ruta de salida para Markdown | Ninguno |
+| `--output-dir` | Directorio para ambos reportes | Ninguno |
+| `--ai` | Habilita IA (requiere `OPENAI_API_KEY`) | `false` |
+| `--ai-provider` | Proveedor IA (openai) | `openai` |
+| `--ai-model` | Modelo IA | `gpt-4o-mini` |
+
+**Prompt de IA (reusable)**
+
+```
+Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
+Tu respuesta debe:
+1) Explicar qué ocurrió.
+2) Explicar por qué es riesgoso.
+3) Explicar el impacto posible.
+4) Recomendar acciones concretas.
+
+No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
+```
+
+**Ejemplo de salida (Markdown)**
+
+```
+Repositorio: /workspace/mi-repo
+Referencia principal: origin/main
+Rango analizado: origin/main..HEAD
+Riesgo global: ALTO (score 23)
+
+- suspicious_message (medium) - hotfix urgent payment leak
+  - Commit: 1a2b3c4
+  - Autor: CI Bot
+```
+
+**Ejemplo de salida (JSON)**
+
+```json
+{
+  "metadata": {
+    "repoPath": "/workspace/mi-repo",
+    "mainlineRef": "origin/main",
+    "range": "origin/main..HEAD"
+  },
+  "scoring": {
+    "level": "ALTO",
+    "score": 23
+  }
+}
+```
+
+**Standalone en Python**
+
+El script `scripts/git-integrity-standalone.py` genera los mismos reportes y detecciones sin depender de Node.js. Útil para pipelines con runtime Python.
+
+```bash
+python3 scripts/git-integrity-standalone.py --repo . --range origin/HEAD..HEAD --output-dir reports/git
+```
 
 ### Comando `cleanps`
 
@@ -664,4 +876,3 @@ sf plugins unlink @nervill/metadelta
 ### Licencia
 
 Este proyecto se publica bajo la [licencia ISC](LICENSE).
-
