@@ -24,10 +24,16 @@ DEFAULT_CONFIG = {
 
 AI_PROMPT = """Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
 Tu respuesta debe:
-1) Explicar qué ocurrió.
-2) Explicar por qué es riesgoso.
-3) Explicar el impacto posible.
-4) Recomendar acciones concretas.
+1) Resumir en una lista corta los tipos de eventos detectados y qué significan (1-2 líneas por tipo).
+2) Explicar qué ocurrió.
+3) Explicar por qué es riesgoso.
+4) Explicar el impacto posible.
+5) Recomendar acciones concretas.
+
+Responde en JSON con las claves:
+- summary: texto breve con lista de tipos y explicación corta por tipo
+- analysis: explicación general en párrafos
+- recommendations: lista de acciones recomendadas
 
 No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional."""
 
@@ -345,8 +351,10 @@ def build_markdown(metadata, scoring, events, ai):
         f"**Commits analizados:** {metadata['commitCount']}",
         f"**Riesgo global:** {scoring['level']} (score {scoring['score']})",
         "",
-        "## Eventos detectados",
     ]
+    if ai.get("status") == "ok" and ai.get("summary"):
+        lines += ["## Resumen IA de eventos", ai.get("summary", ""), ""]
+    lines.append("## Eventos detectados")
     if not events:
         lines.append("No se detectaron eventos de riesgo.")
     else:
@@ -373,25 +381,56 @@ def build_markdown(metadata, scoring, events, ai):
     return "\n".join(lines)
 
 
-def request_ai(events, summary, mainline_ref, repo_path, model, api_key):
+def normalize_ai_response(content):
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError:
+        parsed = {}
+    return {
+        "status": "ok",
+        "response": content,
+        "prompt": AI_PROMPT,
+        "summary": parsed.get("summary"),
+        "analysis": parsed.get("analysis"),
+        "recommendations": parsed.get("recommendations") if isinstance(parsed.get("recommendations"), list) else None,
+    }
+
+
+def request_ai(events, summary, mainline_ref, repo_path, model, api_key, provider):
     if not api_key:
-        raise RuntimeError("Falta OPENAI_API_KEY para ejecutar IA.")
+        missing = "GEMINI_API_KEY" if provider == "gemini" else "OPENAI_API_KEY"
+        raise RuntimeError(f"Falta {missing} para ejecutar IA.")
+    payload_context = json.dumps(
+        {
+            "repository": repo_path,
+            "mainlineRef": mainline_ref,
+            "summary": summary,
+            "events": events,
+        },
+        indent=2,
+    )
+    if provider == "gemini":
+        gemini_model = model or "gemini-1.5-flash"
+        payload = {
+            "contents": [
+                {"role": "user", "parts": [{"text": AI_PROMPT}, {"text": payload_context}]}
+            ],
+            "generationConfig": {"temperature": 0.2},
+        }
+        req = request.Request(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={api_key}",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with request.urlopen(req) as response:
+            body = json.loads(response.read().decode("utf-8"))
+            content = body.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            return normalize_ai_response(content)
     payload = {
         "model": model or "gpt-4o-mini",
         "messages": [
             {"role": "system", "content": AI_PROMPT},
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "repository": repo_path,
-                        "mainlineRef": mainline_ref,
-                        "summary": summary,
-                        "events": events,
-                    },
-                    indent=2,
-                ),
-            },
+            {"role": "user", "content": payload_context},
         ],
         "temperature": 0.2,
     }
@@ -406,7 +445,7 @@ def request_ai(events, summary, mainline_ref, repo_path, model, api_key):
     with request.urlopen(req) as response:
         body = json.loads(response.read().decode("utf-8"))
         content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
-        return content
+        return normalize_ai_response(content)
 
 
 def main():
@@ -422,6 +461,7 @@ def main():
     parser.add_argument("--markdown", dest="markdown_path", help="Ruta de salida Markdown")
     parser.add_argument("--output-dir", dest="output_dir", help="Directorio para ambos reportes")
     parser.add_argument("--ai", action="store_true", help="Habilita IA (OPENAI_API_KEY)")
+    parser.add_argument("--ai-provider", default="openai", help="Proveedor IA (openai | gemini)")
     parser.add_argument("--ai-model", default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     args = parser.parse_args()
 
@@ -462,8 +502,16 @@ def main():
     ai_result = {"status": "skipped", "response": None}
     if args.ai:
         try:
-            ai_response = request_ai(events, scoring, mainline_ref, root, args.ai_model, os.getenv("OPENAI_API_KEY"))
-            ai_result = {"status": "ok", "response": ai_response, "prompt": AI_PROMPT}
+            api_key = os.getenv("GEMINI_API_KEY") if args.ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
+            ai_result = request_ai(
+                events,
+                scoring,
+                mainline_ref,
+                root,
+                args.ai_model,
+                api_key,
+                args.ai_provider,
+            )
         except Exception as exc:
             ai_result = {"status": "error", "error": str(exc), "response": None}
 

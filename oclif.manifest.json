@@ -221,13 +221,13 @@
         },
         "ai": {
           "name": "ai",
-          "summary": "Habilita la explicación por IA (usa OPENAI_API_KEY)",
+          "summary": "Habilita la explicación por IA (usa OPENAI_API_KEY o GEMINI_API_KEY)",
           "allowNo": false,
           "type": "boolean"
         },
         "ai-provider": {
           "name": "ai-provider",
-          "summary": "Proveedor de IA (openai)",
+          "summary": "Proveedor de IA (openai | gemini)",
           "default": "openai",
           "hasDynamicHelp": false,
           "multiple": false,

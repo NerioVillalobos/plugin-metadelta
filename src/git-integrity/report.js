@@ -28,6 +28,12 @@ export function buildMarkdownReport({
   lines.push(`**Riesgo global:** ${scoring.level} (score ${scoring.score})`);
   lines.push('');
 
+  if (ai?.status === 'ok' && ai.summary) {
+    lines.push('## Resumen IA de eventos');
+    lines.push(ai.summary);
+    lines.push('');
+  }
+
   lines.push('## Eventos detectados');
   if (events.length === 0) {
     lines.push('No se detectaron eventos de riesgo.');

@@ -219,8 +219,8 @@ sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/
 | `--json` | Output JSON report path | None |
 | `--markdown` | Output Markdown report path | None |
 | `--output-dir` | Output directory for both reports | None |
-| `--ai` | Enable AI explanation (requires `OPENAI_API_KEY`) | `false` |
-| `--ai-provider` | AI provider (currently `openai`) | `openai` |
+| `--ai` | Enable AI explanation (requires `OPENAI_API_KEY` or `GEMINI_API_KEY`) | `false` |
+| `--ai-provider` | AI provider (`openai` or `gemini`) | `openai` |
 | `--ai-model` | AI model | `gpt-4o-mini` |
 
 **AI prompt (reusable)**
@@ -228,10 +228,16 @@ sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/
 ```
 Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
 Tu respuesta debe:
-1) Explicar qué ocurrió.
-2) Explicar por qué es riesgoso.
-3) Explicar el impacto posible.
-4) Recomendar acciones concretas.
+1) Resumir en una lista corta los tipos de eventos detectados y qué significan (1-2 líneas por tipo).
+2) Explicar qué ocurrió.
+3) Explicar por qué es riesgoso.
+4) Explicar el impacto posible.
+5) Recomendar acciones concretas.
+
+Responde en JSON con las claves:
+- summary: texto breve con lista de tipos y explicación corta por tipo
+- analysis: explicación general en párrafos
+- recommendations: lista de acciones recomendadas
 
 No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
 ```
@@ -242,6 +248,10 @@ No hagas supuestos fuera de los datos. No inventes información. Escribe en espa
    ```bash
    export OPENAI_API_KEY="sk-..."
    ```
+   If you want Gemini instead:
+   ```bash
+   export GEMINI_API_KEY="..."
+   ```
 2. (Optional) override the model:
    ```bash
    export OPENAI_MODEL="gpt-4o-mini"
@@ -249,6 +259,10 @@ No hagas supuestos fuera de los datos. No inventes información. Escribe en espa
 3. Run the command with `--ai`:
    ```bash
    sf metadelta gitanalyze --repo . --output-dir reports/git --ai
+   ```
+   Or switch providers:
+   ```bash
+   sf metadelta gitanalyze --repo . --output-dir reports/git --ai --ai-provider gemini --ai-model gemini-1.5-flash
    ```
 
 **Example output (Markdown extract)**
@@ -651,8 +665,8 @@ sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/
 | `--json` | Ruta de salida para JSON | Ninguno |
 | `--markdown` | Ruta de salida para Markdown | Ninguno |
 | `--output-dir` | Directorio para ambos reportes | Ninguno |
-| `--ai` | Habilita IA (requiere `OPENAI_API_KEY`) | `false` |
-| `--ai-provider` | Proveedor IA (openai) | `openai` |
+| `--ai` | Habilita IA (requiere `OPENAI_API_KEY` o `GEMINI_API_KEY`) | `false` |
+| `--ai-provider` | Proveedor IA (`openai` o `gemini`) | `openai` |
 | `--ai-model` | Modelo IA | `gpt-4o-mini` |
 
 **Prompt de IA (reusable)**
@@ -660,10 +674,16 @@ sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/
 ```
 Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
 Tu respuesta debe:
-1) Explicar qué ocurrió.
-2) Explicar por qué es riesgoso.
-3) Explicar el impacto posible.
-4) Recomendar acciones concretas.
+1) Resumir en una lista corta los tipos de eventos detectados y qué significan (1-2 líneas por tipo).
+2) Explicar qué ocurrió.
+3) Explicar por qué es riesgoso.
+4) Explicar el impacto posible.
+5) Recomendar acciones concretas.
+
+Responde en JSON con las claves:
+- summary: texto breve con lista de tipos y explicación corta por tipo
+- analysis: explicación general en párrafos
+- recommendations: lista de acciones recomendadas
 
 No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
 ```
@@ -674,6 +694,10 @@ No hagas supuestos fuera de los datos. No inventes información. Escribe en espa
    ```bash
    export OPENAI_API_KEY="sk-..."
    ```
+   Si usarás Gemini:
+   ```bash
+   export GEMINI_API_KEY="..."
+   ```
 2. (Opcional) define el modelo:
    ```bash
    export OPENAI_MODEL="gpt-4o-mini"
@@ -681,6 +705,10 @@ No hagas supuestos fuera de los datos. No inventes información. Escribe en espa
 3. Ejecuta el comando con `--ai`:
    ```bash
    sf metadelta gitanalyze --repo . --output-dir reports/git --ai
+   ```
+   O cambia de proveedor:
+   ```bash
+   sf metadelta gitanalyze --repo . --output-dir reports/git --ai --ai-provider gemini --ai-model gemini-1.5-flash
    ```
 
 **Ejemplo de salida (Markdown)**
