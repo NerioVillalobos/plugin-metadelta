@@ -200,52 +200,113 @@ class Find extends Command {
     };
 
     const datapackQueries = {
-      'AttributeAssignmentRule': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__AttributeAssignmentRule__c",
-      'AttributeCategory': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__AttributeCategory__c",
-      'Catalog': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Catalog__c",
-      'ContextAction': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextAction__c",
-      'ContextDimension': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextDimension__c",
-      'ContextScope': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextScope__c",
-      'ContractType': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContractType__c",
-      'DocumentClause': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DocumentClause__c",
-      'DocumentTemplate': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DocumentTemplate__c",
-      'EntityFilter': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__EntityFilter__c",
-      'InterfaceImplementation': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__InterfaceImplementation__c",
-      'OmniScript': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OmniScript__c WHERE %vlocity_namespace%__IsProcedure__c = false",
-      'IntegrationProcedure': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OmniScript__c WHERE %vlocity_namespace%__IsProcedure__c = true",
-      'DataRaptor': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DRBundle__c",
-      'CalculationMatrix': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CalculationMatrix__c",
-      'CalculationProcedure': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CalculationProcedure__c",
-      'Attachment': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM Attachment",
-      'Document': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM Document",
-      'IntegrationRetryPolicy': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__IntegrationRetryPolicy__c",
-      'ManualQueue': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ManualQueue__c",
-      'ObjectClass': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectClass__c",
-      'ObjectContextRule': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectRuleAssignment__c",
-      'ObjectLayout': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectLayout__c",
-      'OfferMigrationPlan': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OfferMigrationPlan__c",
-      'OrchestrationDependencyDefinition': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationDependencyDefinition__c",
-      'OrchestrationItemDefinition': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationItemDefinition__c",
-      'OrchestrationPlanDefinition': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationPlanDefinition__c",
-      'Pricebook2': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM Pricebook2",
-      'PriceList': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PriceList__c",
-      'PricingPlan': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PricingPlan__c",
-      'PricingVariable': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PricingVariable__c",
-      'Product2': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM Product2",
-      'Promotion': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Promotion__c",
-      'QueryBuilder': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__QueryBuilder__c",
-      'Rule': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Rule__c",
-      'String': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__String__c",
-      'System': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__System__c",
-      'TimePlan': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__TimePlan__c",
-      'TimePolicy': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__TimePolicy__c",
-      'UIFacet': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__UIFacet__c",
-      'UISection': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__UISection__c",
-      'VlocityAction': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityAction__c",
-      'VlocityAttachment': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityAttachment__c",
-      'VlocityCard': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityCard__c",
-      'VlocityFunction': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityFunction__c",
-      'VlocityPicklist': "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Picklist__c"
+      AttributeAssignmentRule: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__AttributeAssignmentRule__c",
+      AttributeCategory: "SELECT Id, Name, %vlocity_namespace%__Code__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__AttributeCategory__c",
+      CalculationMatrix: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CalculationMatrix__c",
+      CalculationProcedure: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CalculationProcedure__c",
+      Catalog: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Catalog__c",
+      ContextAction: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextAction__c",
+      ContextDimension: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextDimension__c",
+      ContextScope: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContextScope__c",
+      ContractType: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ContractType__c",
+      DataRaptor: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DRBundle__c WHERE %vlocity_namespace%__Type__c != 'Migration'",
+      DocumentClause: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DocumentClause__c",
+      DocumentTemplate: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__DocumentTemplate__c",
+      EntityFilter: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__EntityFilter__c",
+      IntegrationProcedure: "SELECT Id, %vlocity_namespace%__Type__c, %vlocity_namespace%__SubType__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OmniScript__c WHERE %vlocity_namespace%__IsActive__c = true AND %vlocity_namespace%__IsProcedure__c = true",
+      InterfaceImplementation: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__InterfaceImplementation__c",
+      ItemImplementation: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ItemImplementation__c",
+      ManualQueue: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ManualQueue__c",
+      ObjectClass: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectClass__c",
+      ObjectContextRule: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectRuleAssignment__c",
+      ObjectLayout: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__ObjectLayout__c",
+      OmniScript: "SELECT Id, %vlocity_namespace%__Type__c, %vlocity_namespace%__SubType__c, %vlocity_namespace%__Language__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OmniScript__c WHERE %vlocity_namespace%__IsActive__c = true AND %vlocity_namespace%__IsProcedure__c = false",
+      OrchestrationDependencyDefinition: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationDependencyDefinition__c",
+      OrchestrationItemDefinition: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationItemDefinition__c",
+      OrchestrationPlanDefinition: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__OrchestrationPlanDefinition__c",
+      PriceList: "SELECT Id, Name, %vlocity_namespace%__Code__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PriceList__c",
+      Pricebook2: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM Pricebook2",
+      PricingPlan: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PricingPlan__c",
+      PricingVariable: "SELECT Id, Name, %vlocity_namespace%__Code__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__PricingVariable__c",
+      Product2: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM Product2",
+      Promotion: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Promotion__c",
+      QueryBuilder: "SELECT Id, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__QueryBuilder__c",
+      Rule: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Rule__c",
+      StoryObjectConfiguration: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__StoryObjectConfiguration__c",
+      System: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__System__c",
+      TimePlan: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__TimePlan__c",
+      TimePolicy: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__TimePolicy__c",
+      UIFacet: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__UIFacet__c",
+      UISection: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__UISection__c",
+      VlocityAction: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityAction__c WHERE %vlocity_namespace%__IsActive__c = true",
+      VlocityCard: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityCard__c WHERE %vlocity_namespace%__Active__c = true",
+      VlocityFunction: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityFunction__c",
+      VlocityPicklist: "SELECT Id, Name, %vlocity_namespace%__GlobalKey__c, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__Picklist__c",
+      VlocitySearchWidgetSetup: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocitySearchWidgetSetup__c",
+      VlocityStateModel: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityStateModel__c",
+      VlocityUILayout: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityUILayout__c WHERE %vlocity_namespace%__Active__c = true",
+      VlocityUITemplate: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VlocityUITemplate__c WHERE %vlocity_namespace%__Active__c = true",
+      VqMachine: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VqMachine__c",
+      VqResource: "SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VqResource__c"
+    };
+
+    const obtenerCampoNamespace = (record, campo) => {
+      const namespace = vlocityNamespace || 'vlocity';
+      return record[`${namespace}__${campo}`];
+    };
+
+    const construirNombrePorCampos = (valores) => {
+      const limpio = valores.filter(valor => valor);
+      if (limpio.length === 0) {
+        return null;
+      }
+      return limpio.join('_').replace(/\s+/g, '-');
+    };
+
+    const construirFullNameVlocity = (tipo, record) => {
+      const tiposGlobalKey = new Set([
+        'ContextAction',
+        'ContextDimension',
+        'ContextScope',
+        'EntityFilter',
+        'ObjectClass',
+        'ObjectLayout',
+        'OrchestrationDependencyDefinition',
+        'Product2',
+        'Promotion',
+        'Rule',
+        'TimePlan',
+        'TimePolicy',
+        'UIFacet',
+        'UISection',
+        'VlocityFunction',
+        'VlocityPicklist'
+      ]);
+      const tiposCode = new Set(['AttributeCategory', 'PriceList', 'PricingVariable']);
+
+      if (tiposGlobalKey.has(tipo)) {
+        return obtenerCampoNamespace(record, 'GlobalKey__c') || record.Name || record.Id;
+      }
+      if (tiposCode.has(tipo)) {
+        return obtenerCampoNamespace(record, 'Code__c') || record.Name || record.Id;
+      }
+      if (tipo === 'Pricebook2' || tipo === 'PricingPlan') {
+        return (record.Name || record.Id || '').replace(/\s+/g, '-');
+      }
+      if (tipo === 'OmniScript') {
+        return construirNombrePorCampos([
+          obtenerCampoNamespace(record, 'Type__c'),
+          obtenerCampoNamespace(record, 'SubType__c'),
+          obtenerCampoNamespace(record, 'Language__c')
+        ]) || record.Name || record.Id;
+      }
+      if (tipo === 'IntegrationProcedure') {
+        return construirNombrePorCampos([
+          obtenerCampoNamespace(record, 'Type__c'),
+          obtenerCampoNamespace(record, 'SubType__c')
+        ]) || record.Name || record.Id;
+      }
+      return record.Name || record.Id;
     };
 
     const consultarDatapack = (nombre, query) => {
@@ -264,7 +325,7 @@ class Find extends Command {
             const json = JSON.parse(data);
             const registros = json.result.records.map(rec => ({
               type: nombre,
-              fullName: rec.Name,
+              fullName: construirFullNameVlocity(nombre, rec),
               lastModifiedDate: rec.LastModifiedDate,
               lastModifiedByName: rec['LastModifiedBy']['Name']
             }));
@@ -380,7 +441,7 @@ class Find extends Command {
           'projectPath: ./Vlocity',
           'continueAfterError: true',
           'compileOnBuild: false',
-          'maxDepth: 1',
+          'maxDepth: 0',
           'autoUpdateSettings: true',
           '',
           'manifest:',
