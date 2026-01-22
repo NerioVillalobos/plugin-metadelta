@@ -290,7 +290,7 @@ class Find extends Command {
       if (tiposCode.has(tipo)) {
         return obtenerCampoNamespace(record, 'Code__c') || record.Name || record.Id;
       }
-      if (tipo === 'Pricebook2') {
+      if (tipo === 'Pricebook2' || tipo === 'PricingPlan') {
         return (record.Name || record.Id || '').replace(/\s+/g, '-');
       }
       if (tipo === 'OmniScript') {
@@ -441,7 +441,7 @@ class Find extends Command {
           'projectPath: ./Vlocity',
           'continueAfterError: true',
           'compileOnBuild: false',
-          'maxDepth: 1',
+          'maxDepth: 0',
           'autoUpdateSettings: true',
           '',
           'manifest:',
