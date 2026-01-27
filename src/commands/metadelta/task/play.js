@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {
   TaskOrchestrator,
   ensureTestsDirectory,
+  ensurePlaywrightReady,
   resolveTestFilePath,
 } from '../../../utils/task/orchestrator.js';
 
@@ -38,8 +39,9 @@ class TaskPlay extends Command {
         this.error(`No se encontró el archivo de prueba: ${flags.tstname}`);
       }
 
+      ensurePlaywrightReady();
       const url = this.fetchOrgUrl(targetOrg);
-      const args = ['playwright', 'test', testFile, '--reporter', 'line'];
+      const args = ['--yes', 'playwright', 'test', testFile, '--reporter', 'line'];
       if (flags.header) {
         args.push('--headed');
       }

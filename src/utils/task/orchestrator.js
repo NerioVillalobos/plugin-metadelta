@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {spawnSync} from 'node:child_process';
 
 const DEFAULT_ORCHESTRATOR_FILENAME = 'metadelta-task-orchestrator.json';
 
@@ -137,4 +138,18 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
     .replaceAll(`"${baseUrl}"`, 'baseUrl');
 
   fs.writeFileSync(filePath, updated, 'utf8');
+}
+
+export function ensurePlaywrightReady() {
+  const installResult = spawnPlaywright(['install', '--with-deps']);
+  if (installResult.status !== 0) {
+    const fallbackResult = spawnPlaywright(['install']);
+    if (fallbackResult.status !== 0) {
+      throw new Error('No se pudieron instalar los navegadores de Playwright automáticamente.');
+    }
+  }
+}
+
+function spawnPlaywright(args) {
+  return spawnSync('npx', ['--yes', 'playwright', ...args], {stdio: 'inherit'});
 }

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import {
   TaskOrchestrator,
   ensureTestsDirectory,
+  ensurePlaywrightReady,
   formatTimestampForFilename,
   injectBaseUrlInTest,
   sanitizeAlias,
@@ -27,6 +28,7 @@ class TaskRecord extends Command {
     const targetOrg = flags.org;
 
     try {
+      ensurePlaywrightReady();
       const url = this.fetchOrgUrl(targetOrg);
       const testsDir = ensureTestsDirectory();
       const safeAlias = sanitizeAlias(targetOrg);
@@ -38,7 +40,7 @@ class TaskRecord extends Command {
 
       const result = spawnSync(
         'npx',
-        ['playwright', 'codegen', url, '--target', 'playwright-test', '--output', outputPath],
+        ['--yes', 'playwright', 'codegen', url, '--target', 'playwright-test', '--output', outputPath],
         {stdio: 'inherit'}
       );
 
