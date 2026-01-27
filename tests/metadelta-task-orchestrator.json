@@ -1,0 +1,33 @@
+{
+  "solutions": [
+    {
+      "pattern": "No authorization information found",
+      "description": "No se encontró autenticación válida para el alias solicitado.",
+      "solution": "Ejecuta \"sf org login web -a <alias>\" o \"sf org login web --set-default -a <alias>\" antes de grabar/reproducir.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "browserType\\.launch: Executable doesn\\'t exist",
+      "description": "Playwright no tiene instalados los navegadores.",
+      "solution": "Ejecuta \"npx playwright install --with-deps\" para descargar los binarios.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Target page, context or browser has been closed",
+      "description": "El navegador se cerró antes de completar el flujo.",
+      "solution": "Reintenta la ejecución y valida que el login o MFA no cierre la ventana; usa --header para inspeccionar.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "net::ERR_NAME_NOT_RESOLVED",
+      "description": "No se pudo resolver el host de la org.",
+      "solution": "Valida la conectividad de red y que el alias resuelva a un org válido.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    }
+  ],
+  "errors": []
+}
