@@ -44,7 +44,8 @@ class TaskPlay extends Command {
       ensurePlaywrightReady();
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
       const url = this.fetchOrgFrontdoorUrl(targetOrg);
-      const configPath = this.createPlaywrightConfig(testFile);
+      const patchedTestFile = this.createPatchedTestFile(testFile);
+      const configPath = this.createPlaywrightConfig(patchedTestFile);
       const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
       if (flags.header) {
         args.push('--headed');
@@ -66,6 +67,7 @@ class TaskPlay extends Command {
       }
 
       fs.rmSync(configPath, {force: true});
+      fs.rmSync(patchedTestFile, {force: true});
     } catch (error) {
       orchestrator.recordError({
         message: error.message,
@@ -91,6 +93,17 @@ class TaskPlay extends Command {
     fs.mkdirSync(path.dirname(configPath), {recursive: true});
     fs.writeFileSync(configPath, contents, 'utf8');
     return configPath;
+  }
+
+  createPatchedTestFile(testFile) {
+    const patchedPath = path.resolve(process.cwd(), 'tests', `.metadelta.${path.basename(testFile)}`);
+    const original = fs.readFileSync(testFile, 'utf8');
+    const injected = original.replace(
+      /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
+      `$1  await page.goto(process.env.METADELTA_BASE_URL);\n`
+    );
+    fs.writeFileSync(patchedPath, injected, 'utf8');
+    return patchedPath;
   }
 
   fetchOrgFrontdoorUrl(targetOrg) {
