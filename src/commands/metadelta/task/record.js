@@ -8,7 +8,7 @@ import {
   formatTimestampForFilename,
   injectBaseUrlInTest,
   sanitizeAlias,
-} from './orchestrator.js';
+} from '../../../utils/task/orchestrator.js';
 
 class TaskRecord extends Command {
   static summary = 'Graba un procedimiento manual en Salesforce usando Playwright.';

@@ -5,7 +5,7 @@ import {
   TaskOrchestrator,
   ensureTestsDirectory,
   resolveTestFilePath,
-} from './orchestrator.js';
+} from '../../../utils/task/orchestrator.js';
 
 class TaskPlay extends Command {
   static summary = 'Reproduce una grabación de Playwright en una org de Salesforce.';
