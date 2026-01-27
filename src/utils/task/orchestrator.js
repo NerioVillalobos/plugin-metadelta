@@ -155,20 +155,6 @@ function spawnPlaywright(args) {
   return spawnSync('npx', ['--yes', 'playwright', ...args], {stdio: 'inherit'});
 }
 
-export function ensurePlaywrightTestDependency() {
-  if (hasPlaywrightTestPackage()) {
-    return;
-  }
-  const result = spawnSync(
-    'npm',
-    ['install', '--no-fund', '--no-audit', '--save-dev', '@playwright/test'],
-    {stdio: 'inherit'}
-  );
-  if (result.status !== 0) {
-    throw new Error('No se pudo instalar @playwright/test automáticamente.');
-  }
-}
-
 function hasPlaywrightBrowsers() {
   const customPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   const defaultPath = path.join(os.homedir(), '.cache', 'ms-playwright');
@@ -181,15 +167,6 @@ function hasPlaywrightBrowsers() {
   try {
     const entries = fs.readdirSync(browsersPath);
     return entries.length > 0;
-  } catch (error) {
-    return false;
-  }
-}
-
-function hasPlaywrightTestPackage() {
-  try {
-    const resolved = path.resolve(process.cwd(), 'node_modules', '@playwright', 'test', 'package.json');
-    return fs.existsSync(resolved);
   } catch (error) {
     return false;
   }
