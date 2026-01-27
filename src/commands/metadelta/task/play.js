@@ -6,6 +6,7 @@ import {
   TaskOrchestrator,
   ensureTestsDirectory,
   ensurePlaywrightReady,
+  ensurePlaywrightTestDependency,
   resolveTestFilePath,
 } from '../../../utils/task/orchestrator.js';
 
@@ -41,6 +42,7 @@ class TaskPlay extends Command {
       }
 
       ensurePlaywrightReady();
+      ensurePlaywrightTestDependency();
       const url = this.fetchOrgUrl(targetOrg);
       const configPath = this.createPlaywrightConfig(testFile);
       const args = ['--yes', 'playwright', 'test', '--config', configPath, '--reporter', 'line'];
