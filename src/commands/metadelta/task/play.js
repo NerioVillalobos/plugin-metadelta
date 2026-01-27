@@ -1,6 +1,7 @@
 import {Command, Flags} from '@oclif/core';
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 import {
   TaskOrchestrator,
   ensureTestsDirectory,
@@ -41,7 +42,8 @@ class TaskPlay extends Command {
 
       ensurePlaywrightReady();
       const url = this.fetchOrgUrl(targetOrg);
-      const args = ['--yes', 'playwright', 'test', testFile, '--reporter', 'line'];
+      const configPath = this.createPlaywrightConfig(testFile);
+      const args = ['--yes', 'playwright', 'test', '--config', configPath, '--reporter', 'line'];
       if (flags.header) {
         args.push('--headed');
       }
@@ -56,6 +58,8 @@ class TaskPlay extends Command {
       if (result.status !== 0) {
         this.error('La ejecución de Playwright finalizó con errores.');
       }
+
+      fs.rmSync(configPath, {force: true});
     } catch (error) {
       orchestrator.recordError({
         message: error.message,
@@ -68,6 +72,19 @@ class TaskPlay extends Command {
       }
       this.error(error.message);
     }
+  }
+
+  createPlaywrightConfig(testFile) {
+    const configPath = path.resolve(process.cwd(), 'tests', '.metadelta.playwright.config.cjs');
+    const testDir = path.dirname(testFile);
+    const testBase = path.basename(testFile);
+    const contents = `module.exports = {
+  testDir: ${JSON.stringify(testDir)},
+  testMatch: [${JSON.stringify(testBase)}],
+};\n`;
+    fs.mkdirSync(path.dirname(configPath), {recursive: true});
+    fs.writeFileSync(configPath, contents, 'utf8');
+    return configPath;
   }
 
   fetchOrgUrl(targetOrg) {
