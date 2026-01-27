@@ -29,7 +29,7 @@ class TaskRecord extends Command {
 
     try {
       ensurePlaywrightReady();
-      const url = this.fetchOrgUrl(targetOrg);
+      const url = this.fetchOrgFrontdoorUrl(targetOrg);
       const testsDir = ensureTestsDirectory();
       const safeAlias = sanitizeAlias(targetOrg);
       const timestamp = formatTimestampForFilename();
@@ -68,10 +68,10 @@ class TaskRecord extends Command {
     }
   }
 
-  fetchOrgUrl(targetOrg) {
+  fetchOrgFrontdoorUrl(targetOrg) {
     const result = spawnSync(
       'sf',
-      ['org', 'open', '--url-only', '--target-org', targetOrg, '--json'],
+      ['org', 'display', '--target-org', targetOrg, '--json'],
       {encoding: 'utf8'}
     );
 
@@ -83,7 +83,11 @@ class TaskRecord extends Command {
     let url = '';
     try {
       const parsed = JSON.parse(result.stdout);
-      url = parsed?.result?.url ?? '';
+      const instanceUrl = parsed?.result?.instanceUrl ?? '';
+      const accessToken = parsed?.result?.accessToken ?? '';
+      if (instanceUrl && accessToken) {
+        url = `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
+      }
     } catch (error) {
       url = result.stdout.trim();
     }

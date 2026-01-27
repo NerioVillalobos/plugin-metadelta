@@ -43,7 +43,7 @@ class TaskPlay extends Command {
 
       ensurePlaywrightReady();
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
-      const url = this.fetchOrgUrl(targetOrg);
+      const url = this.fetchOrgFrontdoorUrl(targetOrg);
       const configPath = this.createPlaywrightConfig(testFile);
       const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
       if (flags.header) {
@@ -93,10 +93,10 @@ class TaskPlay extends Command {
     return configPath;
   }
 
-  fetchOrgUrl(targetOrg) {
+  fetchOrgFrontdoorUrl(targetOrg) {
     const result = spawnSync(
       'sf',
-      ['org', 'open', '--url-only', '--target-org', targetOrg, '--json'],
+      ['org', 'display', '--target-org', targetOrg, '--json'],
       {encoding: 'utf8'}
     );
 
@@ -108,7 +108,11 @@ class TaskPlay extends Command {
     let url = '';
     try {
       const parsed = JSON.parse(result.stdout);
-      url = parsed?.result?.url ?? '';
+      const instanceUrl = parsed?.result?.instanceUrl ?? '';
+      const accessToken = parsed?.result?.accessToken ?? '';
+      if (instanceUrl && accessToken) {
+        url = `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
+      }
     } catch (error) {
       url = result.stdout.trim();
     }
