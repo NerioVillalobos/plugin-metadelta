@@ -141,12 +141,13 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
 }
 
 export function ensurePlaywrightReady() {
-  const installResult = spawnPlaywright(['install', '--with-deps']);
+  const checkResult = spawnPlaywright(['install', '--check']);
+  if (checkResult.status === 0) {
+    return;
+  }
+  const installResult = spawnPlaywright(['install']);
   if (installResult.status !== 0) {
-    const fallbackResult = spawnPlaywright(['install']);
-    if (fallbackResult.status !== 0) {
-      throw new Error('No se pudieron instalar los navegadores de Playwright automáticamente.');
-    }
+    throw new Error('No se pudieron instalar los navegadores de Playwright automáticamente.');
   }
 }
 

@@ -71,7 +71,7 @@ class TaskRecord extends Command {
   fetchOrgUrl(targetOrg) {
     const result = spawnSync(
       'sf',
-      ['org', 'open', '--url-only', '--target-org', targetOrg],
+      ['org', 'open', '--url-only', '--target-org', targetOrg, '--json'],
       {encoding: 'utf8'}
     );
 
@@ -80,7 +80,13 @@ class TaskRecord extends Command {
       throw new Error(message);
     }
 
-    const url = result.stdout.trim();
+    let url = '';
+    try {
+      const parsed = JSON.parse(result.stdout);
+      url = parsed?.result?.url ?? '';
+    } catch (error) {
+      url = result.stdout.trim();
+    }
     if (!url) {
       throw new Error('No se pudo resolver la URL de la org.');
     }
