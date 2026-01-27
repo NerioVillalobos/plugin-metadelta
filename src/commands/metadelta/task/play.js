@@ -6,6 +6,7 @@ import {
   TaskOrchestrator,
   ensureTestsDirectory,
   ensurePlaywrightReady,
+  ensurePlaywrightTestDependency,
   resolveTestFilePath,
 } from '../../../utils/task/orchestrator.js';
 
@@ -41,18 +42,23 @@ class TaskPlay extends Command {
       }
 
       ensurePlaywrightReady();
+      const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
       const url = this.fetchOrgUrl(targetOrg);
       const configPath = this.createPlaywrightConfig(testFile);
-      const args = ['--yes', '@playwright/test', 'test', '--config', configPath, '--reporter', 'line'];
+      const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
       if (flags.header) {
         args.push('--headed');
       }
 
       this.log(`Ejecutando prueba en ${targetOrg} con archivo ${testFile}`);
 
-      const result = spawnSync('npx', args, {
+      const result = spawnSync(process.execPath, args, {
         stdio: 'inherit',
-        env: {...process.env, METADELTA_BASE_URL: url},
+        env: {
+          ...process.env,
+          METADELTA_BASE_URL: url,
+          NODE_PATH: cacheDir ? path.join(cacheDir, 'node_modules') : process.env.NODE_PATH,
+        },
       });
 
       if (result.status !== 0) {

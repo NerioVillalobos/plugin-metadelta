@@ -155,6 +155,30 @@ function spawnPlaywright(args) {
   return spawnSync('npx', ['--yes', 'playwright', ...args], {stdio: 'inherit'});
 }
 
+export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
+  const cacheDir = path.resolve(baseDir, 'tests', '.metadelta-playwright');
+  const cliPath = path.resolve(cacheDir, 'node_modules', '@playwright', 'test', 'cli.js');
+  if (fs.existsSync(cliPath)) {
+    return {cacheDir, cliPath};
+  }
+
+  fs.mkdirSync(cacheDir, {recursive: true});
+  const result = spawnSync(
+    'npm',
+    ['install', '--no-fund', '--no-audit', '--prefix', cacheDir, '@playwright/test'],
+    {stdio: 'inherit'}
+  );
+  if (result.status !== 0) {
+    throw new Error('No se pudo instalar @playwright/test automáticamente.');
+  }
+
+  if (!fs.existsSync(cliPath)) {
+    throw new Error('No se encontró el CLI de @playwright/test después de la instalación.');
+  }
+
+  return {cacheDir, cliPath};
+}
+
 function hasPlaywrightBrowsers() {
   const customPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   const defaultPath = path.join(os.homedir(), '.cache', 'ms-playwright');
