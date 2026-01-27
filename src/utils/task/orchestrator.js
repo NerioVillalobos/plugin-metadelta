@@ -159,6 +159,7 @@ export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
   const cacheDir = path.resolve(baseDir, 'tests', '.metadelta-playwright');
   const cliPath = path.resolve(cacheDir, 'node_modules', '@playwright', 'test', 'cli.js');
   if (fs.existsSync(cliPath)) {
+    ensureTestModuleSymlink(baseDir, cacheDir);
     return {cacheDir, cliPath};
   }
 
@@ -176,7 +177,21 @@ export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
     throw new Error('No se encontró el CLI de @playwright/test después de la instalación.');
   }
 
+  ensureTestModuleSymlink(baseDir, cacheDir);
   return {cacheDir, cliPath};
+}
+
+function ensureTestModuleSymlink(baseDir, cacheDir) {
+  const target = path.resolve(cacheDir, 'node_modules', '@playwright', 'test');
+  const linkRoot = path.resolve(baseDir, 'tests', 'node_modules', '@playwright');
+  const linkPath = path.join(linkRoot, 'test');
+
+  if (fs.existsSync(linkPath)) {
+    return;
+  }
+
+  fs.mkdirSync(linkRoot, {recursive: true});
+  fs.symlinkSync(target, linkPath, 'junction');
 }
 
 function hasPlaywrightBrowsers() {
