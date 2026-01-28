@@ -30,6 +30,13 @@ export async function runTaskOrchestrator(page) {
         await waitForMaintenanceJobsLink(page);
       },
     },
+    {
+      name: 'Click Maintenance Jobs en Visualforce',
+      check: async () => await hasVisualforceFrame(page),
+      run: async () => {
+        await clickMaintenanceJobsLink(page);
+      },
+    },
   ];
 
   for (const route of routes) {
@@ -82,4 +89,21 @@ async function waitForMaintenanceJobsLink(page) {
     return;
   }
   await vf.getByRole('link', {name: 'Maintenance Jobs'}).waitFor({timeout: 15000});
+}
+
+async function clickMaintenanceJobsLink(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  const link = vf.getByRole('link', {name: 'Maintenance Jobs'});
+  await link.waitFor({timeout: 15000});
+  try {
+    await link.click({timeout: 5000});
+  } catch (error) {
+    await vf.page().waitForTimeout(1000);
+    await link.click({timeout: 5000});
+  }
 }
