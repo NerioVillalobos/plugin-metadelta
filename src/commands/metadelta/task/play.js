@@ -98,9 +98,13 @@ class TaskPlay extends Command {
   createPatchedTestFile(testFile) {
     const patchedPath = path.resolve(process.cwd(), 'tests', `.metadelta.${path.basename(testFile)}`);
     const original = fs.readFileSync(testFile, 'utf8');
-    const injected = original.replace(
+    const injectedImports = original.replace(
+      /(import\s+\{\s*test[^;]+;)/,
+      `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
+    );
+    const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  await page.goto(process.env.METADELTA_BASE_URL);\n`
+      `$1  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     fs.writeFileSync(patchedPath, injected, 'utf8');
     return patchedPath;
