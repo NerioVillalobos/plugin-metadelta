@@ -23,6 +23,13 @@ export async function runTaskOrchestrator(page) {
         await page.getByRole('combobox', {name: 'Search apps and items...'}).waitFor({timeout: 10000});
       },
     },
+    {
+      name: 'Esperar Visualforce para Maintenance Jobs',
+      check: async () => await hasVisualforceFrame(page),
+      run: async () => {
+        await waitForMaintenanceJobsLink(page);
+      },
+    },
   ];
 
   for (const route of routes) {
@@ -57,4 +64,22 @@ async function isAppLauncherOpen(page) {
   } catch (error) {
     return false;
   }
+}
+
+async function hasVisualforceFrame(page) {
+  try {
+    return (await page.locator('iframe[name^="vfFrameId_"]').count()) > 0;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function waitForMaintenanceJobsLink(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  await vf.getByRole('link', {name: 'Maintenance Jobs'}).waitFor({timeout: 15000});
 }
