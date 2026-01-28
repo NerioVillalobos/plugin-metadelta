@@ -99,7 +99,8 @@ class TaskPlay extends Command {
     const patchedPath = path.resolve(process.cwd(), 'tests', `.metadelta.${path.basename(testFile)}`);
     const original = fs.readFileSync(testFile, 'utf8');
     this.ensureRoutesFile();
-    const injectedImports = original.replace(
+    const normalizedFrames = original.replace(/vfFrameId_\d+/g, 'vfFrameId_');
+    const injectedImports = normalizedFrames.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
