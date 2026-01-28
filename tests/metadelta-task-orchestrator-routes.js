@@ -1,3 +1,7 @@
+export const orchestratorOptions = {
+  normalizeVisualforceFrame: true,
+};
+
 export async function runTaskOrchestrator(page) {
   const routes = [
     {
