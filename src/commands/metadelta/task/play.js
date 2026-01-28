@@ -103,6 +103,7 @@ class TaskPlay extends Command {
       ? original
           .replace(/vfFrameId_\d+/g, 'vfFrameId_')
           .replace(/iframe\[name="vfFrameId_"\]/g, 'iframe[name^="vfFrameId_"]')
+          .replace(/iframe\[name="vfFrameId_\d+"\]/g, 'iframe[name^="vfFrameId_"]')
       : original;
     const injectedImports = normalizedFrames.replace(
       /(import\s+\{\s*test[^;]+;)/,
@@ -119,10 +120,10 @@ class TaskPlay extends Command {
   shouldNormalizeVisualforceFrames() {
     const routesPath = path.resolve(process.cwd(), 'tests', 'metadelta-task-orchestrator-routes.js');
     if (!fs.existsSync(routesPath)) {
-      return false;
+      return true;
     }
     const contents = fs.readFileSync(routesPath, 'utf8');
-    return /normalizeVisualforceFrame\s*:\s*true/.test(contents);
+    return !/normalizeVisualforceFrame\s*:\s*false/.test(contents);
   }
 
   ensureRoutesFile() {
