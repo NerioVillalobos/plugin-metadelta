@@ -118,6 +118,10 @@ class TaskPlay extends Command {
             "contentFrame().getByRole('button', { name: /Start/i }).first()"
           )
           .replace(
+            /contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\)/g,
+            "contentFrame().getByRole('button', { name: /Start/i }).first().click({force: true})"
+          )
+          .replace(
             /contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\)\.toBeVisible\(\)/g,
             "contentFrame().getByRole('button', { name: /Start/i }).first()).toBeVisible()"
           )
