@@ -111,7 +111,18 @@ class TaskPlay extends Command {
           "contentFrame().getByRole('button', { name: /Start/i })"
         )
       : normalizedFrames;
-    const injectedImports = normalizedButtons.replace(
+    const normalizedOptionClick = normalizedButtons.replace(
+      /await page\.getByRole\('option', \{ name: 'Vlocity CMT Administration' \}\)\.click\(\);/g,
+      `{
+    const option = page.getByRole('option', {name: 'Vlocity CMT Administration'});
+    if (await option.count()) {
+      await option.first().click({timeout: 15000});
+    } else {
+      await page.getByText('Vlocity CMT Administration').first().click({timeout: 15000});
+    }
+  }`
+    );
+    const injectedImports = normalizedOptionClick.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
