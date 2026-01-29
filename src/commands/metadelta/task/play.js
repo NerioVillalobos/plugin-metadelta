@@ -207,10 +207,7 @@ async function ensureStartTriggered(page) {
 `;
     let withHelper = injected;
     if (!withHelper.includes('ensureStartTriggered')) {
-      withHelper = withHelper.replace(
-        /(import[\s\S]*?;\n)/,
-        `$1${helper}\n`
-      );
+      withHelper = `${helper}\n${withHelper}`;
     }
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
