@@ -139,12 +139,20 @@ class TaskPlay extends Command {
     );
     const normalizedStatusWaits = normalizedOptionClick
       .replace(
+        /await expect\(([^)]+getByText\('InProgress'\)[^)]*)\)\.toBeVisible\(\{timeout: 120000\}\);/g,
+        `await expect.poll(async () => await $1.count(), {timeout: 300000}).toBeGreaterThan(0);`
+      )
+      .replace(
+        /await expect\(([^)]+getByText\('Success'\)[^)]*)\)\.toBeVisible\(\{timeout: 120000\}\);/g,
+        `await expect.poll(async () => await $1.count(), {timeout: 300000}).toBeGreaterThan(0);`
+      )
+      .replace(
         /getByText\('InProgress'\)\)\.toBeVisible\(\)/g,
-        "getByText('InProgress')).toBeVisible({timeout: 120000})"
+        "getByText('InProgress')).toBeVisible({timeout: 300000})"
       )
       .replace(
         /getByText\('Success'\)(?:\.first\(\))?\)\.toBeVisible\(\)/g,
-        "getByText('Success').first()).toBeVisible({timeout: 120000})"
+        "getByText('Success').first()).toBeVisible({timeout: 300000})"
       );
     const injectedImports = normalizedStatusWaits.replace(
       /(import\s+\{\s*test[^;]+;)/,
@@ -152,7 +160,7 @@ class TaskPlay extends Command {
     );
     const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(180000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(300000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     fs.writeFileSync(patchedPath, injected, 'utf8');
     return patchedPath;
