@@ -205,7 +205,13 @@ async function ensureStartTriggered(page) {
   }
 }
 `;
-    const withHelper = injected.includes('ensureStartTriggered') ? injected : `${injected}\n${helper}`;
+    let withHelper = injected;
+    if (!withHelper.includes('ensureStartTriggered')) {
+      withHelper = withHelper.replace(
+        /(import[\s\S]*?;\n)/,
+        `$1${helper}\n`
+      );
+    }
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
   }
