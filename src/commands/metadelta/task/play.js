@@ -111,7 +111,18 @@ class TaskPlay extends Command {
           "contentFrame().getByRole('button', { name: /Start/i })"
         )
       : normalizedFrames;
-    const normalizedOptionClick = normalizedButtons.replace(
+    const normalizedStartRole = this.shouldNormalizeGenericButtonSelectors()
+      ? normalizedButtons
+          .replace(
+            /contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)/g,
+            "contentFrame().getByRole('button', { name: /Start/i }).first()"
+          )
+          .replace(
+            /contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\)\.toBeVisible\(\)/g,
+            "contentFrame().getByRole('button', { name: /Start/i }).first()).toBeVisible()"
+          )
+      : normalizedButtons;
+    const normalizedOptionClick = normalizedStartRole.replace(
       /await page\.getByRole\('option', \{ name: 'Vlocity CMT Administration' \}\)\.click\(\);/g,
       `{
     const option = page.getByRole('option', {name: 'Vlocity CMT Administration'});
