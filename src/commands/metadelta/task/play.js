@@ -111,7 +111,7 @@ class TaskPlay extends Command {
     );
     const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     fs.writeFileSync(patchedPath, injected, 'utf8');
     return patchedPath;
@@ -123,7 +123,9 @@ class TaskPlay extends Command {
       return true;
     }
     const contents = fs.readFileSync(routesPath, 'utf8');
-    return !/normalizeVisualforceFrame\s*:\s*false/.test(contents);
+    const normalizeVisualforce = !/normalizeVisualforceFrame\s*:\s*false/.test(contents);
+    const normalizeGeneric = !/normalizeGenericButtonSelector\s*:\s*false/.test(contents);
+    return normalizeVisualforce || normalizeGeneric;
   }
 
   ensureRoutesFile() {
@@ -133,6 +135,7 @@ class TaskPlay extends Command {
     }
     const contents = `export const orchestratorOptions = {
   normalizeVisualforceFrame: true,
+  normalizeGenericButtonSelector: true,
 };
 
 export async function runTaskOrchestrator(page) {

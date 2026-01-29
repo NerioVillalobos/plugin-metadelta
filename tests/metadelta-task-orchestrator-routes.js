@@ -1,5 +1,6 @@
 export const orchestratorOptions = {
   normalizeVisualforceFrame: true,
+  normalizeGenericButtonSelector: true,
 };
 
 export async function runTaskOrchestrator(page) {
