@@ -70,6 +70,13 @@ export async function runTaskOrchestrator(page) {
         await clickSafeStartButton(page);
       },
     },
+    {
+      name: 'Fallback Start con force click',
+      check: async () => await hasVisualforceFrame(page),
+      run: async () => {
+        await forceClickStartButton(page);
+      },
+    },
   ];
 
   for (const route of routes) {
@@ -208,4 +215,18 @@ async function clickSafeStartButton(page) {
     await closeVisualforceModals(page);
     await startButton.click({timeout: 5000});
   }
+}
+
+async function forceClickStartButton(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  const startButton = vf.getByRole('button', {name: /Start/i}).first();
+  if ((await startButton.count()) === 0) {
+    return;
+  }
+  await startButton.click({timeout: 5000, force: true});
 }
