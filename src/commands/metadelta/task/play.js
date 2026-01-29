@@ -175,7 +175,18 @@ class TaskPlay extends Command {
     .click();
   await ensureStartTriggered(page);`
       );
-    const injectedImports = normalizedStartClicks.replace(
+    const normalizedModalStartClicks = normalizedStartClicks.replace(
+      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\{force: true\}\);/g,
+      `await clickModalStartIfPresent(page);
+  await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .getByRole('button', {name: /Start/i})
+    .first()
+    .click({force: true});
+  await ensureStartTriggered(page);`
+    );
+    const injectedImports = normalizedModalStartClicks.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
@@ -184,6 +195,32 @@ class TaskPlay extends Command {
       `$1  test.setTimeout(300000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
+async function clickModalStartIfPresent(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  const modalStart = vf
+    .locator('section[role="dialog"]')
+    .getByRole('button', {name: /Start/i})
+    .first();
+  const footerStart = vf
+    .locator('.slds-modal__footer')
+    .getByRole('button', {name: /Start/i})
+    .first();
+  if ((await modalStart.count()) > 0) {
+    await modalStart.click({force: true});
+    await modalStart.evaluate((el) => el.click());
+    return;
+  }
+  if ((await footerStart.count()) > 0) {
+    await footerStart.click({force: true});
+    await footerStart.evaluate((el) => el.click());
+  }
+}
+
 async function ensureStartTriggered(page) {
   const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
   try {
