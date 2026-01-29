@@ -206,7 +206,8 @@ async function ensureStartTriggered(page) {
 }
 `;
     let withHelper = injected;
-    if (!withHelper.includes('ensureStartTriggered')) {
+    const hasHelper = /async function ensureStartTriggered\(/.test(withHelper);
+    if (!hasHelper) {
       withHelper = `${helper}\n${withHelper}`;
     }
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
