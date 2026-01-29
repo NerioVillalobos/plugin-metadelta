@@ -137,13 +137,22 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const injectedImports = normalizedOptionClick.replace(
+    const normalizedStatusWaits = normalizedOptionClick
+      .replace(
+        /getByText\('InProgress'\)\)\.toBeVisible\(\)/g,
+        "getByText('InProgress')).toBeVisible({timeout: 120000})"
+      )
+      .replace(
+        /getByText\('Success'\)(?:\.first\(\))?\)\.toBeVisible\(\)/g,
+        "getByText('Success').first()).toBeVisible({timeout: 120000})"
+      );
+    const injectedImports = normalizedStatusWaits.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
     const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  page.setDefaultTimeout(60000);\n  expect.setTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     fs.writeFileSync(patchedPath, injected, 'utf8');
     return patchedPath;
