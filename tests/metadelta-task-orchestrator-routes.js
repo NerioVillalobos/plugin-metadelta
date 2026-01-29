@@ -63,6 +63,13 @@ export async function runTaskOrchestrator(page) {
         await normalizeGenericButtonSelector(page);
       },
     },
+    {
+      name: 'Click Start seguro en Visualforce',
+      check: async () => await hasVisualforceFrame(page),
+      run: async () => {
+        await clickSafeStartButton(page);
+      },
+    },
   ];
 
   for (const route of routes) {
@@ -180,5 +187,25 @@ async function normalizeGenericButtonSelector(page) {
     if ((await startButton.count()) > 0) {
       await startButton.first().click({timeout: 5000});
     }
+  }
+}
+
+async function clickSafeStartButton(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  await closeVisualforceModals(page);
+  const startButton = vf.getByRole('button', {name: /Start/i}).first();
+  if ((await startButton.count()) === 0) {
+    return;
+  }
+  try {
+    await startButton.click({timeout: 5000});
+  } catch (error) {
+    await closeVisualforceModals(page);
+    await startButton.click({timeout: 5000});
   }
 }
