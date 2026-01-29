@@ -41,6 +41,13 @@ export async function runTaskOrchestrator(page) {
         await clickMaintenanceJobsLink(page);
       },
     },
+    {
+      name: 'Cerrar modales en Visualforce',
+      check: async () => await hasVisualforceFrame(page),
+      run: async () => {
+        await closeVisualforceModals(page);
+      },
+    },
   ];
 
   for (const route of routes) {
@@ -109,5 +116,22 @@ async function clickMaintenanceJobsLink(page) {
   } catch (error) {
     await vf.page().waitForTimeout(1000);
     await link.click({timeout: 5000});
+  }
+}
+
+async function closeVisualforceModals(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    return;
+  }
+  const backdrop = vf.locator('.slds-backdrop--open');
+  const modal = vf.locator('.slds-modal.slds-fade-in-open');
+  if ((await backdrop.count()) > 0 || (await modal.count()) > 0) {
+    const closeButton = vf.getByRole('button', {name: /Close|Cancel|OK|Done/i});
+    if ((await closeButton.count()) > 0) {
+      await closeButton.first().click({timeout: 5000});
+    }
   }
 }
