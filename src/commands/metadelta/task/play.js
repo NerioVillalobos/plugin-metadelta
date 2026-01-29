@@ -154,7 +154,28 @@ class TaskPlay extends Command {
         /getByText\('Success'\)(?:\.first\(\))?\)\.toBeVisible\(\)/g,
         "getByText('Success').first()).toBeVisible({timeout: 300000})"
       );
-    const injectedImports = normalizedStatusWaits.replace(
+    const normalizedStartClicks = normalizedStatusWaits
+      .replace(
+        /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\{force: true\}\);/g,
+        `await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .getByRole('button', {name: /Start/i})
+    .first()
+    .click({force: true});
+  await ensureStartTriggered(page);`
+      )
+      .replace(
+        /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\);/g,
+        `await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .getByRole('button', {name: /Start/i})
+    .first()
+    .click();
+  await ensureStartTriggered(page);`
+      );
+    const injectedImports = normalizedStartClicks.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
@@ -162,7 +183,30 @@ class TaskPlay extends Command {
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(300000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
-    fs.writeFileSync(patchedPath, injected, 'utf8');
+    const helper = `
+async function ensureStartTriggered(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  try {
+    await frameLocator.waitFor({timeout: 15000});
+    const vf = await frameLocator.contentFrame();
+    if (!vf) {
+      return;
+    }
+    const inProgress = vf.getByText('InProgress');
+    const success = vf.getByText('Success').first();
+    const startButton = vf.getByRole('button', {name: /Start/i}).first();
+    const hasStatus =
+      (await inProgress.count()) > 0 || (await success.count()) > 0;
+    if (!hasStatus && (await startButton.count()) > 0) {
+      await startButton.click({force: true});
+    }
+  } catch (error) {
+    // noop: si no se puede validar, dejamos que el flujo continúe.
+  }
+}
+`;
+    const withHelper = injected.includes('ensureStartTriggered') ? injected : `${injected}\n${helper}`;
+    fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
   }
 
