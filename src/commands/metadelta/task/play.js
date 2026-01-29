@@ -105,7 +105,13 @@ class TaskPlay extends Command {
           .replace(/iframe\[name="vfFrameId_"\]/g, 'iframe[name^="vfFrameId_"]')
           .replace(/iframe\[name="vfFrameId_\d+"\]/g, 'iframe[name^="vfFrameId_"]')
       : original;
-    const injectedImports = normalizedFrames.replace(
+    const normalizedButtons = this.shouldNormalizeGenericButtonSelectors()
+      ? normalizedFrames.replace(
+          /contentFrame\(\)\.locator\('button:nth-child\(2\)'\)/g,
+          "contentFrame().getByRole('button', { name: /Start/i })"
+        )
+      : normalizedFrames;
+    const injectedImports = normalizedButtons.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
@@ -126,6 +132,15 @@ class TaskPlay extends Command {
     const normalizeVisualforce = !/normalizeVisualforceFrame\s*:\s*false/.test(contents);
     const normalizeGeneric = !/normalizeGenericButtonSelector\s*:\s*false/.test(contents);
     return normalizeVisualforce || normalizeGeneric;
+  }
+
+  shouldNormalizeGenericButtonSelectors() {
+    const routesPath = path.resolve(process.cwd(), 'tests', 'metadelta-task-orchestrator-routes.js');
+    if (!fs.existsSync(routesPath)) {
+      return true;
+    }
+    const contents = fs.readFileSync(routesPath, 'utf8');
+    return !/normalizeGenericButtonSelector\s*:\s*false/.test(contents);
   }
 
   ensureRoutesFile() {
