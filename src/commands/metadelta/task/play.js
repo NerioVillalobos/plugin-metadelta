@@ -208,10 +208,19 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedClickLogs = normalizedDeliverabilityClick.replace(
-      /\n(\s*)await ([^;\n]+?)\.click\(([^)]*)\);/g,
-      `\n$1console.log('➡️ Click:', ${'$2'});\n$1await $2.click($3);`
-    );
+    const normalizedClickLogs = normalizedDeliverabilityClick
+      .replace(
+        /\n(\s*)await ([^;\n]+?getByRole\([^;\n]+?name:\s*'([^']+)'[^;\n]*\))\.click\(([^)]*)\);/g,
+        `\n$1console.log('➡️ Click: name: "$3"');\n$1await $2.click($4);`
+      )
+      .replace(
+        /\n(\s*)await ([^;\n]+?getByText\('([^']+)'\)[^;\n]*)\.click\(([^)]*)\);/g,
+        `\n$1console.log('➡️ Click: "$3"');\n$1await $2.click($4);`
+      )
+      .replace(
+        /\n(\s*)await ([^;\n]+?)\.click\(([^)]*)\);/g,
+        `\n$1console.log('➡️ Click');\n$1await $2.click($3);`
+      );
     const injectedImports = normalizedClickLogs.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
