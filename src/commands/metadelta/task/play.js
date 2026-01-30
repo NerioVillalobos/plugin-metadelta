@@ -148,7 +148,7 @@ class TaskPlay extends Command {
       )
       .replace(
         /getByText\('InProgress'\)\)\.toBeVisible\(\)/g,
-        "getByText('InProgress')).toBeVisible({timeout: 300000})"
+        "getByText('InProgress').first()).toBeVisible({timeout: 300000})"
       )
       .replace(
         /getByText\('Success'\)(?:\.first\(\))?\)\.toBeVisible\(\)/g,
