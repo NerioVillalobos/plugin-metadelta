@@ -197,7 +197,18 @@ class TaskPlay extends Command {
     .click({force: true});
   await ensureStartTriggered(page);`
     );
-    const injectedImports = normalizedExactStartClicks.replace(
+    const normalizedDeliverabilityClick = normalizedExactStartClicks.replace(
+      /await (\w+)\.getByRole\('link', \{ name: 'Deliverability', exact: true \}\)\.click\(\);/g,
+      `{
+    const deliverabilityLink = $1.getByRole('link', {name: 'Deliverability', exact: true});
+    if (await deliverabilityLink.count()) {
+      await deliverabilityLink.first().click({timeout: 15000});
+    } else {
+      await $1.getByText('Deliverability', {exact: true}).first().click({timeout: 15000});
+    }
+  }`
+    );
+    const injectedImports = normalizedDeliverabilityClick.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
