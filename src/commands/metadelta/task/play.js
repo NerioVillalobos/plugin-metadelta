@@ -186,7 +186,18 @@ class TaskPlay extends Command {
     .click({force: true});
   await ensureStartTriggered(page);`
     );
-    const injectedImports = normalizedModalStartClicks.replace(
+    const normalizedExactStartClicks = normalizedModalStartClicks.replace(
+      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Start' \}\)\.first\(\)\.click\(\);/g,
+      `await clickModalStartIfPresent(page);
+  await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .getByRole('button', {name: 'Start'})
+    .first()
+    .click({force: true});
+  await ensureStartTriggered(page);`
+    );
+    const injectedImports = normalizedExactStartClicks.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
