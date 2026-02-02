@@ -296,6 +296,18 @@ async function ensureSetupCheckbox(page, label, sectionName) {
     await sectionLink.scrollIntoViewIfNeeded();
     await sectionLink.click({timeout: 15000, force: true});
     await frameLocator.waitFor({timeout: 15000});
+  } else {
+    const setupSearch = page.getByRole('searchbox', {name: 'Search Setup'});
+    if ((await setupSearch.count()) > 0) {
+      await setupSearch.fill(sectionName);
+      await setupSearch.press('Enter');
+    }
+    const fallbackLink = page.getByRole('link', {name: sectionName}).first();
+    if ((await fallbackLink.count()) > 0) {
+      await fallbackLink.scrollIntoViewIfNeeded();
+      await fallbackLink.click({timeout: 15000, force: true});
+      await frameLocator.waitFor({timeout: 15000});
+    }
   }
   return vf.getByRole('checkbox', {name: label});
 }
