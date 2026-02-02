@@ -249,8 +249,10 @@ class TaskPlay extends Command {
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.check\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
-    await checkbox.scrollIntoViewIfNeeded();
-    await checkbox.check({timeout: 15000});
+    if (checkbox) {
+      await checkbox.scrollIntoViewIfNeeded();
+      await checkbox.check({timeout: 15000});
+    }
   }`
     );
     const normalizedClickLogs = normalizedCheckboxes.replace(
@@ -315,7 +317,14 @@ async function ensureSetupCheckbox(page, label, sectionName) {
       }
     }
   }
-  throw new Error('No se encontró el checkbox "' + label + '" en la sección "' + sectionName + '".');
+  console.log(
+    '⚠️ No se encontró el checkbox "' +
+      label +
+      '" en la sección "' +
+      sectionName +
+      '". Se omite este paso.'
+  );
+  return null;
 }
 
 async function clickModalStartIfPresent(page) {
