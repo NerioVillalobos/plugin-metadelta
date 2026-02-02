@@ -306,7 +306,7 @@ async function ensureSetupCheckbox(page, label, sectionName) {
       await sectionLink.scrollIntoViewIfNeeded();
       await sectionLink.click({timeout: 15000, force: true});
     }
-    await frameLocator.waitFor({timeout: 30000});
+    await page.waitForTimeout(1000);
     vf = await frameLocator.contentFrame();
     if (vf) {
       const checkbox = vf.getByRole('checkbox', {name: label});
