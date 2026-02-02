@@ -520,6 +520,14 @@
           "summary": "Muestra el navegador durante la ejecución.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "vlocity-job-time": {
+          "name": "vlocity-job-time",
+          "summary": "Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.",
+          "default": 180,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
         }
       },
       "hasDynamicHelp": false,

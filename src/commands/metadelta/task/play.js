@@ -27,6 +27,10 @@ class TaskPlay extends Command {
       summary: 'Muestra el navegador durante la ejecución.',
       default: false,
     }),
+    'vlocity-job-time': Flags.integer({
+      summary: 'Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.',
+      default: 180,
+    }),
   };
 
   async run() {
@@ -44,7 +48,7 @@ class TaskPlay extends Command {
       ensurePlaywrightReady();
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
       const url = this.fetchOrgFrontdoorUrl(targetOrg);
-      const patchedTestFile = this.createPatchedTestFile(testFile);
+      const patchedTestFile = this.createPatchedTestFile(testFile, flags['vlocity-job-time']);
       const configPath = this.createPlaywrightConfig(patchedTestFile);
       const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
       if (flags.header) {
@@ -58,6 +62,7 @@ class TaskPlay extends Command {
         env: {
           ...process.env,
           METADELTA_BASE_URL: url,
+          METADELTA_VLOCITY_JOB_WAIT_MS: String((flags['vlocity-job-time'] ?? 180) * 1000),
           NODE_PATH: cacheDir ? path.join(cacheDir, 'node_modules') : process.env.NODE_PATH,
         },
       });
@@ -95,7 +100,7 @@ class TaskPlay extends Command {
     return configPath;
   }
 
-  createPatchedTestFile(testFile) {
+  createPatchedTestFile(testFile, vlocityJobTime) {
     const patchedPath = path.resolve(process.cwd(), 'tests', `.metadelta.${path.basename(testFile)}`);
     const original = fs.readFileSync(testFile, 'utf8');
     this.ensureRoutesFile();
@@ -198,11 +203,16 @@ class TaskPlay extends Command {
   await ensureStartTriggered(page);`
     );
     const normalizedMaintenanceWaits = normalizedExactStartClicks.replace(
-      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('([^']*job-start[^']*)'\)\.click\(\);/g,
+      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('([^']*job-start[^']*)'\)\.click\(\);\s*\n\s*await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'OK' \}\)\.click\(\);/g,
       `await page
     .locator('iframe[name^="vfFrameId_"]')
     .contentFrame()
     .locator('$1')
+    .click();
+  await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .getByRole('button', {name: 'OK'})
     .click();
   await waitForMaintenanceJob();`
     );
@@ -232,11 +242,12 @@ class TaskPlay extends Command {
     );
     const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(300000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
 async function waitForMaintenanceJob() {
-  await new Promise((resolve) => setTimeout(resolve, 180000));
+  const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 
 async function clickModalStartIfPresent(page) {
