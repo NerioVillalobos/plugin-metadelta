@@ -227,7 +227,18 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedClickLogs = normalizedDeliverabilityClick
+    const normalizedUserInterfaceClick = normalizedDeliverabilityClick.replace(
+      /await (\w+)\.getByRole\('link', \{ name: 'User Interface' \}\)\.nth\(1\)\.click\(\);/g,
+      `{
+    const uiLinks = $1.getByRole('link', {name: 'User Interface'});
+    if (await uiLinks.nth(1).count()) {
+      await uiLinks.nth(1).click({timeout: 15000});
+    } else {
+      await uiLinks.first().click({timeout: 15000});
+    }
+  }`
+    );
+    const normalizedClickLogs = normalizedUserInterfaceClick
       .replace(
         /\n(\s*)await ([^;\n]+?getByRole\([^;\n]+?name:\s*'([^']+)'[^;\n]*\))\.click\(([^)]*)\);/g,
         `\n$1console.log('➡️ Click: name: "$3"');\n$1await $2.click($4);`
