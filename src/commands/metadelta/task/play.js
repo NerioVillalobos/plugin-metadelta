@@ -232,13 +232,20 @@ class TaskPlay extends Command {
       `{
     const uiLinks = $1.getByRole('link', {name: 'User Interface'});
     if (await uiLinks.nth(1).count()) {
-      await uiLinks.nth(1).click({timeout: 15000});
+      await uiLinks.nth(1).scrollIntoViewIfNeeded();
+      await uiLinks.nth(1).click({timeout: 15000, force: true});
     } else {
-      await uiLinks.first().click({timeout: 15000});
+      await uiLinks.first().scrollIntoViewIfNeeded();
+      await uiLinks.first().click({timeout: 15000, force: true});
     }
   }`
     );
-    const normalizedCheckboxes = normalizedUserInterfaceClick.replace(
+    const normalizedQuickFind = normalizedUserInterfaceClick.replace(
+      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
+      `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
+  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
+    );
+    const normalizedCheckboxes = normalizedQuickFind.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.check\(\);/g,
       `{
     const checkbox = $1
@@ -249,7 +256,11 @@ class TaskPlay extends Command {
     await checkbox.check({timeout: 15000});
   }`
     );
-    const normalizedClickLogs = normalizedCheckboxes
+    const normalizedClickLogs = normalizedCheckboxes.replace(
+      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
+      `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
+    );
+    const normalizedClickLogsFinal = normalizedClickLogs
       .replace(
         /\n(\s*)await ([^;\n]+?getByRole\([^;\n]+?name:\s*'([^']+)'[^;\n]*\))\.click\(([^)]*)\);/g,
         `\n$1console.log('➡️ Click: name: "$3"');\n$1await $2.click($4);`
@@ -258,7 +269,7 @@ class TaskPlay extends Command {
         /\n(\s*)await ([^;\n]+?getByText\('([^']+)'\)[^;\n]*)\.click\(([^)]*)\);/g,
         `\n$1console.log('➡️ Click: "$3"');\n$1await $2.click($4);`
       );
-    const injectedImports = normalizedClickLogs.replace(
+    const injectedImports = normalizedClickLogsFinal.replace(
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
