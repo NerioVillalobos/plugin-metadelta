@@ -197,7 +197,16 @@ class TaskPlay extends Command {
     .click({force: true});
   await ensureStartTriggered(page);`
     );
-    const normalizedDeliverabilityClick = normalizedExactStartClicks.replace(
+    const normalizedMaintenanceWaits = normalizedExactStartClicks.replace(
+      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('([^']*job-start[^']*)'\)\.click\(\);/g,
+      `await page
+    .locator('iframe[name^="vfFrameId_"]')
+    .contentFrame()
+    .locator('$1')
+    .click();
+  await waitForMaintenanceJob();`
+    );
+    const normalizedDeliverabilityClick = normalizedMaintenanceWaits.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Deliverability', exact: true \}\)\.click\(\);/g,
       `{
     const deliverabilityLink = $1.getByRole('link', {name: 'Deliverability', exact: true});
@@ -226,6 +235,10 @@ class TaskPlay extends Command {
       `$1  test.setTimeout(300000);\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
+async function waitForMaintenanceJob() {
+  await new Promise((resolve) => setTimeout(resolve, 180000));
+}
+
 async function clickModalStartIfPresent(page) {
   const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
   await frameLocator.waitFor({timeout: 15000});
