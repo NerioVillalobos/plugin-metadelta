@@ -238,7 +238,18 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedClickLogs = normalizedUserInterfaceClick
+    const normalizedCheckboxes = normalizedUserInterfaceClick.replace(
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.check\(\);/g,
+      `{
+    const checkbox = $1
+      .locator('iframe[name^="vfFrameId_"]')
+      .contentFrame()
+      .getByRole('checkbox', {name: '$2'});
+    await checkbox.scrollIntoViewIfNeeded();
+    await checkbox.check({timeout: 15000});
+  }`
+    );
+    const normalizedClickLogs = normalizedCheckboxes
       .replace(
         /\n(\s*)await ([^;\n]+?getByRole\([^;\n]+?name:\s*'([^']+)'[^;\n]*\))\.click\(([^)]*)\);/g,
         `\n$1console.log('➡️ Click: name: "$3"');\n$1await $2.click($4);`
