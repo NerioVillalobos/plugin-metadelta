@@ -282,14 +282,20 @@ async function waitForMaintenanceJob() {
 
 async function ensureSetupCheckbox(page, label, sectionName) {
   const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
-  let vf = null;
-  try {
-    await frameLocator.waitFor({timeout: 15000});
-    vf = await frameLocator.contentFrame();
-  } catch (error) {
-    vf = null;
-  }
-  if (!vf) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let vf = null;
+    try {
+      await frameLocator.waitFor({timeout: 15000});
+      vf = await frameLocator.contentFrame();
+    } catch (error) {
+      vf = null;
+    }
+    if (vf) {
+      const checkbox = vf.getByRole('checkbox', {name: label});
+      if ((await checkbox.count()) > 0) {
+        return checkbox;
+      }
+    }
     const setupSearch = page.getByRole('searchbox', {name: 'Search Setup'});
     if ((await setupSearch.count()) > 0) {
       await setupSearch.fill(sectionName);
@@ -302,30 +308,14 @@ async function ensureSetupCheckbox(page, label, sectionName) {
     }
     await frameLocator.waitFor({timeout: 30000});
     vf = await frameLocator.contentFrame();
-  }
-  const checkbox = vf.getByRole('checkbox', {name: label});
-  if ((await checkbox.count()) > 0) {
-    return checkbox;
-  }
-  const sectionLink = page.getByRole('link', {name: sectionName}).first();
-  if ((await sectionLink.count()) > 0) {
-    await sectionLink.scrollIntoViewIfNeeded();
-    await sectionLink.click({timeout: 15000, force: true});
-    await frameLocator.waitFor({timeout: 15000});
-  } else {
-    const setupSearch = page.getByRole('searchbox', {name: 'Search Setup'});
-    if ((await setupSearch.count()) > 0) {
-      await setupSearch.fill(sectionName);
-      await setupSearch.press('Enter');
-    }
-    const fallbackLink = page.getByRole('link', {name: sectionName}).first();
-    if ((await fallbackLink.count()) > 0) {
-      await fallbackLink.scrollIntoViewIfNeeded();
-      await fallbackLink.click({timeout: 15000, force: true});
-      await frameLocator.waitFor({timeout: 15000});
+    if (vf) {
+      const checkbox = vf.getByRole('checkbox', {name: label});
+      if ((await checkbox.count()) > 0) {
+        return checkbox;
+      }
     }
   }
-  return vf.getByRole('checkbox', {name: label});
+  throw new Error('No se encontró el checkbox "' + label + '" en la sección "' + sectionName + '".');
 }
 
 async function clickModalStartIfPresent(page) {
