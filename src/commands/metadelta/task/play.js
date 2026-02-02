@@ -248,10 +248,7 @@ class TaskPlay extends Command {
     const normalizedCheckboxes = normalizedQuickFind.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.check\(\);/g,
       `{
-    const checkbox = $1
-      .locator('iframe[name^="vfFrameId_"]')
-      .contentFrame()
-      .getByRole('checkbox', {name: '$2'});
+    const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
     await checkbox.scrollIntoViewIfNeeded();
     await checkbox.check({timeout: 15000});
   }`
@@ -281,6 +278,26 @@ class TaskPlay extends Command {
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+async function ensureSetupCheckbox(page, label, sectionName) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    throw new Error('No se encontró el iframe de Setup para validar el checkbox.');
+  }
+  const checkbox = vf.getByRole('checkbox', {name: label});
+  if ((await checkbox.count()) > 0) {
+    return checkbox;
+  }
+  const sectionLink = page.getByRole('link', {name: sectionName}).first();
+  if ((await sectionLink.count()) > 0) {
+    await sectionLink.scrollIntoViewIfNeeded();
+    await sectionLink.click({timeout: 15000, force: true});
+    await frameLocator.waitFor({timeout: 15000});
+  }
+  return vf.getByRole('checkbox', {name: label});
 }
 
 async function clickModalStartIfPresent(page) {
