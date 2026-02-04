@@ -252,10 +252,23 @@ class TaskPlay extends Command {
     if (checkbox) {
       await checkbox.scrollIntoViewIfNeeded();
       await checkbox.check({timeout: 15000});
+      await markSetupSectionReady();
     }
   }`
     );
-    const normalizedClickLogs = normalizedCheckboxes.replace(
+    const normalizedSetupSaveClicks = normalizedCheckboxes.replace(
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Save' \}\)\.click\(\);/g,
+      `if (isSetupSectionReady()) {
+    await $1
+      .locator('iframe[name^="vfFrameId_"]')
+      .contentFrame()
+      .getByRole('button', {name: 'Save'})
+      .click({timeout: 15000});
+  } else {
+    console.log('⚠️ Se omite Save porque no se encontró el checkbox en la sección Setup.');
+  }`
+    );
+    const normalizedClickLogs = normalizedSetupSaveClicks.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
       `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
@@ -280,6 +293,16 @@ class TaskPlay extends Command {
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+let setupSectionReady = false;
+
+function markSetupSectionReady() {
+  setupSectionReady = true;
+}
+
+function isSetupSectionReady() {
+  return setupSectionReady;
 }
 
 async function ensureSetupCheckbox(page, label, sectionName) {
