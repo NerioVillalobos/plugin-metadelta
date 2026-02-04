@@ -326,10 +326,11 @@ async function ensureSetupCheckbox(page, label, sectionName) {
       await setupSearch.fill(sectionName);
       await setupSearch.press('Enter');
     }
-    const sectionLink = page.getByRole('link', {name: sectionName}).first();
-    if ((await sectionLink.count()) > 0) {
-      await sectionLink.scrollIntoViewIfNeeded();
-      await sectionLink.click({timeout: 15000, force: true});
+    const sectionLinks = page.getByRole('link', {name: sectionName});
+    if ((await sectionLinks.count()) > 0) {
+      const targetLink = (await sectionLinks.count()) > 1 ? sectionLinks.last() : sectionLinks.first();
+      await targetLink.scrollIntoViewIfNeeded();
+      await targetLink.click({timeout: 15000, force: true});
     }
     await page.waitForTimeout(1000);
     vf = await frameLocator.contentFrame();
