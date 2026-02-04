@@ -246,12 +246,12 @@ class TaskPlay extends Command {
   await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
     const normalizedCheckboxes = normalizedQuickFind.replace(
-      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.check\(\);/g,
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
     if (checkbox) {
       await checkbox.scrollIntoViewIfNeeded();
-      await checkbox.check({timeout: 15000});
+      await checkbox.$3({timeout: 15000});
       await markSetupSectionReady();
     }
   }`
