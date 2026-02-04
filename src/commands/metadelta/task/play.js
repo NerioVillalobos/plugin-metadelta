@@ -245,7 +245,11 @@ class TaskPlay extends Command {
       `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
   await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
-    const normalizedCheckboxes = normalizedQuickFind.replace(
+    const normalizedIframeHtmlClicks = normalizedQuickFind.replace(
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
+      `// omit iframe html click in patched tests to avoid timeouts in other orgs`
+    );
+    const normalizedCheckboxes = normalizedIframeHtmlClicks.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
