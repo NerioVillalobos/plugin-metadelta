@@ -249,7 +249,10 @@ class TaskPlay extends Command {
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
       `// omit iframe html click in patched tests to avoid timeouts in other orgs`
     );
-    const normalizedCheckboxes = normalizedIframeHtmlClicks.replace(
+    const normalizedBaseUrls = normalizedIframeHtmlClicks
+      .replace(/https:\/\/[^'"]+\.my\.salesforce\.com(\/[^'"]*)/g, 'baseUrl$1')
+      .replace(/https:\/\/[^'"]+\.lightning\.force\.com(\/[^'"]*)/g, 'baseUrl$1');
+    const normalizedCheckboxes = normalizedBaseUrls.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -287,7 +290,7 @@ class TaskPlay extends Command {
       );
     const injectedImports = normalizedClickLogsFinal.replace(
       /(import\s+\{\s*test[^;]+;)/,
-      `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
+      `$1\nconst baseUrl = process.env.METADELTA_BASE_URL;\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
     const injected = injectedImports.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
