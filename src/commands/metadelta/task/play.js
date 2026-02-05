@@ -252,7 +252,10 @@ class TaskPlay extends Command {
     const normalizedBaseUrls = normalizedIframeHtmlClicks
       .replace(/https:\/\/[^'"]+\.my\.salesforce\.com(\/[^'"]*)/g, 'baseUrl$1')
       .replace(/https:\/\/[^'"]+\.lightning\.force\.com(\/[^'"]*)/g, 'baseUrl$1');
-    const normalizedCheckboxes = normalizedBaseUrls.replace(
+    const normalizedBaseUrlExpressions = normalizedBaseUrls
+      .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
+      .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
+    const normalizedCheckboxes = normalizedBaseUrlExpressions.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
