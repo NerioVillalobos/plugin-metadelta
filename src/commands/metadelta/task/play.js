@@ -290,9 +290,16 @@ class TaskPlay extends Command {
       );
     const injectedImports = normalizedClickLogsFinal.replace(
       /(import\s+\{\s*test[^;]+;)/,
-      `$1\nconst baseUrl = process.env.METADELTA_BASE_URL;\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
+      `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
-    const injected = injectedImports.replace(
+    const baseUrlDeclaration = injectedImports.includes('const baseUrl')
+      ? ''
+      : 'const baseUrl = process.env.METADELTA_BASE_URL;\n';
+    const injectedBase = injectedImports.replace(
+      /(import\s+\{\s*test[^;]+;\n)/,
+      `$1${baseUrlDeclaration}`
+    );
+    const injected = injectedBase.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
