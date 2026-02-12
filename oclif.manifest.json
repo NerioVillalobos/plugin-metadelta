@@ -407,6 +407,93 @@
         "postvalidate.js"
       ]
     },
+    "metadelta:manual:collect": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "docs": {
+          "char": "d",
+          "name": "docs",
+          "required": true,
+          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "required": true,
+          "summary": "Ruta del archivo markdown generado.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "partial": {
+          "name": "partial",
+          "summary": "Procesa solo los archivos tocados en un sprint específico.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "all": {
+          "name": "all",
+          "summary": "Procesa todos los archivos del directorio.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "sprint-branch": {
+          "name": "sprint-branch",
+          "summary": "Rama del sprint a analizar (requerida para --partial).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "sprint-name": {
+          "name": "sprint-name",
+          "summary": "Nombre del sprint para mostrar en el markdown.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-branch": {
+          "name": "base-branch",
+          "summary": "Rama base desde la cual se creó el sprint.",
+          "default": "master",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "order-by": {
+          "name": "order-by",
+          "summary": "Origen de la fecha usada para ordenar (mtime o git).",
+          "default": "mtime",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "mtime",
+            "git"
+          ],
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:manual:collect",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "manual",
+        "collect.js"
+      ]
+    },
     "metadelta:task:play": {
       "aliases": [],
       "args": {},
@@ -507,93 +594,6 @@
         "metadelta",
         "task",
         "record.js"
-      ]
-    },
-    "metadelta:manual:collect": {
-      "aliases": [],
-      "args": {},
-      "flags": {
-        "docs": {
-          "char": "d",
-          "name": "docs",
-          "required": true,
-          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "output": {
-          "char": "o",
-          "name": "output",
-          "required": true,
-          "summary": "Ruta del archivo markdown generado.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "partial": {
-          "name": "partial",
-          "summary": "Procesa solo los archivos tocados en un sprint específico.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "all": {
-          "name": "all",
-          "summary": "Procesa todos los archivos del directorio.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "sprint-branch": {
-          "name": "sprint-branch",
-          "summary": "Rama del sprint a analizar (requerida para --partial).",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "sprint-name": {
-          "name": "sprint-name",
-          "summary": "Nombre del sprint para mostrar en el markdown.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "base-branch": {
-          "name": "base-branch",
-          "summary": "Rama base desde la cual se creó el sprint.",
-          "default": "master",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "order-by": {
-          "name": "order-by",
-          "summary": "Origen de la fecha usada para ordenar (mtime o git).",
-          "default": "mtime",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "options": [
-            "mtime",
-            "git"
-          ],
-          "type": "option"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:manual:collect",
-      "pluginAlias": "@nervill/metadelta",
-      "pluginName": "@nervill/metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
-      "enableJsonFlag": false,
-      "isESM": true,
-      "relativePath": [
-        "lib",
-        "commands",
-        "metadelta",
-        "manual",
-        "collect.js"
       ]
     }
   },

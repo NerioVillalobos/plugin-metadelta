@@ -4,12 +4,18 @@ import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 
 const DEFAULT_ORCHESTRATOR_FILENAME = 'metadelta-task-orchestrator.json';
+const DEFAULT_METADELTA_DIRNAME = '.metadelta';
 
 const DEFAULT_SOLUTIONS = [
   {
     pattern: 'No authorization information found',
     description: 'No se encontró autenticación válida para el alias solicitado.',
     solution: 'Ejecuta "sf org login web -a <alias>" o "sf org login web --set-default -a <alias>" antes de grabar/reproducir.',
+  },
+  {
+    pattern: 'Error al obtener URL de la org|No se pudo consultar la org|No pudo encontrar ninguna org|No authorized orgs',
+    description: 'No fue posible obtener la URL de login de la org con el alias indicado.',
+    solution: 'Ejecuta "sf org display --target-org <alias> --verbose" para validar sesión activa y, si falla, vuelve a autenticar con "sf org login web -a <alias>".',
   },
   {
     pattern: 'browserType\\.launch: Executable doesn\\\'t exist',
@@ -28,10 +34,24 @@ const DEFAULT_SOLUTIONS = [
   },
 ];
 
+
+function resolveOrchestratorFilePath(baseDir) {
+  const primaryPath = path.resolve(baseDir, DEFAULT_METADELTA_DIRNAME, DEFAULT_ORCHESTRATOR_FILENAME);
+  const legacyPath = path.resolve(baseDir, 'tests', DEFAULT_ORCHESTRATOR_FILENAME);
+
+  if (!fs.existsSync(primaryPath) && fs.existsSync(legacyPath)) {
+    fs.mkdirSync(path.dirname(primaryPath), {recursive: true});
+    fs.copyFileSync(legacyPath, primaryPath);
+    return primaryPath;
+  }
+
+  return primaryPath;
+}
+
 export class TaskOrchestrator {
   constructor({baseDir = process.cwd(), commandName}) {
     this.commandName = commandName;
-    this.filePath = path.resolve(baseDir, 'tests', DEFAULT_ORCHESTRATOR_FILENAME);
+    this.filePath = resolveOrchestratorFilePath(baseDir);
     this.data = this.loadOrInitialize();
   }
 
@@ -95,6 +115,66 @@ export class TaskOrchestrator {
     this.data.errors.push(entry);
     this.save();
   }
+}
+
+
+export function getMetaDeltaDataDirectory(baseDir = process.cwd()) {
+  const dataDir = path.resolve(baseDir, DEFAULT_METADELTA_DIRNAME);
+  fs.mkdirSync(dataDir, {recursive: true});
+  return dataDir;
+}
+
+export function extractSfErrorMessage(output, fallback = 'Error al ejecutar comando de Salesforce CLI.') {
+  const normalized = String(output ?? '').trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(normalized);
+    const message = parsed?.message || parsed?.result?.message || parsed?.name;
+    if (message) {
+      return String(message).trim();
+    }
+  } catch (error) {
+    // El output no es JSON; retornamos el texto tal cual.
+  }
+
+  return normalized;
+}
+
+export function buildFrontdoorUrlFromOrgDisplay(targetOrg) {
+  const result = spawnSync(
+    'sf',
+    ['org', 'display', '--target-org', targetOrg, '--json'],
+    {encoding: 'utf8'}
+  );
+
+  const combinedOutput = result.stderr?.trim() || result.stdout?.trim();
+  if (result.status !== 0) {
+    const message = extractSfErrorMessage(
+      combinedOutput,
+      `No se pudo consultar la org "${targetOrg}" en Salesforce CLI.`
+    );
+    throw new Error(message);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(result.stdout || '{}');
+  } catch (error) {
+    throw new Error(`Salesforce CLI devolvió una respuesta inválida para la org "${targetOrg}".`);
+  }
+
+  const instanceUrl = parsed?.result?.instanceUrl ?? '';
+  const accessToken = parsed?.result?.accessToken ?? '';
+  if (!instanceUrl || !accessToken) {
+    throw new Error(
+      `No se pudo resolver la URL de frontdoor para la org "${targetOrg}". Ejecuta "sf org display --target-org ${targetOrg} --verbose" y valida la autenticación.`
+    );
+  }
+
+  return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
 }
 
 export function ensureTestsDirectory(baseDir = process.cwd()) {

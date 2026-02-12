@@ -6,6 +6,7 @@ import {
   TaskOrchestrator,
   ensureTestsDirectory,
   ensurePlaywrightReady,
+  buildFrontdoorUrlFromOrgDisplay,
   ensurePlaywrightTestDependency,
   resolveTestFilePath,
 } from '../../../utils/task/orchestrator.js';
@@ -58,7 +59,7 @@ class TaskPlay extends Command {
 
       ensurePlaywrightReady();
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
-      const url = this.fetchOrgFrontdoorUrl(targetOrg);
+      const url = buildFrontdoorUrlFromOrgDisplay(targetOrg);
       const patchedTestFile = this.createPatchedTestFile(testFile, flags['vlocity-job-time']);
       const configPath = this.createPlaywrightConfig(patchedTestFile);
       const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
@@ -720,35 +721,6 @@ async function forceClickStartButton(page) {
     fs.writeFileSync(routesPath, contents, 'utf8');
   }
 
-  fetchOrgFrontdoorUrl(targetOrg) {
-    const result = spawnSync(
-      'sf',
-      ['org', 'display', '--target-org', targetOrg, '--json'],
-      {encoding: 'utf8'}
-    );
-
-    if (result.status !== 0) {
-      const message = result.stderr?.trim() || result.stdout?.trim() || 'Error al obtener URL de la org.';
-      throw new Error(message);
-    }
-
-    let url = '';
-    try {
-      const parsed = JSON.parse(result.stdout);
-      const instanceUrl = parsed?.result?.instanceUrl ?? '';
-      const accessToken = parsed?.result?.accessToken ?? '';
-      if (instanceUrl && accessToken) {
-        url = `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
-      }
-    } catch (error) {
-      url = result.stdout.trim();
-    }
-    if (!url) {
-      throw new Error('No se pudo resolver la URL de la org.');
-    }
-
-    return url;
-  }
 }
 
 export default TaskPlay;
