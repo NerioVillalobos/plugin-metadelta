@@ -50,6 +50,7 @@
     "bin": "sf",
     "commands": "./lib/commands",
     "dirname": "metadelta",
+    "topicSeparator": " ",
     "pluginType": "sf"
   }
 }
