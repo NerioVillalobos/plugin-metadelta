@@ -145,9 +145,22 @@ export function ensurePlaywrightReady() {
   if (hasPlaywrightBrowsers()) {
     return;
   }
-  const installResult = spawnPlaywright(['install']);
-  if (installResult.status !== 0) {
-    throw new Error('No se pudieron instalar los navegadores de Playwright automáticamente.');
+  const installAttempts = [
+    () => spawnPlaywright(['install', 'chromium']),
+    () => spawnSync('npx', ['--yes', '@playwright/test', 'install', 'chromium'], {stdio: 'inherit'}),
+  ];
+
+  for (const attempt of installAttempts) {
+    const result = attempt();
+    if (result.status === 0 && hasPlaywrightBrowsers()) {
+      return;
+    }
+  }
+
+  if (!hasPlaywrightBrowsers()) {
+    throw new Error(
+      'No se pudieron instalar los navegadores de Playwright automáticamente. Ejecuta "npx @playwright/test install chromium" y reintenta.'
+    );
   }
 }
 
@@ -196,17 +209,31 @@ function ensureTestModuleSymlink(baseDir, cacheDir) {
 
 function hasPlaywrightBrowsers() {
   const customPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  const defaultPath = path.join(os.homedir(), '.cache', 'ms-playwright');
-  const browsersPath = customPath && customPath !== '0' ? customPath : defaultPath;
-
-  if (!fs.existsSync(browsersPath)) {
-    return false;
+  const pathsToCheck = [];
+  if (customPath && customPath !== '0') {
+    pathsToCheck.push(customPath);
+  }
+  pathsToCheck.push(
+    path.join(os.homedir(), '.cache', 'ms-playwright'),
+    path.join(os.homedir(), 'AppData', 'Local', 'ms-playwright')
+  );
+  if (process.env.LOCALAPPDATA) {
+    pathsToCheck.push(path.join(process.env.LOCALAPPDATA, 'ms-playwright'));
   }
 
-  try {
-    const entries = fs.readdirSync(browsersPath);
-    return entries.length > 0;
-  } catch (error) {
-    return false;
+  for (const browsersPath of pathsToCheck) {
+    if (!browsersPath || !fs.existsSync(browsersPath)) {
+      continue;
+    }
+    try {
+      const entries = fs.readdirSync(browsersPath);
+      if (entries.length > 0) {
+        return true;
+      }
+    } catch {
+      // noop
+    }
   }
+
+  return false;
 }
