@@ -407,6 +407,108 @@
         "postvalidate.js"
       ]
     },
+    "metadelta:task:play": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se ejecutará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "tstname": {
+          "name": "tstname",
+          "required": true,
+          "summary": "Nombre del archivo .ts generado por el comando record.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "header": {
+          "name": "header",
+          "summary": "Muestra el navegador durante la ejecución.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "vlocity-job-time": {
+          "name": "vlocity-job-time",
+          "summary": "Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.",
+          "default": 180,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:task:play",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "play.js"
+      ]
+    },
+    "metadelta:task:record": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:task:record",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "record.js"
+      ]
+    },
     "metadelta:manual:collect": {
       "aliases": [],
       "args": {},
@@ -492,92 +594,6 @@
         "metadelta",
         "manual",
         "collect.js"
-      ]
-    },
-    "metadelta:task:play": {
-      "aliases": [],
-      "args": {},
-      "flags": {
-        "org": {
-          "char": "o",
-          "name": "org",
-          "required": true,
-          "summary": "Alias de sf-cli para la org en la que se ejecutará la tarea.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "tstname": {
-          "name": "tstname",
-          "required": true,
-          "summary": "Nombre del archivo .ts generado por el comando record.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "header": {
-          "name": "header",
-          "summary": "Muestra el navegador durante la ejecución.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "vlocity-job-time": {
-          "name": "vlocity-job-time",
-          "summary": "Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.",
-          "default": 180,
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:task:play",
-      "pluginAlias": "@nervill/metadelta",
-      "pluginName": "@nervill/metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
-      "enableJsonFlag": false,
-      "isESM": true,
-      "relativePath": [
-        "lib",
-        "commands",
-        "metadelta",
-        "task",
-        "play.js"
-      ]
-    },
-    "metadelta:task:record": {
-      "aliases": [],
-      "args": {},
-      "flags": {
-        "org": {
-          "char": "o",
-          "name": "org",
-          "required": true,
-          "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:task:record",
-      "pluginAlias": "@nervill/metadelta",
-      "pluginName": "@nervill/metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
-      "enableJsonFlag": false,
-      "isESM": true,
-      "relativePath": [
-        "lib",
-        "commands",
-        "metadelta",
-        "task",
-        "record.js"
       ]
     }
   },

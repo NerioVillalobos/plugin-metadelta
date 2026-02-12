@@ -17,7 +17,11 @@ class TaskPlay extends Command {
     org: Flags.string({
       char: 'o',
       summary: 'Alias de sf-cli para la org en la que se ejecutará la tarea.',
-      required: true,
+      required: false,
+    }),
+    'target-org': Flags.string({
+      summary: 'Alias alternativo compatible con la convención de Salesforce CLI.',
+      required: false,
     }),
     tstname: Flags.string({
       summary: 'Nombre del archivo .ts generado por el comando record.',
@@ -36,7 +40,14 @@ class TaskPlay extends Command {
   async run() {
     const {flags} = await this.parse(TaskPlay);
     const orchestrator = new TaskOrchestrator({commandName: 'metadelta task play'});
-    const targetOrg = flags.org;
+    if (flags['target-org'] && flags.org && flags['target-org'] !== flags.org) {
+      this.error('Los valores de --org y --target-org no pueden diferir.');
+    }
+
+    const targetOrg = flags.org || flags['target-org'];
+    if (!targetOrg) {
+      this.error('Debes indicar la org con --org o --target-org.');
+    }
     const testFile = resolveTestFilePath({name: flags.tstname});
 
     try {
