@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-12-02 — `@nervill/metadelta` 0.9.5
+> **Last update / Última actualización:** 2026-02-13 — `@nervill/metadelta` 0.9.6
 
 # Metadelta Salesforce CLI Plugin
 
@@ -7,7 +7,7 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers six complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers seven complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
@@ -15,6 +15,7 @@ Metadelta is a custom Salesforce CLI plugin that offers six complementary workfl
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
+* `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -27,6 +28,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
+- [`sf metadelta access`](#access-command)
 
 ### Installation
 
@@ -38,7 +40,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.6`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -50,7 +52,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.6 (link)`.
 
 ### Usage
 
@@ -166,6 +168,22 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
   ```
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
+
+### `access` command
+
+Use Metadelta Access to transfer org login access securely between machines:
+
+```bash
+sf metadelta access --all --output docs
+```
+
+Core flow:
+
+1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
+2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL (`sf org display --verbose`), encrypts it, and rewrites `accessbackup.dat` with encrypted payloads.
+3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores the auth using `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
+
+The command is implemented in Node.js only (no Python runtime/dependencies), so it works the same on Windows, Linux, and WSL as long as Salesforce CLI is installed.
 
 ### `cleanps` command
 
@@ -366,7 +384,7 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece seis flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece siete flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
@@ -374,6 +392,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece seis flujos co
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
+* `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -385,6 +404,8 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
+- [`sf metadelta postvalidate`](#comando-postvalidate)
+- [`sf metadelta access`](#comando-access)
 
 ### Instalación
 
@@ -477,6 +498,22 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+### Comando `access`
+
+Metadelta Access permite mover accesos de orgs entre equipos de forma segura:
+
+```bash
+sf metadelta access --all --output docs
+```
+
+Flujo principal:
+
+1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
+2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL (`sf org display --verbose`), la cifra y reemplaza `accessbackup.dat` con datos cifrados.
+3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
+
+El comando está implementado solo con Node.js (sin dependencias de Python), por lo que funciona igual en Windows, Linux y WSL siempre que Salesforce CLI esté instalado.
 
 ### Comando `cleanps`
 
@@ -664,4 +701,3 @@ sf plugins unlink @nervill/metadelta
 ### Licencia
 
 Este proyecto se publica bajo la [licencia ISC](LICENSE).
-
