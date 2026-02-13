@@ -340,7 +340,7 @@ export function ensurePlaywrightReady() {
 
   if (!hasPlaywrightBrowsers()) {
     throw new Error(
-      'No se pudieron instalar los navegadores de Playwright automáticamente. Ejecuta "npx @playwright/test install chromium" y reintenta.'
+      'No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta "npx playwright install chromium" y reintenta.'
     );
   }
 }
@@ -408,8 +408,18 @@ function hasPlaywrightBrowsers() {
     }
     try {
       const entries = fs.readdirSync(browsersPath);
-      if (entries.length > 0) {
-        return true;
+      const chromiumDirs = entries.filter((entry) => entry.startsWith('chromium-'));
+      for (const chromiumDir of chromiumDirs) {
+        const base = path.join(browsersPath, chromiumDir);
+        const executableCandidates = [
+          path.join(base, 'chrome-win', 'chrome.exe'),
+          path.join(base, 'chrome-win64', 'chrome.exe'),
+          path.join(base, 'chrome-linux', 'chrome'),
+          path.join(base, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        ];
+        if (executableCandidates.some((candidate) => fs.existsSync(candidate))) {
+          return true;
+        }
       }
     } catch {
       // noop
