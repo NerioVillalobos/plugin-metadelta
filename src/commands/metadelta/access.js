@@ -213,14 +213,30 @@ class Access extends Command {
       .map((line) => line.trim())
       .filter(Boolean);
 
+    let restored = 0;
     for (const line of lines) {
-      const [alias, username, encrypted] = line.split(';');
-      if (!alias || !username || !encrypted) {
+      const parts = line.split(';');
+      const [alias, username, encrypted] = parts;
+
+      if (parts.length === 2 && alias && username) {
+        this.error(
+          `El archivo ${filePath} contiene entradas sin cifrar (${alias};${username}). Ejecuta primero: sf metadelta access --capture ${folder}`
+        );
+      }
+
+      if (parts.length < 3 || !alias || !username || !encrypted) {
         this.warn(`Línea inválida omitida: ${line}`);
         continue;
       }
 
-      const authUrl = decryptValue(encrypted, passphrase);
+      let authUrl;
+      try {
+        authUrl = decryptValue(encrypted, passphrase);
+      } catch (error) {
+        this.error(
+          `No se pudo descifrar la línea de ${alias}. Verifica passphrase/captura. Detalle: ${error.message}`
+        );
+      }
       const tempFile = path.join(os.tmpdir(), `metadelta-access-${process.pid}-${Date.now()}.auth`);
       fs.writeFileSync(tempFile, authUrl, 'utf8');
 
@@ -235,6 +251,11 @@ class Access extends Command {
       }
 
       this.log(`Acceso agregado: ${alias}`);
+      restored += 1;
+    }
+
+    if (restored === 0) {
+      this.error(`No se restauró ningún acceso desde ${filePath}.`);
     }
   }
 
