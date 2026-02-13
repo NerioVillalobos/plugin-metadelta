@@ -1,5 +1,4 @@
 import {Command, Flags} from '@oclif/core';
-import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import {
@@ -10,6 +9,7 @@ import {
   formatTimestampForFilename,
   injectBaseUrlInTest,
   sanitizeAlias,
+  executeNpxCommand,
 } from '../../../utils/task/orchestrator.js';
 
 class TaskRecord extends Command {
@@ -50,8 +50,7 @@ class TaskRecord extends Command {
 
       this.log(`Iniciando grabación en ${targetOrg}. Archivo: ${outputPath}`);
 
-      const result = spawnSync(
-        'npx',
+      const result = executeNpxCommand(
         ['--yes', 'playwright', 'codegen', url, '--target', 'playwright-test', '--output', outputPath],
         {stdio: 'inherit'}
       );
