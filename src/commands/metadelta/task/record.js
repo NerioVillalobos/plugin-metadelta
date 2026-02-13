@@ -57,7 +57,15 @@ class TaskRecord extends Command {
       );
 
       if (result.status !== 0) {
-        this.error('Playwright codegen finalizó con errores.');
+        const details = [
+          result.error?.message ? `Detalle: ${result.error.message}` : null,
+          typeof result.status === 'number' ? `Código de salida: ${result.status}` : null,
+          result.signal ? `Señal: ${result.signal}` : null,
+          'Revisa el output mostrado por Playwright arriba para identificar el paso exacto del fallo.',
+        ]
+          .filter(Boolean)
+          .join(' | ');
+        this.error(`Playwright codegen finalizó con errores. ${details}`);
       }
 
       if (!fs.existsSync(outputPath)) {
