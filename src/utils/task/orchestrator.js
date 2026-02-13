@@ -149,6 +149,38 @@ export function extractSfErrorMessage(output, fallback = 'Error al ejecutar coma
 }
 
 
+
+function getNpxCommandCandidates() {
+  const candidates = [];
+  if (process.env.NPX_BINPATH) {
+    candidates.push(process.env.NPX_BINPATH);
+  }
+  candidates.push('npx');
+  if (process.platform === 'win32') {
+    candidates.push('npx.cmd');
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+export function executeNpxCommand(args, options = {}) {
+  const candidates = getNpxCommandCandidates();
+  let lastResult = null;
+
+  for (const command of candidates) {
+    const result = spawnSync(command, args, {
+      shell: process.platform === 'win32',
+      ...options,
+    });
+    lastResult = result;
+    if (!result.error) {
+      return result;
+    }
+  }
+
+  return lastResult ?? {status: 1, stdout: '', stderr: '', error: new Error('No se pudo ejecutar npx.')};
+}
+
 function getSfCommandCandidates() {
   const candidates = [];
   if (process.env.SF_BINPATH) {
@@ -296,7 +328,7 @@ export function ensurePlaywrightReady() {
   }
   const installAttempts = [
     () => spawnPlaywright(['install', 'chromium']),
-    () => spawnSync('npx', ['--yes', '@playwright/test', 'install', 'chromium'], {stdio: 'inherit'}),
+    () => executeNpxCommand(['--yes', '@playwright/test', 'install', 'chromium'], {stdio: 'inherit'}),
   ];
 
   for (const attempt of installAttempts) {
@@ -314,7 +346,7 @@ export function ensurePlaywrightReady() {
 }
 
 function spawnPlaywright(args) {
-  return spawnSync('npx', ['--yes', 'playwright', ...args], {stdio: 'inherit'});
+  return executeNpxCommand(['--yes', 'playwright', ...args], {stdio: 'inherit'});
 }
 
 export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
