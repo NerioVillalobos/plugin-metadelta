@@ -70,9 +70,9 @@ class Access extends Command {
     return value;
   }
 
-  runCmd(cmd, args) {
+  runCmd(cmd, args, options = {}) {
     try {
-      const stdout = execFileSync(cmd, args, {encoding: 'utf8'});
+      const stdout = execFileSync(cmd, args, {encoding: 'utf8', ...options});
       return stdout.trim();
     } catch (error) {
       const stderr = error.stderr?.toString()?.trim();
@@ -123,10 +123,38 @@ class Access extends Command {
 
     this.log('');
     this.log('MFA creado. Configura tu app Authenticator con:');
+    this.log('Escanea este QR:');
+    this.printQr(uri);
     this.log(`- Secret: ${secret}`);
     this.log(`- URI: ${uri}`);
     this.log('⚠️ Guarda este secret ahora. No se volverá a mostrar.');
     this.log('');
+  }
+
+  printQr(uri) {
+    const script = [
+      'import qrcode',
+      'import os',
+      "qr = qrcode.QRCode(border=1)",
+      "qr.add_data(os.environ['METADELTA_QR_URI'])",
+      'qr.make(fit=True)',
+      'qr.print_ascii(invert=True)'
+    ].join('; ');
+
+    const tryPython = (binary) => {
+      try {
+        this.runCmd(binary, ['-c', script], {env: {...process.env, METADELTA_QR_URI: uri}, stdio: 'inherit'});
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (tryPython('python3') || tryPython('python')) {
+      return;
+    }
+
+    this.warn('No fue posible mostrar el QR en consola automáticamente. Usa el URI/Secret para agregarlo manualmente.');
   }
 
   verifyMfa(folder) {

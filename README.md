@@ -180,6 +180,7 @@ sf metadelta access --all --output docs
 Core flow:
 
 1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
+   During this step, the command tries to print an ASCII QR in the terminal (when Python `qrcode` is available); it always prints Secret + URI as fallback.
 2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL (`sf org display --verbose`), encrypts it, and rewrites `accessbackup.dat` with encrypted payloads.
 3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores the auth using `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
 
@@ -512,6 +513,7 @@ sf metadelta access --all --output docs
 Flujo principal:
 
 1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
+   En este paso, el comando intenta mostrar un QR ASCII en terminal (si Python `qrcode` está disponible); siempre imprime Secret + URI como respaldo.
 2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL (`sf org display --verbose`), la cifra y reemplaza `accessbackup.dat` con datos cifrados.
 3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
 
