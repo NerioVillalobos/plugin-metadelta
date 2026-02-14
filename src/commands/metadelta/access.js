@@ -269,10 +269,24 @@ class Access extends Command {
       fs.writeFileSync(tempFile, authUrl, 'utf8');
 
       try {
+        let sfLoginError;
         try {
-          this.runCmd('sf', ['org', 'login', 'sfdx-url', '--sfdx-url-file', tempFile, '--alias', alias]);
-        } catch {
-          this.runCmd('sfdx', ['auth:sfdxurl:store', '-f', tempFile, '-a', alias]);
+          this.runCmd('sf', ['org', 'login', 'sfdx-url', '--sfdx-url-file', tempFile, '--alias', alias, '--no-prompt']);
+        } catch (error) {
+          sfLoginError = error;
+          try {
+            this.runCmd('sfdx', ['auth:sfdxurl:store', '-f', tempFile, '-a', alias]);
+          } catch (legacyError) {
+            if (legacyError.message.includes('ENOENT')) {
+              this.error(
+                `No se pudo restaurar ${alias}. Falló 'sf org login sfdx-url' y el comando legacy 'sfdx' no está instalado. Detalle sf: ${sfLoginError.message}`
+              );
+            }
+
+            this.error(
+              `No se pudo restaurar ${alias}. Error con sf: ${sfLoginError.message}. Error con sfdx: ${legacyError.message}`
+            );
+          }
         }
       } finally {
         fs.rmSync(tempFile, {force: true});
