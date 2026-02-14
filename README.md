@@ -185,6 +185,7 @@ Core flow:
 3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores the auth using `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
 
 > Important: `--addaccess` only works after `--capture` has encrypted the file. If `accessbackup.dat` still contains `alias;username` rows, run capture first.
+> Usage reminder: pass the folder as the value of the flag, for example `sf metadelta access --addaccess docs/Puntos` (do not duplicate the flag).
 
 The command is implemented in Node.js only (no Python runtime/dependencies), so it works the same on Windows, Linux, and WSL as long as Salesforce CLI is installed.
 
@@ -518,6 +519,7 @@ Flujo principal:
 3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sf org login sfdx-url` (fallback: `sfdx auth:sfdxurl:store`).
 
 > Importante: `--addaccess` solo funciona después de ejecutar `--capture` para cifrar el archivo. Si `accessbackup.dat` aún tiene filas `alias;usuario`, primero ejecuta capture.
+> Recordatorio de uso: pasa la carpeta como valor de la bandera, por ejemplo `sf metadelta access --addaccess docs/Puntos` (sin duplicar la bandera).
 
 El comando está implementado solo con Node.js (sin dependencias de Python), por lo que funciona igual en Windows, Linux y WSL siempre que Salesforce CLI esté instalado.
 
