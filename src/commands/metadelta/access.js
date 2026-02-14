@@ -9,6 +9,7 @@ import {stdin as input, stdout as output} from 'node:process';
 
 const MFA_FILE = 'accessbackup.dat.mfa';
 const BACKUP_FILE = 'accessbackup.dat';
+const TEMP_AUTH_FILE = 'auth';
 const OTP_WINDOW_SECONDS = 30;
 const OTP_DIGITS = 6;
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -71,13 +72,27 @@ class Access extends Command {
   }
 
   runCmd(cmd, args, options = {}) {
-    try {
-      const stdout = execFileSync(cmd, args, {encoding: 'utf8', ...options});
-      return stdout.trim();
-    } catch (error) {
-      const stderr = error.stderr?.toString()?.trim();
-      throw new Error(stderr || error.message);
+    const attempts = [cmd];
+    if (process.platform === 'win32' && !cmd.toLowerCase().endsWith('.cmd')) {
+      attempts.push(`${cmd}.cmd`);
     }
+
+    let lastError;
+    for (const candidate of attempts) {
+      try {
+        const stdout = execFileSync(candidate, args, {encoding: 'utf8', ...options});
+        return stdout.trim();
+      } catch (error) {
+        lastError = error;
+        if (!(error?.message || '').includes('ENOENT')) {
+          const stderr = error.stderr?.toString()?.trim();
+          throw new Error(stderr || error.message);
+        }
+      }
+    }
+
+    const stderr = lastError?.stderr?.toString()?.trim();
+    throw new Error(stderr || lastError?.message || `No se pudo ejecutar: ${cmd}`);
   }
 
   runJSON(cmd, args) {
@@ -265,26 +280,26 @@ class Access extends Command {
           `No se pudo descifrar la línea de ${alias}. Verifica passphrase/captura. Detalle: ${error.message}`
         );
       }
-      const tempFile = path.join(os.tmpdir(), `metadelta-access-${process.pid}-${Date.now()}.auth`);
+      const tempFile = path.join(os.tmpdir(), `${TEMP_AUTH_FILE}-${process.pid}-${Date.now()}.auth`);
       fs.writeFileSync(tempFile, authUrl, 'utf8');
 
       try {
-        let sfLoginError;
+        let sfdxError;
         try {
-          this.runCmd('sf', ['org', 'login', 'sfdx-url', '--sfdx-url-file', tempFile, '--alias', alias, '--no-prompt']);
+          this.runCmd('sfdx', ['auth:sfdxurl:store', '-f', tempFile, '-a', alias]);
         } catch (error) {
-          sfLoginError = error;
+          sfdxError = error;
           try {
-            this.runCmd('sfdx', ['auth:sfdxurl:store', '-f', tempFile, '-a', alias]);
-          } catch (legacyError) {
-            if (legacyError.message.includes('ENOENT')) {
+            this.runCmd('sf', ['org', 'login', 'sfdx-url', '--sfdx-url-file', tempFile, '--alias', alias, '--no-prompt']);
+          } catch (sfError) {
+            if (sfdxError.message.includes('ENOENT') && sfError.message.includes('ENOENT')) {
               this.error(
-                `No se pudo restaurar ${alias}. Falló 'sf org login sfdx-url' y el comando legacy 'sfdx' no está instalado. Detalle sf: ${sfLoginError.message}`
+                `No se pudo restaurar ${alias}. No se encontró 'sfdx' ni 'sf' en PATH. Detalles: sfdx=${sfdxError.message}; sf=${sfError.message}`
               );
             }
 
             this.error(
-              `No se pudo restaurar ${alias}. Error con sf: ${sfLoginError.message}. Error con sfdx: ${legacyError.message}`
+              `No se pudo restaurar ${alias}. Error con sfdx: ${sfdxError.message}. Error con sf: ${sfError.message}`
             );
           }
         }
