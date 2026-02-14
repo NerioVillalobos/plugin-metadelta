@@ -171,6 +171,8 @@ Run the command from the Salesforce project root so Core retrieves line up with 
 
 ### `access` command
 
+Metadelta Access is an **Org Access Replication Tool** with applied security controls. It automates a formerly manual process to export aliases, protect auth URLs, and restore org access across machines with MFA + passphrase encryption.
+
 Use Metadelta Access to transfer org login access securely between machines:
 
 ```bash
@@ -188,6 +190,48 @@ Core flow:
 > Usage reminder: pass the folder as the value of the flag, for example `sf metadelta access --addaccess docs/Puntos` (do not duplicate the flag).
 
 The command is implemented in Node.js only (no Python runtime/dependencies), so it works the same on Windows, Linux, and WSL as long as Salesforce CLI is installed.
+
+#### Platform requirements (Windows / macOS / Linux / WSL)
+
+To run `sf metadelta access` reliably, ensure the following prerequisites are available:
+
+1. **Salesforce CLI**
+   - Required on all platforms.
+   - Verify with:
+     ```bash
+     sf --version
+     ```
+2. **Authenticated org session(s)**
+   - Export/capture depends on active org sessions in your local CLI auth store.
+   - Verify with:
+     ```bash
+     sf org list
+     ```
+3. **Node.js environment compatible with this plugin**
+   - The plugin requires Node.js 18+ (as declared in `package.json`).
+4. **Legacy `sfdx` binary (recommended for replication restore)**
+   - Primary restore command uses `sfdx auth:sfdxurl:store`.
+   - If unavailable, the command attempts `sf org login sfdx-url` fallback.
+5. **Optional ASCII QR rendering dependency**
+   - If Python + `qrcode` module exists, the command prints an ASCII QR in terminal during MFA creation.
+   - Without it, Secret + URI are still printed and can be entered manually in your authenticator app.
+
+Platform notes:
+
+- **Windows (PowerShell/CMD):** keep Salesforce CLI binaries available in `PATH` and prefer running from a regular user terminal with profile initialization enabled.
+- **macOS/Linux:** ensure `sf` (and optionally `sfdx`) resolve from the same shell session where you run the plugin.
+- **WSL:** if mixing Windows and WSL auth contexts, validate where your CLI auth store is located and run export/restore in the same environment when possible.
+
+#### Responsibility and security notice
+
+By using `metadelta access` and all other commands in this plugin, you acknowledge that:
+
+- You are responsible for complying with your organization’s security policies.
+- You are responsible for protecting MFA secrets, passphrases, backup files, and generated auth artifacts.
+- You should only run these commands in trusted environments and with authorized org access.
+- The maintainers/authors are not responsible for misuse, credential leakage, or operational impact caused by incorrect handling.
+
+Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
 
 ### `cleanps` command
 
@@ -505,6 +549,8 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
 
 ### Comando `access`
 
+Metadelta Access es una **herramienta de replicación de accesos de orgs (Org Access Replication Tool)** con controles de seguridad aplicados. Automatiza un proceso que antes era manual para exportar aliases, proteger auth URLs y restaurar accesos entre equipos usando MFA + cifrado con passphrase.
+
 Metadelta Access permite mover accesos de orgs entre equipos de forma segura:
 
 ```bash
@@ -522,6 +568,48 @@ Flujo principal:
 > Recordatorio de uso: pasa la carpeta como valor de la bandera, por ejemplo `sf metadelta access --addaccess docs/Puntos` (sin duplicar la bandera).
 
 El comando está implementado solo con Node.js (sin dependencias de Python), por lo que funciona igual en Windows, Linux y WSL siempre que Salesforce CLI esté instalado.
+
+#### Requisitos por plataforma (Windows / macOS / Linux / WSL)
+
+Para ejecutar `sf metadelta access` de forma confiable, verifica estos prerrequisitos:
+
+1. **Salesforce CLI**
+   - Requerido en todas las plataformas.
+   - Validar con:
+     ```bash
+     sf --version
+     ```
+2. **Sesiones autenticadas de org**
+   - La exportación/captura depende de sesiones activas en el almacén local de autenticación del CLI.
+   - Validar con:
+     ```bash
+     sf org list
+     ```
+3. **Entorno Node.js compatible con el plugin**
+   - El plugin requiere Node.js 18+ (declarado en `package.json`).
+4. **Binario legacy `sfdx` (recomendado para la restauración)**
+   - El comando principal de restauración usa `sfdx auth:sfdxurl:store`.
+   - Si no está disponible, el comando intenta `sf org login sfdx-url` como fallback.
+5. **Dependencia opcional para QR ASCII**
+   - Si existe Python + módulo `qrcode`, se imprime un QR ASCII en terminal al crear el MFA.
+   - Si no existe, igual se imprime Secret + URI para registro manual en la app autenticadora.
+
+Notas por plataforma:
+
+- **Windows (PowerShell/CMD):** asegúrate de que los binarios de Salesforce CLI estén en `PATH` y ejecuta desde una terminal de usuario con inicialización de perfil activa.
+- **macOS/Linux:** confirma que `sf` (y opcionalmente `sfdx`) se resuelvan en la misma sesión de shell donde ejecutas el plugin.
+- **WSL:** si mezclas contextos de autenticación entre Windows y WSL, valida dónde se guarda la autenticación y procura ejecutar exportación/restauración en el mismo entorno.
+
+#### Aviso de responsabilidad y seguridad
+
+Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
+
+- Eres responsable de cumplir las políticas de seguridad de tu organización.
+- Eres responsable de proteger secretos MFA, passphrases, backups y archivos de autenticación generados.
+- Debes ejecutar estos comandos únicamente en entornos confiables y con acceso autorizado a las orgs.
+- Los autores/mantenedores no se responsabilizan por mal uso, fuga de credenciales o impactos operativos por manejo incorrecto.
+
+Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
 
 ### Comando `cleanps`
 
