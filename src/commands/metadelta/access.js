@@ -72,27 +72,17 @@ class Access extends Command {
   }
 
   runCmd(cmd, args, options = {}) {
-    const attempts = [cmd];
-    if (process.platform === 'win32' && !cmd.toLowerCase().endsWith('.cmd')) {
-      attempts.push(`${cmd}.cmd`);
+    try {
+      const stdout = execFileSync(cmd, args, {
+        encoding: 'utf8',
+        shell: process.platform === 'win32',
+        ...options
+      });
+      return stdout.trim();
+    } catch (error) {
+      const stderr = error.stderr?.toString()?.trim();
+      throw new Error(stderr || error.message || `No se pudo ejecutar: ${cmd}`);
     }
-
-    let lastError;
-    for (const candidate of attempts) {
-      try {
-        const stdout = execFileSync(candidate, args, {encoding: 'utf8', ...options});
-        return stdout.trim();
-      } catch (error) {
-        lastError = error;
-        if (!(error?.message || '').includes('ENOENT')) {
-          const stderr = error.stderr?.toString()?.trim();
-          throw new Error(stderr || error.message);
-        }
-      }
-    }
-
-    const stderr = lastError?.stderr?.toString()?.trim();
-    throw new Error(stderr || lastError?.message || `No se pudo ejecutar: ${cmd}`);
   }
 
   runJSON(cmd, args) {
