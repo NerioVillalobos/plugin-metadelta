@@ -1,5 +1,73 @@
 {
   "commands": {
+    "metadelta:access": {
+      "aliases": [],
+      "args": {},
+      "description": "Exporta aliases conectados, captura SFDX Auth URLs cifradas y restaura accesos en otro equipo (Windows/Linux/WSL) usando únicamente Node.js + Salesforce CLI.",
+      "flags": {
+        "all": {
+          "name": "all",
+          "summary": "Exporta todos los aliases conectados a una carpeta \"All\".",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "prefix": {
+          "name": "prefix",
+          "summary": "Exporta solo aliases que inicien con este prefijo (también será el nombre de carpeta).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "name": "output",
+          "summary": "Directorio base de salida",
+          "default": "docs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "capture": {
+          "name": "capture",
+          "summary": "Carpeta que contiene accessbackup.dat para capturar y cifrar auth URLs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "addaccess": {
+          "aliases": [
+            "adaccess"
+          ],
+          "name": "addaccess",
+          "summary": "Carpeta que contiene accessbackup.dat para restaurar accesos en el equipo actual",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "passphrase": {
+          "name": "passphrase",
+          "summary": "Passphrase para cifrar/descifrar (si no se envía, se solicita por consola).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:access",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Gestiona respaldos cifrados de accesos de orgs con MFA (Metadelta Access).",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "access.js"
+      ]
+    },
     "metadelta:cleanps": {
       "aliases": [],
       "args": {},
@@ -495,5 +563,5 @@
       ]
     }
   },
-  "version": "0.9.5"
+  "version": "0.9.6"
 }
