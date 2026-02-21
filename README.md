@@ -452,6 +452,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
+- [`sf metadelta postvalidate`](#comando-postvalidate)
 - [`sf metadelta access`](#comando-access)
 
 ### Instalación
