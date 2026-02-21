@@ -205,6 +205,128 @@
         "find.js"
       ]
     },
+    "metadelta:gitanalyze": {
+      "aliases": [],
+      "args": {},
+      "description": "Analiza el repositorio Git local, detecta integraciones de riesgo y genera reportes estructurados para CI/CD.",
+      "flags": {
+        "repo": {
+          "char": "r",
+          "name": "repo",
+          "summary": "Ruta del repositorio Git local a analizar",
+          "default": ".",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "range": {
+          "name": "range",
+          "summary": "Rango Git a analizar (ej: base..HEAD). Si se omite se usa la referencia principal detectada.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "max-commits": {
+          "name": "max-commits",
+          "summary": "Máximo de commits a analizar",
+          "default": 200,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "large-files": {
+          "name": "large-files",
+          "summary": "Umbral de archivos para detectar cambios grandes",
+          "default": 20,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "large-lines": {
+          "name": "large-lines",
+          "summary": "Umbral de líneas para detectar cambios grandes",
+          "default": 500,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "huge-files": {
+          "name": "huge-files",
+          "summary": "Umbral de archivos para detectar cambios masivos",
+          "default": 50,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "huge-lines": {
+          "name": "huge-lines",
+          "summary": "Umbral de líneas para detectar cambios masivos",
+          "default": 1500,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "json": {
+          "name": "json",
+          "summary": "Ruta de salida para el reporte JSON",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "markdown": {
+          "name": "markdown",
+          "summary": "Ruta de salida para el reporte Markdown",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output-dir": {
+          "name": "output-dir",
+          "summary": "Directorio donde se escriben ambos reportes (JSON y Markdown)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "ai": {
+          "name": "ai",
+          "summary": "Habilita la explicación por IA (usa OPENAI_API_KEY o GEMINI_API_KEY)",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ai-provider": {
+          "name": "ai-provider",
+          "summary": "Proveedor de IA (openai | gemini)",
+          "default": "openai",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "ai-model": {
+          "name": "ai-model",
+          "summary": "Modelo de IA a usar",
+          "default": "gpt-4o-mini",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:gitanalyze",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Analiza integridad Git y detecta malas integraciones.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "gitanalyze.js"
+      ]
+    },
     "metadelta:findtest": {
       "aliases": [],
       "args": {},
