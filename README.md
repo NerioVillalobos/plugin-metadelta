@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-12-02 — `@nervill/metadelta` 0.9.5
+> **Last update / Última actualización:** 2026-02-13 — `@nervill/metadelta` 0.9.6
 
 # Metadelta Salesforce CLI Plugin
 
@@ -15,7 +15,7 @@ Metadelta is a custom Salesforce CLI plugin that offers seven complementary work
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
-* `sf metadelta gitanalyze` inspects a local Git repository for risky integrations, reports structured events, and (optionally) asks an LLM to explain the findings in human language.
+* `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -28,7 +28,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
-- [`sf metadelta gitanalyze`](#gitanalyze-command)
+- [`sf metadelta access`](#access-command)
 
 ### Installation
 
@@ -40,7 +40,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.6`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -52,7 +52,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.6 (link)`.
 
 ### Usage
 
@@ -169,138 +169,69 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
 
-### `gitanalyze` command
+### `access` command
 
-Professional Git integrity analysis for CI/CD pipelines and local audits. The command does **not** clone and does **not** require network access; it only inspects the local Git repository and emits structured events plus an optional AI explanation.
+Metadelta Access is an **Org Access Replication Tool** with applied security controls. It automates a formerly manual process to export aliases, protect auth URLs, and restore org access across machines with MFA + passphrase encryption.
 
-**Architecture**
-
-```
-src/git-integrity/
-├─ ai.js                # LLM prompt builder + OpenAI client adapter
-├─ constants.js         # thresholds, keywords, scoring weights
-├─ extractor.js         # Git log + reflog extraction
-├─ git.js               # Git helper utilities (repo/root/mainline)
-├─ index.js             # Orchestrator: extract → detect → score → report
-├─ report.js            # JSON + Markdown report builders
-└─ detectors/
-   ├─ directCommits.js
-   ├─ historyRewrite.js
-   ├─ largeCommits.js
-   ├─ mergeCommits.js
-   └─ suspiciousPatterns.js
-```
-
-**Detectors covered**
-
-- Direct commits on the effective mainline (auto-detected, no hardcoded `main`/`master`).
-- Merge commits (with heuristic conflict detection).
-- Large commits (files/lines thresholds + “huge commit” escalation).
-- Suspicious commit messages and chained reverts.
-- History rewrite signals from reflog (rebase/reset/force-push hints).
-
-**Usage**
+Use Metadelta Access to transfer org login access securely between machines:
 
 ```bash
-sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/git
+sf metadelta access --all --output docs
 ```
 
-**Flags**
+Core flow:
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--repo`, `-r` | Local Git repo to analyze | `.` |
-| `--range` | Git range (e.g. `base..HEAD`) | Auto-detected mainline |
-| `--max-commits` | Max commits to inspect | `200` |
-| `--large-files` | File threshold for large commits | `20` |
-| `--large-lines` | Line threshold for large commits | `500` |
-| `--huge-files` | File threshold for massive commits | `50` |
-| `--huge-lines` | Line threshold for massive commits | `1500` |
-| `--json` | Output JSON report path | None |
-| `--markdown` | Output Markdown report path | None |
-| `--output-dir` | Output directory for both reports | None |
-| `--ai` | Enable AI explanation (requires `OPENAI_API_KEY` or `GEMINI_API_KEY`) | `false` |
-| `--ai-provider` | AI provider (`openai` or `gemini`) | `openai` |
-| `--ai-model` | AI model | `gpt-4o-mini` |
+1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
+   During this step, the command tries to print an ASCII QR in the terminal (when Python `qrcode` is available); it always prints Secret + URI as fallback.
+2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL (`sf org display --verbose`), encrypts it, and rewrites `accessbackup.dat` with encrypted payloads.
+3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores auth using `sfdx auth:sfdxurl:store -f <file> -a <alias>` (fallback: `sf org login sfdx-url` when available).
 
-**AI prompt (reusable)**
+> Important: `--addaccess` only works after `--capture` has encrypted the file. If `accessbackup.dat` still contains `alias;username` rows, run capture first.
+> Usage reminder: pass the folder as the value of the flag, for example `sf metadelta access --addaccess docs/FolderName` (do not duplicate the flag).
 
-```
-Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
-Tu respuesta debe:
-1) Resumir en una lista corta los tipos de eventos detectados y qué significan (1-2 líneas por tipo).
-2) Explicar qué ocurrió.
-3) Explicar por qué es riesgoso.
-4) Explicar el impacto posible.
-5) Recomendar acciones concretas.
+The command is implemented in Node.js only (no Python runtime/dependencies), so it works the same on Windows, Linux, and WSL as long as Salesforce CLI is installed.
 
-Responde en JSON con las claves:
-- summary: texto breve con lista de tipos y explicación corta por tipo
-- analysis: explicación general en párrafos
-- recommendations: lista de acciones recomendadas
+#### Platform requirements (Windows / macOS / Linux / WSL)
 
-No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
-```
+To run `sf metadelta access` reliably, ensure the following prerequisites are available:
 
-**How to connect the AI provider**
+1. **Salesforce CLI**
+   - Required on all platforms.
+   - Verify with:
+     ```bash
+     sf --version
+     ```
+2. **Authenticated org session(s)**
+   - Export/capture depends on active org sessions in your local CLI auth store.
+   - Verify with:
+     ```bash
+     sf org list
+     ```
+3. **Node.js environment compatible with this plugin**
+   - The plugin requires Node.js 18+ (as declared in `package.json`).
+4. **Legacy `sfdx` binary (recommended for replication restore)**
+   - Primary restore command uses `sfdx auth:sfdxurl:store`.
+   - If unavailable, the command attempts `sf org login sfdx-url` fallback.
+5. **Optional ASCII QR rendering dependency**
+   - If Python + `qrcode` module exists, the command prints an ASCII QR in terminal during MFA creation.
+   - Without it, Secret + URI are still printed and can be entered manually in your authenticator app.
 
-1. Export the API key:
-   ```bash
-   export OPENAI_API_KEY="sk-..."
-   ```
-   If you want Gemini instead:
-   ```bash
-   export GEMINI_API_KEY="..."
-   ```
-2. (Optional) override the model:
-   ```bash
-   export OPENAI_MODEL="gpt-4o-mini"
-   ```
-3. Run the command with `--ai`:
-   ```bash
-   sf metadelta gitanalyze --repo . --output-dir reports/git --ai
-   ```
-   Or switch providers:
-   ```bash
-   sf metadelta gitanalyze --repo . --output-dir reports/git --ai --ai-provider gemini --ai-model gemini-1.5-flash
-   ```
+Platform notes:
 
-**Example output (Markdown extract)**
+- **Windows (PowerShell/CMD):** keep Salesforce CLI binaries available in `PATH` and prefer running from a regular user terminal with profile initialization enabled.
+- **macOS/Linux:** ensure `sf` (and optionally `sfdx`) resolve from the same shell session where you run the plugin.
+- **WSL:** if mixing Windows and WSL auth contexts, validate where your CLI auth store is located and run export/restore in the same environment when possible.
 
-```
-Repositorio: /workspace/my-repo
-Referencia principal: origin/main
-Rango analizado: origin/main..HEAD
-Riesgo global: ALTO (score 23)
+#### Responsibility and security notice
 
-- direct_commit_mainline (medium) - Hotfix urgent on prod
-  - Commit: 9f7c2c1
-  - Autor: DevOps Bot
-```
+By using `metadelta access` and all other commands in this plugin, you acknowledge that:
 
-**Example output (JSON extract)**
+- You are responsible for complying with your organization’s security policies.
+- You are responsible for protecting MFA secrets, passphrases, backup files, and generated auth artifacts.
+- You should only run these commands in trusted environments and with authorized org access.
+- The maintainers/authors are not responsible for misuse, credential leakage, or operational impact caused by incorrect handling.
 
-```json
-{
-  "metadata": {
-    "repoPath": "/workspace/my-repo",
-    "mainlineRef": "origin/main",
-    "range": "origin/main..HEAD"
-  },
-  "scoring": {
-    "level": "ALTO",
-    "score": 23
-  }
-}
-```
-
-**Standalone Python**
-
-For pipelines that prefer a single-file runtime, use `scripts/git-integrity-standalone.py`. The Python script mirrors the same detection rules and outputs JSON/Markdown.
-
-```bash
-python3 scripts/git-integrity-standalone.py --repo . --range origin/HEAD..HEAD --output-dir reports/git
-```
+Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
 
 ### `cleanps` command
 
@@ -509,7 +440,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece siete flujos c
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
-* `sf metadelta gitanalyze` inspecciona un repositorio Git local para detectar integraciones de riesgo, genera eventos estructurados y opcionalmente pide a la IA explicar los hallazgos.
+* `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -521,7 +452,8 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
-- [`sf metadelta gitanalyze`](#comando-gitanalyze)
+- [`sf metadelta postvalidate`](#comando-postvalidate)
+- [`sf metadelta access`](#comando-access)
 
 ### Instalación
 
@@ -615,138 +547,69 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
 
-### Comando `gitanalyze`
+### Comando `access`
 
-Auditoría profesional de integridad Git para pipelines CI/CD y revisiones locales. El comando **no clona** ni requiere red: analiza el repositorio local y emite eventos estructurados, además de una explicación por IA opcional.
+Metadelta Access es una **herramienta de replicación de accesos de orgs (Org Access Replication Tool)** con controles de seguridad aplicados. Automatiza un proceso que antes era manual para exportar aliases, proteger auth URLs y restaurar accesos entre equipos usando MFA + cifrado con passphrase.
 
-**Arquitectura**
-
-```
-src/git-integrity/
-├─ ai.js                # Prompt reusable + adaptador OpenAI
-├─ constants.js         # umbrales, keywords, scoring
-├─ extractor.js         # extracción de log y reflog
-├─ git.js               # utilidades Git (repo/root/mainline)
-├─ index.js             # orquestador
-├─ report.js            # reportes JSON/Markdown
-└─ detectors/
-   ├─ directCommits.js
-   ├─ historyRewrite.js
-   ├─ largeCommits.js
-   ├─ mergeCommits.js
-   └─ suspiciousPatterns.js
-```
-
-**Detecciones incluidas**
-
-- Commits directos en la línea principal detectada automáticamente.
-- Merge commits (incluye heurística para conflictos).
-- Commits grandes y muy grandes (por archivos y líneas).
-- Mensajes sospechosos y reverts encadenados.
-- Reescritura de historia basada en reflog (rebase/reset/force-push hints).
-
-**Uso rápido**
+Metadelta Access permite mover accesos de orgs entre equipos de forma segura:
 
 ```bash
-sf metadelta gitanalyze --repo . --range origin/HEAD..HEAD --output-dir reports/git --ai
+sf metadelta access --all --output docs
 ```
 
-**Banderas**
+Flujo principal:
 
-| Bandera | Descripción | Valor por defecto |
-|---------|-------------|-------------------|
-| `--repo`, `-r` | Repositorio Git local a analizar | `.` |
-| `--range` | Rango Git (ej: `base..HEAD`) | Referencia principal detectada |
-| `--max-commits` | Máximo de commits a analizar | `200` |
-| `--large-files` | Umbral de archivos para cambios grandes | `20` |
-| `--large-lines` | Umbral de líneas para cambios grandes | `500` |
-| `--huge-files` | Umbral de archivos para cambios masivos | `50` |
-| `--huge-lines` | Umbral de líneas para cambios masivos | `1500` |
-| `--json` | Ruta de salida para JSON | Ninguno |
-| `--markdown` | Ruta de salida para Markdown | Ninguno |
-| `--output-dir` | Directorio para ambos reportes | Ninguno |
-| `--ai` | Habilita IA (requiere `OPENAI_API_KEY` o `GEMINI_API_KEY`) | `false` |
-| `--ai-provider` | Proveedor IA (`openai` o `gemini`) | `openai` |
-| `--ai-model` | Modelo IA | `gpt-4o-mini` |
+1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
+   En este paso, el comando intenta mostrar un QR ASCII en terminal (si Python `qrcode` está disponible); siempre imprime Secret + URI como respaldo.
+2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL (`sf org display --verbose`), la cifra y reemplaza `accessbackup.dat` con datos cifrados.
+3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sfdx auth:sfdxurl:store -f <archivo> -a <alias>` (fallback: `sf org login sfdx-url` si está disponible).
 
-**Prompt de IA (reusable)**
+> Importante: `--addaccess` solo funciona después de ejecutar `--capture` para cifrar el archivo. Si `accessbackup.dat` aún tiene filas `alias;usuario`, primero ejecuta capture.
+> Recordatorio de uso: pasa la carpeta como valor de la bandera, por ejemplo `sf metadelta access --addaccess docs/FolderName` (sin duplicar la bandera).
 
-```
-Eres un analista senior de integridad Git. Recibes eventos estructurados sobre un repositorio.
-Tu respuesta debe:
-1) Resumir en una lista corta los tipos de eventos detectados y qué significan (1-2 líneas por tipo).
-2) Explicar qué ocurrió.
-3) Explicar por qué es riesgoso.
-4) Explicar el impacto posible.
-5) Recomendar acciones concretas.
+El comando está implementado solo con Node.js (sin dependencias de Python), por lo que funciona igual en Windows, Linux y WSL siempre que Salesforce CLI esté instalado.
 
-Responde en JSON con las claves:
-- summary: texto breve con lista de tipos y explicación corta por tipo
-- analysis: explicación general en párrafos
-- recommendations: lista de acciones recomendadas
+#### Requisitos por plataforma (Windows / macOS / Linux / WSL)
 
-No hagas supuestos fuera de los datos. No inventes información. Escribe en español, claro y profesional.
-```
+Para ejecutar `sf metadelta access` de forma confiable, verifica estos prerrequisitos:
 
-**Cómo conectar la IA**
+1. **Salesforce CLI**
+   - Requerido en todas las plataformas.
+   - Validar con:
+     ```bash
+     sf --version
+     ```
+2. **Sesiones autenticadas de org**
+   - La exportación/captura depende de sesiones activas en el almacén local de autenticación del CLI.
+   - Validar con:
+     ```bash
+     sf org list
+     ```
+3. **Entorno Node.js compatible con el plugin**
+   - El plugin requiere Node.js 18+ (declarado en `package.json`).
+4. **Binario legacy `sfdx` (recomendado para la restauración)**
+   - El comando principal de restauración usa `sfdx auth:sfdxurl:store`.
+   - Si no está disponible, el comando intenta `sf org login sfdx-url` como fallback.
+5. **Dependencia opcional para QR ASCII**
+   - Si existe Python + módulo `qrcode`, se imprime un QR ASCII en terminal al crear el MFA.
+   - Si no existe, igual se imprime Secret + URI para registro manual en la app autenticadora.
 
-1. Exporta la API key:
-   ```bash
-   export OPENAI_API_KEY="sk-..."
-   ```
-   Si usarás Gemini:
-   ```bash
-   export GEMINI_API_KEY="..."
-   ```
-2. (Opcional) define el modelo:
-   ```bash
-   export OPENAI_MODEL="gpt-4o-mini"
-   ```
-3. Ejecuta el comando con `--ai`:
-   ```bash
-   sf metadelta gitanalyze --repo . --output-dir reports/git --ai
-   ```
-   O cambia de proveedor:
-   ```bash
-   sf metadelta gitanalyze --repo . --output-dir reports/git --ai --ai-provider gemini --ai-model gemini-1.5-flash
-   ```
+Notas por plataforma:
 
-**Ejemplo de salida (Markdown)**
+- **Windows (PowerShell/CMD):** asegúrate de que los binarios de Salesforce CLI estén en `PATH` y ejecuta desde una terminal de usuario con inicialización de perfil activa.
+- **macOS/Linux:** confirma que `sf` (y opcionalmente `sfdx`) se resuelvan en la misma sesión de shell donde ejecutas el plugin.
+- **WSL:** si mezclas contextos de autenticación entre Windows y WSL, valida dónde se guarda la autenticación y procura ejecutar exportación/restauración en el mismo entorno.
 
-```
-Repositorio: /workspace/mi-repo
-Referencia principal: origin/main
-Rango analizado: origin/main..HEAD
-Riesgo global: ALTO (score 23)
+#### Aviso de responsabilidad y seguridad
 
-- suspicious_message (medium) - hotfix urgent payment leak
-  - Commit: 1a2b3c4
-  - Autor: CI Bot
-```
+Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
 
-**Ejemplo de salida (JSON)**
+- Eres responsable de cumplir las políticas de seguridad de tu organización.
+- Eres responsable de proteger secretos MFA, passphrases, backups y archivos de autenticación generados.
+- Debes ejecutar estos comandos únicamente en entornos confiables y con acceso autorizado a las orgs.
+- Los autores/mantenedores no se responsabilizan por mal uso, fuga de credenciales o impactos operativos por manejo incorrecto.
 
-```json
-{
-  "metadata": {
-    "repoPath": "/workspace/mi-repo",
-    "mainlineRef": "origin/main",
-    "range": "origin/main..HEAD"
-  },
-  "scoring": {
-    "level": "ALTO",
-    "score": 23
-  }
-}
-```
-
-**Standalone en Python**
-
-El script `scripts/git-integrity-standalone.py` genera los mismos reportes y detecciones sin depender de Node.js. Útil para pipelines con runtime Python.
-
-```bash
-python3 scripts/git-integrity-standalone.py --repo . --range origin/HEAD..HEAD --output-dir reports/git
-```
+Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
 
 ### Comando `cleanps`
 
