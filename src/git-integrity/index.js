@@ -102,7 +102,7 @@ export async function analyzeRepository({
   } catch (error) {
     ai = {
       status: 'error',
-      error: error.message,
+      error: `[${String(aiProvider || 'N/A').toUpperCase()} - ${aiModel || 'N/A'}] ${error.message}`,
       response: null,
       provider: aiProvider,
       model: aiModel
