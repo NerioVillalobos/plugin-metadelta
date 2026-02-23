@@ -288,7 +288,7 @@ The command follows a modular pipeline so results are deterministic and easy to 
 | `--json` | Output path for the JSON report. | None |
 | `--markdown` | Output path for the Markdown report. | None |
 | `--output-dir` | Directory used to write both JSON + Markdown reports. | None |
-| `--ai` | Enables AI explanation layer. Requires API key for selected provider. | `false` |
+| `--ai` | Enables AI explanation layer. Requires API key for selected provider (`OPENAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`). | `false` |
 | `--ai-provider` | AI provider: `openai` or `gemini`. | `openai` |
 | `--ai-model` | Model name for the selected provider. | `gpt-4o-mini` |
 
@@ -302,6 +302,8 @@ export OPENAI_API_KEY="<your_openai_key>"
 
 # or Gemini
 export GEMINI_API_KEY="<your_gemini_key>"
+# Alternative variable supported by many Google SDK examples
+export GOOGLE_API_KEY="<your_gemini_key>"
 ```
 
 Examples:
@@ -325,6 +327,18 @@ sf metadelta gitanalyze --repo . --range origin/master..HEAD --json artifacts/gi
 ```
 
 The command exits cleanly with generated reports even when risk is high, so your pipeline can decide policy (warn/block) based on the JSON risk level.
+
+**Gemini troubleshooting (`API_KEY_INVALID`)**
+
+- Confirm the key works from the **same shell session** where you run `sf metadelta gitanalyze`.
+- Avoid hidden spaces/newlines when exporting the key (copy/paste issue).
+- If your key has API restrictions, allow Generative Language API usage from CLI/WSL context.
+- Try exporting both env vars to avoid naming mismatches:
+
+```bash
+export GEMINI_API_KEY="<key>"
+export GOOGLE_API_KEY="<key>"
+```
 
 ### `cleanps` command
 
@@ -772,6 +786,8 @@ export OPENAI_API_KEY="<tu_openai_key>"
 
 # o Gemini
 export GEMINI_API_KEY="<tu_gemini_key>"
+# Variable alternativa soportada en muchos ejemplos de Google
+export GOOGLE_API_KEY="<tu_gemini_key>"
 ```
 
 Ejemplos:
@@ -795,6 +811,18 @@ sf metadelta gitanalyze --repo . --range origin/master..HEAD --json artifacts/gi
 ```
 
 El comando finaliza generando reportes incluso si el riesgo es alto; así el pipeline decide la política (alertar/bloquear) en función del nivel de riesgo del JSON.
+
+**Troubleshooting Gemini (`API_KEY_INVALID`)**
+
+- Confirma que la clave funcione en la **misma sesión de shell** donde ejecutas `sf metadelta gitanalyze`.
+- Evita espacios/saltos de línea invisibles al exportar la key (problema común de copiado).
+- Si la key tiene restricciones de API, habilita uso de Generative Language API desde contexto CLI/WSL.
+- Exporta ambas variables para evitar diferencias de nombre:
+
+```bash
+export GEMINI_API_KEY="<key>"
+export GOOGLE_API_KEY="<key>"
+```
 
 ### Comando `cleanps`
 

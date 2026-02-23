@@ -48,7 +48,7 @@ class GitAnalyze extends Command {
       summary: 'Directorio donde se escriben ambos reportes (JSON y Markdown)'
     }),
     ai: Flags.boolean({
-      summary: 'Habilita la explicación por IA (usa OPENAI_API_KEY o GEMINI_API_KEY)',
+      summary: 'Habilita la explicación por IA (usa OPENAI_API_KEY, GEMINI_API_KEY o GOOGLE_API_KEY)',
       default: false
     }),
     'ai-provider': Flags.string({
@@ -85,7 +85,10 @@ class GitAnalyze extends Command {
       aiConfig: {
         enabled: flags.ai,
         provider: flags['ai-provider'],
-        apiKey: flags['ai-provider'] === 'gemini' ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY,
+        apiKey:
+          flags['ai-provider'] === 'gemini'
+            ? (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
+            : (process.env.OPENAI_API_KEY || '').trim(),
         model: flags['ai-model']
       }
     });

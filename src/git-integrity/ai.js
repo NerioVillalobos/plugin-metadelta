@@ -48,13 +48,13 @@ export async function requestAiExplanation({
     }
   }
   if (!apiKey) {
-    const missingKey = provider === 'gemini' ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY';
+    const missingKey = provider === 'gemini' ? 'GEMINI_API_KEY o GOOGLE_API_KEY' : 'OPENAI_API_KEY';
     throw new Error(`Falta ${missingKey} para ejecutar el módulo de IA.`);
   }
   if (provider === 'gemini') {
     const geminiModel = model || 'gemini-1.5-flash';
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -76,7 +76,7 @@ export async function requestAiExplanation({
     );
     if (!response.ok) {
       const message = await response.text();
-      throw new Error(`Gemini API error: ${response.status} ${message}`);
+      throw new Error(`Gemini API error: ${response.status} ${message}. Verifica que la clave sea de Google AI Studio (Generative Language API), que no tenga restricciones incompatibles para uso desde CLI/WSL y que esté exportada en la misma sesión.`);
     }
     const data = await response.json();
     const content = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
