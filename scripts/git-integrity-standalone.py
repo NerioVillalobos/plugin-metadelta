@@ -410,7 +410,7 @@ def request_ai(events, summary, mainline_ref, repo_path, model, api_key, provide
         indent=2,
     )
     if provider == "gemini":
-        gemini_model = model or "gemini-1.5-flash"
+        gemini_model = model or os.getenv("GEMINI_MODEL") or os.getenv("GOOGLE_MODEL") or "gemini-2.0-flash"
         payload = {
             "contents": [
                 {"role": "user", "parts": [{"text": AI_PROMPT}, {"text": payload_context}]}
@@ -460,9 +460,9 @@ def main():
     parser.add_argument("--json", dest="json_path", help="Ruta de salida JSON")
     parser.add_argument("--markdown", dest="markdown_path", help="Ruta de salida Markdown")
     parser.add_argument("--output-dir", dest="output_dir", help="Directorio para ambos reportes")
-    parser.add_argument("--ai", action="store_true", help="Habilita IA (OPENAI_API_KEY)")
+    parser.add_argument("--ai", action="store_true", help="Habilita IA (OPENAI_API_KEY o GEMINI_API_KEY/GOOGLE_API_KEY)")
     parser.add_argument("--ai-provider", default="openai", help="Proveedor IA (openai | gemini)")
-    parser.add_argument("--ai-model", default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+    parser.add_argument("--ai-model", default=None)
     args = parser.parse_args()
 
     repo_path = os.path.abspath(args.repo)
@@ -502,14 +502,15 @@ def main():
     ai_result = {"status": "skipped", "response": None}
     if args.ai:
         try:
-            api_key = os.getenv("GEMINI_API_KEY") if args.ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
+            api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) if args.ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
+            resolved_ai_model = args.ai_model or ((os.getenv("GEMINI_MODEL") or os.getenv("GOOGLE_MODEL") or "gemini-2.0-flash") if args.ai_provider == "gemini" else os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
             ai_result = request_ai(
                 events,
                 scoring,
                 mainline_ref,
                 root,
-                args.ai_model,
-                api_key,
+                resolved_ai_model,
+                api_key.strip() if isinstance(api_key, str) else api_key,
                 args.ai_provider,
             )
         except Exception as exc:

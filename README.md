@@ -290,7 +290,7 @@ The command follows a modular pipeline so results are deterministic and easy to 
 | `--output-dir` | Directory used to write both JSON + Markdown reports. | None |
 | `--ai` | Enables AI explanation layer. Requires API key for selected provider (`OPENAI_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_API_KEY`). | `false` |
 | `--ai-provider` | AI provider: `openai` or `gemini`. | `openai` |
-| `--ai-model` | Model name for the selected provider. | `gpt-4o-mini` |
+| `--ai-model` | Model name for the selected provider. If omitted: `gpt-4o-mini` (OpenAI) or `gemini-2.0-flash` (Gemini). | Auto by provider |
 
 #### AI configuration (OpenAI or Gemini)
 
@@ -313,7 +313,7 @@ Examples:
 sf metadelta gitanalyze --repo . --ai --ai-provider openai --ai-model gpt-4o-mini --output-dir reports/git-integrity
 
 # Gemini
-sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-1.5-flash --output-dir reports/git-integrity
+sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-2.0-flash --output-dir reports/git-integrity
 ```
 
 #### CI/CD usage examples
@@ -338,6 +338,12 @@ The command exits cleanly with generated reports even when risk is high, so your
 ```bash
 export GEMINI_API_KEY="<key>"
 export GOOGLE_API_KEY="<key>"
+```
+
+- If Gemini returns model 404 (`NOT_FOUND`), specify a currently available model explicitly:
+
+```bash
+sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-2.0-flash --output-dir reports/git-integrity
 ```
 
 ### `cleanps` command
@@ -774,7 +780,7 @@ El comando ejecuta un pipeline modular para que el resultado sea trazable y util
 | `--output-dir` | Directorio para escribir ambos reportes (JSON y Markdown). | Ninguno |
 | `--ai` | Habilita la capa de explicación por IA. Requiere API key del proveedor. | `false` |
 | `--ai-provider` | Proveedor de IA: `openai` o `gemini`. | `openai` |
-| `--ai-model` | Modelo a utilizar con el proveedor seleccionado. | `gpt-4o-mini` |
+| `--ai-model` | Modelo a utilizar con el proveedor seleccionado. Si se omite: `gpt-4o-mini` (OpenAI) o `gemini-2.0-flash` (Gemini). | Automático por proveedor |
 
 #### Configuración IA (OpenAI o Gemini)
 
@@ -797,7 +803,7 @@ Ejemplos:
 sf metadelta gitanalyze --repo . --ai --ai-provider openai --ai-model gpt-4o-mini --output-dir reportes/git-integridad
 
 # Gemini
-sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-1.5-flash --output-dir reportes/git-integridad
+sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-2.0-flash --output-dir reportes/git-integridad
 ```
 
 #### Ejemplos para CI/CD
@@ -812,7 +818,7 @@ sf metadelta gitanalyze --repo . --range origin/master..HEAD --json artifacts/gi
 
 El comando finaliza generando reportes incluso si el riesgo es alto; así el pipeline decide la política (alertar/bloquear) en función del nivel de riesgo del JSON.
 
-**Troubleshooting Gemini (`API_KEY_INVALID`)**
+**Troubleshooting de Gemini (`API_KEY_INVALID`)**
 
 - Confirma que la clave funcione en la **misma sesión de shell** donde ejecutas `sf metadelta gitanalyze`.
 - Evita espacios/saltos de línea invisibles al exportar la key (problema común de copiado).
@@ -822,6 +828,12 @@ El comando finaliza generando reportes incluso si el riesgo es alto; así el pip
 ```bash
 export GEMINI_API_KEY="<key>"
 export GOOGLE_API_KEY="<key>"
+```
+
+- Si Gemini devuelve 404 de modelo (`NOT_FOUND`), especifica un modelo disponible explícitamente:
+
+```bash
+sf metadelta gitanalyze --repo . --ai --ai-provider gemini --ai-model gemini-2.0-flash --output-dir reportes/git-integridad
 ```
 
 ### Comando `cleanps`
