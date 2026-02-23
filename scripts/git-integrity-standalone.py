@@ -501,11 +501,15 @@ def main():
         "analyzedAt": datetime.utcnow().isoformat() + "Z",
     }
 
-    ai_result = {"status": "skipped", "response": None, "provider": args.ai_provider if args.ai else None, "model": None}
+    ai_provider = str(args.ai_provider or "openai").strip().lower()
+    if args.ai and ai_provider not in ("openai", "gemini"):
+        raise SystemExit(f"Proveedor IA no soportado: {ai_provider}. Use openai o gemini.")
+
+    ai_result = {"status": "skipped", "response": None, "provider": ai_provider if args.ai else None, "model": None}
     if args.ai:
         try:
-            api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) if args.ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
-            resolved_ai_model = args.ai_model or ((os.getenv("GEMINI_MODEL") or os.getenv("GOOGLE_MODEL") or "gemini-2.0-flash") if args.ai_provider == "gemini" else os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+            api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) if ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
+            resolved_ai_model = args.ai_model or ((os.getenv("GEMINI_MODEL") or os.getenv("GOOGLE_MODEL") or "gemini-2.0-flash") if ai_provider == "gemini" else os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
             ai_result = request_ai(
                 events,
                 scoring,
@@ -513,12 +517,12 @@ def main():
                 root,
                 resolved_ai_model,
                 api_key.strip() if isinstance(api_key, str) else api_key,
-                args.ai_provider,
+                ai_provider,
             )
-            ai_result["provider"] = args.ai_provider
+            ai_result["provider"] = ai_provider
             ai_result["model"] = resolved_ai_model
         except Exception as exc:
-            ai_result = {"status": "error", "error": str(exc), "response": None, "provider": args.ai_provider, "model": args.ai_model}
+            ai_result = {"status": "error", "error": str(exc), "response": None, "provider": ai_provider, "model": args.ai_model}
 
     report = {"metadata": metadata, "scoring": scoring, "events": events, "ai": ai_result}
     markdown = build_markdown(metadata, scoring, events, ai_result)

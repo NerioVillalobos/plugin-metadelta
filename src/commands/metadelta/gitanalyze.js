@@ -76,12 +76,16 @@ class GitAnalyze extends Command {
       hugeLinesThreshold: flags['huge-lines']
     };
 
-    const aiProvider = flags['ai-provider'];
+    const aiProvider = String(flags['ai-provider'] || 'openai').trim().toLowerCase();
     const aiModel =
       flags['ai-model'] ||
       (aiProvider === 'gemini'
         ? process.env.GEMINI_MODEL || process.env.GOOGLE_MODEL || 'gemini-2.0-flash'
         : process.env.OPENAI_MODEL || 'gpt-4o-mini');
+
+    if (flags.ai && !['openai', 'gemini'].includes(aiProvider)) {
+      this.error(`Proveedor IA no soportado: ${aiProvider}. Use openai o gemini.`);
+    }
 
     const analysis = await analyzeRepository({
       repoPath,
@@ -92,7 +96,7 @@ class GitAnalyze extends Command {
         enabled: flags.ai,
         provider: aiProvider,
         apiKey:
-          flags['ai-provider'] === 'gemini'
+          aiProvider === 'gemini'
             ? (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim()
             : (process.env.OPENAI_API_KEY || '').trim(),
         model: aiModel

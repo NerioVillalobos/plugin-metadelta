@@ -76,7 +76,7 @@ export async function analyzeRepository({
     analyzedAt: new Date().toISOString()
   };
 
-  const aiProvider = aiConfig.provider || null;
+  const aiProvider = aiConfig.enabled ? String(aiConfig.provider || 'openai').trim().toLowerCase() : null;
   const aiModel = aiConfig.model || null;
 
   let ai = {status: 'skipped', response: null, provider: aiProvider, model: aiModel};
@@ -87,7 +87,7 @@ export async function analyzeRepository({
         summary: scoring,
         mainlineRef,
         repoPath: root,
-        provider: aiConfig.provider,
+        provider: aiProvider,
         apiKey: aiConfig.apiKey,
         model: aiConfig.model
       });
