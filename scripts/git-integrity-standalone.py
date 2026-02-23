@@ -371,7 +371,9 @@ def build_markdown(metadata, scoring, events, ai):
                 lines.append(f"  - Detalles: `{json.dumps(event['details'])}`")
             if event.get("commits"):
                 lines.append(f"  - Commits: {', '.join(event['commits'])}")
-    lines += ["", "## Scoring", "```json", json.dumps(scoring, indent=2), "```", "", "## IA"]
+    provider_name = str(ai.get("provider") or "N/A").upper()
+    model_name = ai.get("model") or "N/A"
+    lines += ["", "## Scoring", "```json", json.dumps(scoring, indent=2), "```", "", f"## Análisis realizado con Inteligencia Artificial ({provider_name} - {model_name})"]
     if ai["status"] == "ok":
         lines.append(ai.get("response", ""))
     elif ai["status"] == "skipped":
@@ -499,7 +501,7 @@ def main():
         "analyzedAt": datetime.utcnow().isoformat() + "Z",
     }
 
-    ai_result = {"status": "skipped", "response": None}
+    ai_result = {"status": "skipped", "response": None, "provider": args.ai_provider if args.ai else None, "model": None}
     if args.ai:
         try:
             api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")) if args.ai_provider == "gemini" else os.getenv("OPENAI_API_KEY")
@@ -513,8 +515,10 @@ def main():
                 api_key.strip() if isinstance(api_key, str) else api_key,
                 args.ai_provider,
             )
+            ai_result["provider"] = args.ai_provider
+            ai_result["model"] = resolved_ai_model
         except Exception as exc:
-            ai_result = {"status": "error", "error": str(exc), "response": None}
+            ai_result = {"status": "error", "error": str(exc), "response": None, "provider": args.ai_provider, "model": args.ai_model}
 
     report = {"metadata": metadata, "scoring": scoring, "events": events, "ai": ai_result}
     markdown = build_markdown(metadata, scoring, events, ai_result)

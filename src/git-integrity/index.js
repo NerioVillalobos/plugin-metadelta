@@ -76,7 +76,10 @@ export async function analyzeRepository({
     analyzedAt: new Date().toISOString()
   };
 
-  let ai = {status: 'skipped', response: null};
+  const aiProvider = aiConfig.provider || null;
+  const aiModel = aiConfig.model || null;
+
+  let ai = {status: 'skipped', response: null, provider: aiProvider, model: aiModel};
   try {
     if (aiConfig.enabled) {
       ai = await requestAiExplanation({
@@ -88,12 +91,19 @@ export async function analyzeRepository({
         apiKey: aiConfig.apiKey,
         model: aiConfig.model
       });
+      ai = {
+        ...ai,
+        provider: aiProvider,
+        model: aiModel
+      };
     }
   } catch (error) {
     ai = {
       status: 'error',
       error: error.message,
-      response: null
+      response: null,
+      provider: aiProvider,
+      model: aiModel
     };
   }
 
