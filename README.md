@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-02-13 — `@nervill/metadelta` 0.9.6
+> **Last update / Última actualización:** 2026-02-13 — `@nervill/metadelta` 0.9.7
 
 # Metadelta Salesforce CLI Plugin
 
@@ -16,6 +16,7 @@ Metadelta is a custom Salesforce CLI plugin that offers seven complementary work
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
+* `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -29,6 +30,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
 - [`sf metadelta access`](#access-command)
+- [`sf metadelta initspace`](#initspace-command)
 
 ### Installation
 
@@ -232,6 +234,29 @@ By using `metadelta access` and all other commands in this plugin, you acknowled
 - The maintainers/authors are not responsible for misuse, credential leakage, or operational impact caused by incorrect handling.
 
 Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
+
+### `initspace` command
+
+Create the recommended workspace scaffold in your current directory:
+
+```bash
+sf metadelta initspace
+```
+
+What the command creates:
+
+- Folders:
+  - `force-app/main/default`
+  - `docs`
+  - `data`
+  - `manifest`
+  - `scripts`
+- Root files:
+  - `.gitignore` (Metadelta template)
+  - `sfdx-project.json` (`sourceApiVersion` `66.0`)
+  - `package.xml` (Metadata API version `66.0`)
+
+`initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
 ### `cleanps` command
 
@@ -441,6 +466,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece siete flujos c
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
+* `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -454,6 +480,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta merge`](#comando-merge)
 - [`sf metadelta postvalidate`](#comando-postvalidate)
 - [`sf metadelta access`](#comando-access)
+- [`sf metadelta initspace`](#comando-initspace)
 
 ### Instalación
 
@@ -610,6 +637,29 @@ Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
 - Los autores/mantenedores no se responsabilizan por mal uso, fuga de credenciales o impactos operativos por manejo incorrecto.
 
 Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
+
+### Comando `initspace`
+
+Crea la estructura recomendada del workspace en el directorio actual:
+
+```bash
+sf metadelta initspace
+```
+
+Qué crea el comando:
+
+- Carpetas:
+  - `force-app/main/default`
+  - `docs`
+  - `data`
+  - `manifest`
+  - `scripts`
+- Archivos en la raíz:
+  - `.gitignore` (plantilla Metadelta)
+  - `sfdx-project.json` (`sourceApiVersion` `66.0`)
+  - `package.xml` (versión Metadata API `66.0`)
+
+`initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
 ### Comando `cleanps`
 

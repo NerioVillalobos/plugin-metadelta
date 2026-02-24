@@ -313,6 +313,28 @@
         "findtest.js"
       ]
     },
+    "metadelta:initspace": {
+      "aliases": [],
+      "args": {},
+      "description": "Creates the standard Metadelta folder structure and base files (.gitignore, sfdx-project.json, package.xml) in the current directory.",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:initspace",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Initialize a Salesforce project workspace scaffold in the current directory.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "initspace.js"
+      ]
+    },
     "metadelta:merge": {
       "aliases": [],
       "args": {},
@@ -563,5 +585,5 @@
       ]
     }
   },
-  "version": "0.9.6"
+  "version": "0.9.7"
 }
