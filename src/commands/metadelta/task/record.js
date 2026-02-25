@@ -40,7 +40,7 @@ class TaskRecord extends Command {
     }
 
     try {
-      ensurePlaywrightReady();
+      ensurePlaywrightReady({baseDir: process.cwd()});
       const url = buildFrontdoorUrlFromOrgDisplay(targetOrg);
       const testsDir = ensureTestsDirectory();
       const safeAlias = sanitizeAlias(targetOrg);

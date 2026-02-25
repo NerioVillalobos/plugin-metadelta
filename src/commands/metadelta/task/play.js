@@ -57,8 +57,8 @@ class TaskPlay extends Command {
         this.error(`No se encontró el archivo de prueba: ${flags.tstname}`);
       }
 
-      ensurePlaywrightReady();
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
+      ensurePlaywrightReady({baseDir: process.cwd(), playwrightCliPath: cliPath});
       const url = buildFrontdoorUrlFromOrgDisplay(targetOrg);
       const patchedTestFile = this.createPatchedTestFile(testFile, flags['vlocity-job-time']);
       const configPath = this.createPlaywrightConfig(patchedTestFile);

@@ -322,11 +322,23 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
   fs.writeFileSync(filePath, updated, 'utf8');
 }
 
-export function ensurePlaywrightReady() {
+export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPath} = {}) {
   if (hasPlaywrightBrowsers()) {
     return;
   }
+
+  const runtime = playwrightCliPath
+    ? {cliPath: playwrightCliPath, cacheDir: path.resolve(baseDir, 'tests', '.metadelta-playwright')}
+    : ensurePlaywrightTestDependency(baseDir);
+
   const installAttempts = [
+    () => spawnSync(process.execPath, [runtime.cliPath, 'install', 'chromium'], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_PATH: path.join(runtime.cacheDir, 'node_modules'),
+      },
+    }),
     () => spawnPlaywright(['install', 'chromium']),
     () => executeNpxCommand(['--yes', '@playwright/test', 'install', 'chromium'], {stdio: 'inherit'}),
   ];
