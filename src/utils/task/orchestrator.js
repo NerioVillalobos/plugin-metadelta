@@ -323,13 +323,13 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
 }
 
 export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPath} = {}) {
-  if (hasPlaywrightBrowsers()) {
-    return;
-  }
-
   const runtime = playwrightCliPath
     ? {cliPath: playwrightCliPath, cacheDir: path.resolve(baseDir, 'tests', '.metadelta-playwright')}
     : ensurePlaywrightTestDependency(baseDir);
+
+  if (hasPlaywrightBrowsers(runtime.cacheDir)) {
+    return;
+  }
 
   const installAttempts = [
     () =>
@@ -352,10 +352,10 @@ export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPat
       }),
   ];
 
-  let lastErrorDetail = '';
+  let lastErrorDetail = 'sin ejecutable de Chromium detectado';
   for (const attempt of installAttempts) {
     const result = attempt();
-    if (result.status === 0 && hasPlaywrightBrowsers()) {
+    if (hasPlaywrightBrowsers(runtime.cacheDir)) {
       return;
     }
     lastErrorDetail = result.error?.message
@@ -363,7 +363,7 @@ export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPat
       : `código=${result.status ?? 'desconocido'}`;
   }
 
-  if (!hasPlaywrightBrowsers()) {
+  if (!hasPlaywrightBrowsers(runtime.cacheDir)) {
     throw new Error(
       `No se pudieron instalar o validar los navegadores de Playwright automáticamente (${lastErrorDetail}). Ejecuta "npm install --prefix tests/.metadelta-playwright @playwright/test" y luego "node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium".`
     );
@@ -409,12 +409,17 @@ function ensureTestModuleSymlink(baseDir, cacheDir) {
   fs.symlinkSync(target, linkPath, 'junction');
 }
 
-function hasPlaywrightBrowsers() {
+function hasPlaywrightBrowsers(cacheDir) {
   const customPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
   const pathsToCheck = [];
   if (customPath && customPath !== '0') {
     pathsToCheck.push(customPath);
   }
+
+  if (cacheDir) {
+    pathsToCheck.push(path.resolve(cacheDir, 'node_modules', 'playwright-core', '.local-browsers'));
+  }
+
   pathsToCheck.push(
     path.join(os.homedir(), '.cache', 'ms-playwright'),
     path.join(os.homedir(), 'AppData', 'Local', 'ms-playwright')
@@ -449,3 +454,4 @@ function hasPlaywrightBrowsers() {
 
   return false;
 }
+
