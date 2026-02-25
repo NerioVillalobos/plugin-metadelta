@@ -48,9 +48,12 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 4. Link the plugin to your local Salesforce CLI:
    ```bash
+   npm run build
    sf plugins link .
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5 (link)`.
+
+> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
 
 ### Usage
 
@@ -400,9 +403,12 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 3. Vincula el plugin con tu Salesforce CLI local:
    ```bash
+   npm run build
    sf plugins link .
    ```
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
+
+> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
 
 ### Uso
 
