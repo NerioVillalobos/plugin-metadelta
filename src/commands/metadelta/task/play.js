@@ -157,7 +157,12 @@ class TaskPlay extends Command {
     if (await option.count()) {
       await option.first().click({timeout: 15000});
     } else {
-      await page.getByText('Vlocity CMT Administration').first().click({timeout: 15000});
+      const optionByRole = page.locator('[role="option"]').filter({hasText: 'Vlocity CMT Administration'}).first();
+      if (await optionByRole.count()) {
+        await optionByRole.click({timeout: 15000, force: true});
+      } else {
+        await page.getByText('Vlocity CMT Administration').first().click({timeout: 15000, force: true});
+      }
     }
   }`
     );
@@ -269,8 +274,10 @@ class TaskPlay extends Command {
       `// omit iframe html click in patched tests to avoid timeouts in other orgs`
     );
     const normalizedBaseUrls = normalizedIframeHtmlClicks
-      .replace(/https:\/\/[^'"]+\.my\.salesforce\.com(\/[^'"]*)/g, 'baseUrl$1')
-      .replace(/https:\/\/[^'"]+\.lightning\.force\.com(\/[^'"]*)/g, 'baseUrl$1');
+      .replace(/https:\/\/[^'"]+\.my\.salesforce\.com(\/[^'"]*)?/g, 'baseUrl$1')
+      .replace(/https:\/\/[^'"]+\.lightning\.force\.com(\/[^'"]*)?/g, 'baseUrl$1')
+      .replace(/https:\/\/[^'"]+\.salesforce\.com(\/[^'"]*)?/g, 'baseUrl$1')
+      .replace(/https%3A%2F%2F[^'"]+?(?:my%2Esalesforce%2Ecom|lightning%2Eforce%2Ecom|salesforce%2Ecom)%2F/gi, 'baseUrl/');
     const normalizedBaseUrlExpressions = normalizedBaseUrls
       .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
       .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
@@ -324,12 +331,42 @@ class TaskPlay extends Command {
     );
     const injected = injectedBase.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+function installOrgDomainGuard(page) {
+  const base = process.env.METADELTA_BASE_URL;
+  if (!base) {
+    return;
+  }
+
+  const baseOrigin = new URL(base).origin;
+  page.context().on('page', async (popup) => {
+    try {
+      await popup.waitForLoadState('domcontentloaded', {timeout: 15000});
+      const current = popup.url();
+      if (!current || current.startsWith(baseOrigin) || current.startsWith('about:blank')) {
+        return;
+      }
+      const target = new URL(current);
+      const startURL = target.searchParams.get('startURL');
+      if (startURL) {
+        const decoded = decodeURIComponent(startURL);
+        const normalized = decoded.replace(/^https?:\/\/[^/]+/i, baseOrigin);
+        const nextPath = normalized.startsWith(baseOrigin) ? normalized.slice(baseOrigin.length) : normalized;
+        await popup.goto(baseOrigin + (nextPath.startsWith('/') ? nextPath : '/' + nextPath));
+      } else {
+        await popup.goto(baseOrigin + target.pathname + target.search + target.hash);
+      }
+    } catch (error) {
+      // noop
+    }
+  });
 }
 
 let setupSectionReady = false;
