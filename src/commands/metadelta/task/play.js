@@ -285,7 +285,15 @@ class TaskPlay extends Command {
     const normalizedBaseUrlExpressions = normalizedBaseUrls
       .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
       .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
-    const normalizedCheckboxes = normalizedBaseUrlExpressions.replace(
+    const setupPopupPattern = new RegExp(
+      "const page1Promise = page\.waitForEvent\('popup'\);\s*\n\s*await page\.getByRole\('menuitem', \{ name: 'Setup Opens in a new tab Setup for current app' \}\)\.click\(\);\s*\n\s*const page1 = await page1Promise;\s*\n\s*await page1\.goto\([^;]+\);",
+      'g'
+    );
+    const normalizedSetupPopup = normalizedBaseUrlExpressions.replace(
+      setupPopupPattern,
+      `const page1 = await openSetupPage(page);`
+    );
+    const normalizedCheckboxes = normalizedSetupPopup.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -371,6 +379,26 @@ function installOrgDomainGuard(page) {
       // noop
     }
   });
+}
+
+async function openSetupPage(page) {
+  const base = process.env.METADELTA_BASE_URL;
+  const setupUrl = base + '/lightning/setup/SetupOneHome/home';
+  try {
+    const page1Promise = page.waitForEvent('popup', {timeout: 15000});
+    await page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).click();
+    const popup = await page1Promise;
+    await popup.waitForLoadState('domcontentloaded', {timeout: 15000});
+    if (popup.isClosed()) {
+      await page.goto(setupUrl);
+      return page;
+    }
+    await popup.goto(setupUrl);
+    return popup;
+  } catch (error) {
+    await page.goto(setupUrl);
+    return page;
+  }
 }
 
 let setupSectionReady = false;
