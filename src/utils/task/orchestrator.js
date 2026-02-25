@@ -355,12 +355,11 @@ export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPat
   let lastErrorDetail = 'sin ejecutable de Chromium detectado';
   for (const attempt of installAttempts) {
     const result = attempt();
-    if (hasPlaywrightBrowsers(runtime.cacheDir)) {
+    if (result.status === 0 || hasPlaywrightBrowsers(runtime.cacheDir)) {
       return;
     }
-    lastErrorDetail = result.error?.message
-      ? String(result.error.message)
-      : `código=${result.status ?? 'desconocido'}`;
+    const rawDetail = result.error?.message || result.stderr?.trim() || result.stdout?.trim();
+    lastErrorDetail = rawDetail ? String(rawDetail).slice(0, 240) : `código=${result.status ?? 'desconocido'}`;
   }
 
   if (!hasPlaywrightBrowsers(runtime.cacheDir)) {
@@ -441,6 +440,8 @@ function hasPlaywrightBrowsers(cacheDir) {
           path.join(base, 'chrome-win', 'chrome.exe'),
           path.join(base, 'chrome-win64', 'chrome.exe'),
           path.join(base, 'chrome-linux', 'chrome'),
+          path.join(base, 'chrome-linux64', 'chrome'),
+          path.join(base, 'chrome-headless-shell-linux64', 'chrome-headless-shell'),
           path.join(base, 'chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
         ];
         if (executableCandidates.some((candidate) => fs.existsSync(candidate))) {
