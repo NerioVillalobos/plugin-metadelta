@@ -251,14 +251,7 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedQuickFindClick = normalizedDeliverabilityClick.replace(
-      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);/g,
-      `{
-    const quickFindSearchbox = await ensureQuickFindSearchbox($1);
-    await quickFindSearchbox.click({timeout: 20000});
-  }`
-    );
-    const normalizedUserInterfaceClick = normalizedQuickFindClick.replace(
+    const normalizedUserInterfaceClick = normalizedDeliverabilityClick.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'User Interface' \}\)\.nth\(1\)\.click\(\);/g,
       `{
     const uiLinks = $1.getByRole('link', {name: 'User Interface'});
@@ -271,7 +264,16 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedQuickFind = normalizedUserInterfaceClick.replace(
+    const normalizedQuickFindClick = this.shouldEnableQuickFindFallback()
+      ? normalizedUserInterfaceClick.replace(
+          /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);/g,
+          `{
+    const quickFindSearchbox = await ensureQuickFindSearchbox($1);
+    await quickFindSearchbox.click({timeout: 20000});
+  }`
+        )
+      : normalizedUserInterfaceClick;
+    const normalizedQuickFind = normalizedQuickFindClick.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
       `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
   await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
@@ -399,7 +401,8 @@ async function ensureQuickFindSearchbox(page) {
     await page.waitForTimeout(1000);
   }
 
-  throw new Error('No se encontró el searchbox Quick Find en la página de Setup.');
+  console.log('⚠️ Quick Find no fue resuelto por fallback; se usa locator original.');
+  return page.getByRole('searchbox', {name: 'Quick Find'}).first();
 }
 
 async function ensureSetupCheckbox(page, label, sectionName) {
@@ -525,6 +528,10 @@ async function ensureStartTriggered(page) {
     }
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
+  }
+
+  shouldEnableQuickFindFallback() {
+    return process.env.METADELTA_QUICKFIND_FALLBACK === 'true';
   }
 
   shouldNormalizeVisualforceFrames() {
