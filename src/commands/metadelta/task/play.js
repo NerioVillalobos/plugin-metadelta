@@ -285,15 +285,7 @@ class TaskPlay extends Command {
     const normalizedBaseUrlExpressions = normalizedBaseUrls
       .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
       .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
-    const setupPopupPattern = new RegExp(
-      "const page1Promise = page\.waitForEvent\('popup'\);\s*\n\s*await page\.getByRole\('menuitem', \{ name: 'Setup Opens in a new tab Setup for current app' \}\)\.click\(\);\s*\n\s*const page1 = await page1Promise;\s*\n\s*await page1\.goto\([^;]+\);",
-      'g'
-    );
-    const normalizedSetupPopup = normalizedBaseUrlExpressions.replace(
-      setupPopupPattern,
-      `const page1 = await openSetupPage(page);`
-    );
-    const normalizedCheckboxes = normalizedSetupPopup.replace(
+    const normalizedCheckboxes = normalizedBaseUrlExpressions.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -352,60 +344,12 @@ const baseUrl = (() => {
     );
     const injected = injectedBase.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
-}
-
-function installOrgDomainGuard(page) {
-  if (!baseUrl) {
-    return;
-  }
-
-  const baseOrigin = baseUrl;
-  page.context().on('page', async (popup) => {
-    try {
-      await popup.waitForLoadState('domcontentloaded', {timeout: 15000});
-      const current = popup.url();
-      if (!current || current.startsWith(baseOrigin) || current.startsWith('about:blank')) {
-        return;
-      }
-      const target = new URL(current);
-      const startURL = target.searchParams.get('startURL');
-      if (startURL) {
-        const decoded = decodeURIComponent(startURL);
-        const normalized = decoded.replace(new RegExp('^https?://[^/]+', 'i'), baseOrigin);
-        const nextPath = normalized.startsWith(baseOrigin) ? normalized.slice(baseOrigin.length) : normalized;
-        await popup.goto(baseOrigin + (nextPath.startsWith('/') ? nextPath : '/' + nextPath));
-      } else {
-        await popup.goto(baseOrigin + target.pathname + target.search + target.hash);
-      }
-    } catch (error) {
-      // noop
-    }
-  });
-}
-
-async function openSetupPage(page) {
-  const setupUrl = baseUrl + '/lightning/setup/SetupOneHome/home';
-  try {
-    const page1Promise = page.waitForEvent('popup', {timeout: 15000});
-    await page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).click();
-    const popup = await page1Promise;
-    await popup.waitForLoadState('domcontentloaded', {timeout: 15000});
-    if (popup.isClosed()) {
-      await page.goto(setupUrl);
-      return page;
-    }
-    await popup.goto(setupUrl);
-    return popup;
-  } catch (error) {
-    await page.goto(setupUrl);
-    return page;
-  }
 }
 
 let setupSectionReady = false;
