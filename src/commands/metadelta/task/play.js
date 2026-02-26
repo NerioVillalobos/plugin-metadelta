@@ -336,7 +336,16 @@ class TaskPlay extends Command {
     );
     const baseUrlDeclaration = injectedImports.includes('const baseUrl')
       ? ''
-      : 'const baseUrl = process.env.METADELTA_BASE_URL;\n';
+      : `const rawBaseUrl = process.env.METADELTA_BASE_URL ?? '';
+const baseUrl = (() => {
+  try {
+    const parsed = new URL(rawBaseUrl);
+    return parsed.origin;
+  } catch (error) {
+    return rawBaseUrl;
+  }
+})();
+`;
     const injectedBase = injectedImports.replace(
       /(import\s+\{\s*test[^;]+;\n)/,
       `$1${baseUrlDeclaration}`
@@ -352,12 +361,11 @@ async function waitForMaintenanceJob() {
 }
 
 function installOrgDomainGuard(page) {
-  const base = process.env.METADELTA_BASE_URL;
-  if (!base) {
+  if (!baseUrl) {
     return;
   }
 
-  const baseOrigin = new URL(base).origin;
+  const baseOrigin = baseUrl;
   page.context().on('page', async (popup) => {
     try {
       await popup.waitForLoadState('domcontentloaded', {timeout: 15000});
@@ -382,8 +390,7 @@ function installOrgDomainGuard(page) {
 }
 
 async function openSetupPage(page) {
-  const base = process.env.METADELTA_BASE_URL;
-  const setupUrl = base + '/lightning/setup/SetupOneHome/home';
+  const setupUrl = baseUrl + '/lightning/setup/SetupOneHome/home';
   try {
     const page1Promise = page.waitForEvent('popup', {timeout: 15000});
     await page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).click();
