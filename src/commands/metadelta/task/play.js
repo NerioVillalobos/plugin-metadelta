@@ -251,7 +251,14 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedUserInterfaceClick = normalizedDeliverabilityClick.replace(
+    const normalizedQuickFindClick = normalizedDeliverabilityClick.replace(
+      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);/g,
+      `{
+    const quickFindSearchbox = await ensureQuickFindSearchbox($1);
+    await quickFindSearchbox.click({timeout: 20000});
+  }`
+    );
+    const normalizedUserInterfaceClick = normalizedQuickFindClick.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'User Interface' \}\)\.nth\(1\)\.click\(\);/g,
       `{
     const uiLinks = $1.getByRole('link', {name: 'User Interface'});
@@ -360,6 +367,39 @@ function markSetupSectionReady() {
 
 function isSetupSectionReady() {
   return setupSectionReady;
+}
+
+async function ensureQuickFindSearchbox(page) {
+  const resolveCandidate = async () => {
+    const candidates = [
+      page.getByRole('searchbox', {name: 'Quick Find'}),
+      page.getByPlaceholder('Quick Find'),
+      page.getByRole('searchbox', {name: 'Search Setup'}),
+      page.getByRole('combobox', {name: 'Quick Find'}),
+    ];
+    for (const locator of candidates) {
+      if ((await locator.count()) > 0) {
+        return locator.first();
+      }
+    }
+    return null;
+  };
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const candidate = await resolveCandidate();
+    if (candidate) {
+      await candidate.scrollIntoViewIfNeeded();
+      return candidate;
+    }
+
+    if (!page.url().includes('/lightning/setup/')) {
+      await page.goto(baseUrl + '/lightning/setup/SetupOneHome/home');
+    }
+
+    await page.waitForTimeout(1000);
+  }
+
+  throw new Error('No se encontró el searchbox Quick Find en la página de Setup.');
 }
 
 async function ensureSetupCheckbox(page, label, sectionName) {
