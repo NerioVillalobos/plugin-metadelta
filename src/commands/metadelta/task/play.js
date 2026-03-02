@@ -324,7 +324,18 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedClickLogs = normalizedSetupSaveClicks.replace(
+    const normalizedGenericCheckboxClicks = normalizedSetupSaveClicks.replace(
+      /await (\w+)\.locator\('\.slds-checkbox_faux'\)\.click\(\);/g,
+      `{
+    const checkboxToggle = $1.locator('.slds-checkbox_faux');
+    if (await checkboxToggle.count()) {
+      await checkboxToggle.first().click({timeout: 15000, force: true});
+    } else {
+      throw new Error('No se encontró ningún toggle .slds-checkbox_faux en la vista actual.');
+    }
+  }`
+    );
+    const normalizedClickLogs = normalizedGenericCheckboxClicks.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
       `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
