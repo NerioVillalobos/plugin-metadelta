@@ -264,15 +264,21 @@ class TaskPlay extends Command {
     }
   }`
     );
+    const normalizedAgentforceAgentsClick = normalizedUserInterfaceClick.replace(
+      /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
+      `await clickSetupLinkWithRecovery($1, 'Agentforce Agents', {
+    setupLandingPath: '/lightning/setup/EinsteinGPTSetup/home',
+  });`
+    );
     const normalizedQuickFindClick = this.shouldEnableQuickFindFallback()
-      ? normalizedUserInterfaceClick.replace(
+      ? normalizedAgentforceAgentsClick.replace(
           /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);/g,
           `{
     const quickFindSearchbox = await ensureQuickFindSearchbox($1);
     await quickFindSearchbox.click({timeout: 20000});
   }`
         )
-      : normalizedUserInterfaceClick;
+      : normalizedAgentforceAgentsClick;
     const normalizedQuickFind = normalizedQuickFindClick.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
       `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
@@ -418,6 +424,47 @@ async function ensureQuickFindSearchbox(page) {
 
   console.log('⚠️ Quick Find no fue resuelto por fallback; se usa locator original.');
   return page.getByRole('searchbox', {name: 'Quick Find'}).first();
+}
+
+async function clickSetupLinkWithRecovery(page, linkName, options = {}) {
+  const setupLandingPath = options.setupLandingPath ?? '/lightning/setup/SetupOneHome/home';
+  const fullSetupUrl = baseUrl + setupLandingPath;
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const roleLink = page.getByRole('link', {name: linkName});
+    if ((await roleLink.count()) > 0) {
+      const target = (await roleLink.count()) > 1 ? roleLink.last() : roleLink.first();
+      await target.scrollIntoViewIfNeeded();
+      await target.click({timeout: 15000, force: true});
+      return;
+    }
+
+    const treeLink = page.locator('a, [role="treeitem"]').filter({hasText: linkName}).first();
+    if ((await treeLink.count()) > 0) {
+      await treeLink.scrollIntoViewIfNeeded();
+      await treeLink.click({timeout: 15000, force: true});
+      return;
+    }
+
+    const quickFind = await ensureQuickFindSearchbox(page);
+    await quickFind.fill(linkName);
+    await quickFind.press('Enter');
+    await page.waitForTimeout(1200);
+
+    const quickFindTreeLink = page.locator('a, [role="treeitem"]').filter({hasText: linkName}).first();
+    if ((await quickFindTreeLink.count()) > 0) {
+      await quickFindTreeLink.scrollIntoViewIfNeeded();
+      await quickFindTreeLink.click({timeout: 15000, force: true});
+      return;
+    }
+
+    if (attempt >= 1) {
+      await page.goto(fullSetupUrl);
+      await page.waitForTimeout(1500);
+    }
+  }
+
+  throw new Error('No se encontró el enlace de Setup "' + linkName + '" incluso después de reabrir Setup.');
 }
 
 async function ensureSetupCheckbox(page, label, sectionName) {
