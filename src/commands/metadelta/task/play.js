@@ -335,7 +335,11 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedClickLogs = normalizedGenericCheckboxClicks.replace(
+    const normalizedNewAgentPopupFlow = normalizedGenericCheckboxClicks.replace(
+      /const\s+(\w+)\s*=\s*(\w+)\.waitForEvent\('popup'\);\s*\n\s*await\s+(\w+)\.getByRole\('button',\s*\{\s*name:\s*'New Agent'\s*\}\)\.click\(\);\s*\n\s*const\s+(\w+)\s*=\s*await\s+\1;/g,
+      `const $4 = await openNewAgentBuilder($2);`
+    );
+    const normalizedClickLogs = normalizedNewAgentPopupFlow.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
       `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
@@ -476,6 +480,41 @@ async function clickSetupLinkWithRecovery(page, linkName, options = {}) {
   }
 
   throw new Error('No se encontró el enlace de Setup "' + linkName + '" incluso después de reabrir Setup.');
+}
+
+async function openNewAgentBuilder(page) {
+  await clickSetupLinkWithRecovery(page, 'Agentforce Agents', {
+    setupLandingPath: '/lightning/setup/EinsteinGPTSetup/home',
+  });
+
+  const popupPromise = page.waitForEvent('popup', {timeout: 5000}).catch(() => null);
+  const newAgentCandidates = [
+    page.getByRole('button', {name: 'New Agent'}),
+    page.getByRole('link', {name: 'New Agent'}),
+  ];
+
+  let clicked = false;
+  for (const candidate of newAgentCandidates) {
+    if ((await candidate.count()) > 0) {
+      await candidate.first().scrollIntoViewIfNeeded();
+      await candidate.first().click({timeout: 20000, force: true});
+      clicked = true;
+      break;
+    }
+  }
+
+  if (!clicked) {
+    throw new Error('No se encontró el botón/enlace "New Agent" en Agentforce Agents.');
+  }
+
+  const popup = await popupPromise;
+  if (popup) {
+    await popup.waitForLoadState('domcontentloaded');
+    return popup;
+  }
+
+  await page.waitForLoadState('domcontentloaded');
+  return page;
 }
 
 async function ensureSetupCheckbox(page, label, sectionName) {
