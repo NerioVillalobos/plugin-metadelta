@@ -310,17 +310,42 @@ export function resolveTestFilePath({baseDir = process.cwd(), name}) {
 export function injectBaseUrlInTest({filePath, baseUrl}) {
   const raw = fs.readFileSync(filePath, 'utf8');
   if (raw.includes('METADELTA_BASE_URL')) {
+    const fixed = raw.replace(
+      /const\s+baseUrl\s*=\s*process\.env\.METADELTA_BASE_URL\s*\?\?\s*baseUrl\s*;/g,
+      `const rawBaseUrl = process.env.METADELTA_BASE_URL ?? '${baseUrl}';
+const baseUrl = (() => {
+  try {
+    return new URL(rawBaseUrl).origin;
+  } catch (error) {
+    return rawBaseUrl;
+  }
+})();`
+    );
+    if (fixed !== raw) {
+      fs.writeFileSync(filePath, fixed, 'utf8');
+    }
     return;
   }
 
-  const baseUrlLine = `const baseUrl = process.env.METADELTA_BASE_URL ?? '${baseUrl}';\n`;
-  const updated = raw
-    .replace(/(import[^;]+;\n)/, `$1\n${baseUrlLine}`)
+  const placeholder = '__METADELTA_BASE_URL_FALLBACK__';
+  const baseUrlLine = `const rawBaseUrl = process.env.METADELTA_BASE_URL ?? '${placeholder}';
+const baseUrl = (() => {
+  try {
+    return new URL(rawBaseUrl).origin;
+  } catch (error) {
+    return rawBaseUrl;
+  }
+})();
+`;
+  let updated = raw.replace(/(import[^;]+;\n)/, `$1\n${baseUrlLine}`);
+  updated = updated
     .replaceAll(`'${baseUrl}'`, 'baseUrl')
-    .replaceAll(`"${baseUrl}"`, 'baseUrl');
+    .replaceAll(`"${baseUrl}"`, 'baseUrl')
+    .replaceAll(placeholder, baseUrl);
 
   fs.writeFileSync(filePath, updated, 'utf8');
 }
+
 
 export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPath} = {}) {
   const runtime = playwrightCliPath
