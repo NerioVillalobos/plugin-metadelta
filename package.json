@@ -15,6 +15,7 @@
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
     "build": "npm run clean && tsc",
     "postbuild": "node scripts/generate-manifest.mjs",
+    "prepare": "npm run build",
     "manifest": "node scripts/generate-manifest.mjs",
     "pack": "npm pack --ignore-scripts",
     "pack:tarball": "mkdir -p dist && npm pack --ignore-scripts --pack-destination dist && node scripts/create-tarball-alias.mjs"
@@ -50,6 +51,7 @@
     "bin": "sf",
     "commands": "./lib/commands",
     "dirname": "metadelta",
+    "topicSeparator": " ",
     "pluginType": "sf"
   }
 }
