@@ -134,6 +134,15 @@ function isVlocityFile(filePath) {
   return /(?:^|\/)Vlocity\//i.test(normalized);
 }
 
+function gitPathExistsInBranch(branch, filePath) {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${branch}:${filePath}`], {stdio: 'ignore'});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function buildCoreComponentsFromBranchFiles(branch, files, command) {
   if (!files || files.length === 0) {
     return [];
@@ -165,9 +174,16 @@ function buildCoreComponentsFromBranchFiles(branch, files, command) {
       continue;
     }
 
+    if (!gitPathExistsInBranch(branch, relativeFile)) {
+      continue;
+    }
+
     let fileContent;
     try {
-      fileContent = execFileSync('git', ['show', `${branch}:${relativeFile}`], {encoding: 'utf8'});
+      fileContent = execFileSync('git', ['show', `${branch}:${relativeFile}`], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
     } catch {
       continue;
     }
