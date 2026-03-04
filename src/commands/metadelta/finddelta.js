@@ -140,6 +140,7 @@ function buildCoreComponentsFromBranchFiles(branch, files, command) {
   }
 
   const uniqueFiles = Array.from(new Set(files.map(normalizePath))).filter(Boolean);
+  const expandedFiles = expandCoreCandidateFiles(uniqueFiles);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-finddelta-'));
   const tempProjectRoot = path.join(tempRoot, 'project');
   const tempManifestDir = path.join(tempRoot, 'manifest');
@@ -159,7 +160,7 @@ function buildCoreComponentsFromBranchFiles(branch, files, command) {
 
   const eligibleFiles = [];
 
-  for (const relativeFile of uniqueFiles) {
+  for (const relativeFile of expandedFiles) {
     if (!relativeFile || relativeFile.startsWith('..')) {
       continue;
     }
@@ -215,6 +216,26 @@ function buildCoreComponentsFromBranchFiles(branch, files, command) {
   return dedupeComponents(components);
 }
 
+
+function expandCoreCandidateFiles(files) {
+  const expanded = new Set(files);
+
+  for (const filePath of files) {
+    const normalized = normalizePath(filePath);
+
+    if (/-meta\.xml$/i.test(normalized)) {
+      expanded.add(normalized.replace(/-meta\.xml$/i, ''));
+      continue;
+    }
+
+    if (/\.(cls|trigger|page|component|resource|app|tab|flow|flexipage|report|reportFolder|reportType|translation|field|object|permissionset|profile|layout|quickAction|remoteSite|standardValueSet|standardValueSetTranslation|webLink)$/i.test(normalized)) {
+      expanded.add(`${normalized}-meta.xml`);
+    }
+  }
+
+  return Array.from(expanded);
+}
+
 function parseComponentsFromPackageXml(packageXmlPath) {
   const parser = new XMLParser({ignoreAttributes: false, processEntities: true});
   const xmlContent = fs.readFileSync(packageXmlPath, 'utf8');
@@ -240,6 +261,12 @@ function parseComponentsFromPackageXml(packageXmlPath) {
       if (!memberName) {
         continue;
       }
+
+      if (typeName === 'Report' && memberName.endsWith('/')) {
+        components.push({type: 'ReportFolder', fullName: memberName.slice(0, -1)});
+        continue;
+      }
+
       components.push({type: typeName, fullName: memberName});
     }
   }
