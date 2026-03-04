@@ -55,8 +55,8 @@ class FindDelta extends Command {
     const additionCoreFiles = additions.filter((filePath) => !isVlocityFile(filePath));
     const deletionCoreFiles = deletions.filter((filePath) => !isVlocityFile(filePath));
 
-    const activeCore = buildCoreComponentsFromBranchFiles(toBranch, additionCoreFiles, this);
-    const destructiveCore = buildCoreComponentsFromBranchFiles(fromBranch, deletionCoreFiles, this);
+    const activeCore = buildCoreComponentsFromBranchFiles(fromBranch, additionCoreFiles, this);
+    const destructiveCore = buildCoreComponentsFromBranchFiles(toBranch, deletionCoreFiles, this);
 
     const activeVlocity = dedupeComponents(additionVlocityFiles.map(resolveVlocityComponent).filter(Boolean));
     const destructiveVlocity = dedupeComponents(deletionVlocityFiles.map(resolveVlocityComponent).filter(Boolean));
@@ -71,7 +71,7 @@ class FindDelta extends Command {
     const destructiveVlocityPath = path.join(manifestDir, `Destructive-${branchKey}.yaml`);
 
     if (activeCore.length > 0) {
-      fs.writeFileSync(packagePath, buildPackageXml(activeCore, DEFAULT_API_VERSION), 'utf8');
+      fs.writeFileSync(packagePath, buildPackageXml(activeCore, resolveApiVersion()), 'utf8');
       this.log(`Generado: ${packagePath}`);
     }
 
@@ -81,7 +81,7 @@ class FindDelta extends Command {
     }
 
     if (destructiveCore.length > 0) {
-      fs.writeFileSync(destructivePackagePath, buildPackageXml(destructiveCore, DEFAULT_API_VERSION), 'utf8');
+      fs.writeFileSync(destructivePackagePath, buildPackageXml(destructiveCore, resolveApiVersion()), 'utf8');
       this.log(`Generado: ${destructivePackagePath}`);
     }
 
@@ -255,6 +255,32 @@ function extractExecError(error) {
   const stderr = error.stderr ? String(error.stderr).trim() : '';
   const stdout = error.stdout ? String(error.stdout).trim() : '';
   return [stderr, stdout].filter(Boolean).join(' | ') || error.message || 'error desconocido';
+}
+
+
+function resolveApiVersion() {
+  const projectPath = path.resolve('sfdx-project.json');
+  if (!fs.existsSync(projectPath)) {
+    return DEFAULT_API_VERSION;
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
+    const version = parsed?.sourceApiVersion;
+    if (!version) {
+      return DEFAULT_API_VERSION;
+    }
+    const trimmed = String(version).trim();
+    if (!trimmed) {
+      return DEFAULT_API_VERSION;
+    }
+    if (/^\d+$/.test(trimmed)) {
+      return `${trimmed}.0`;
+    }
+    return trimmed;
+  } catch {
+    return DEFAULT_API_VERSION;
+  }
 }
 
 function sanitizeForFilename(value) {
