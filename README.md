@@ -361,9 +361,9 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -371,7 +371,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 
 #### Manual-step documentation detection
 
-When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/OSS-FSL-5044-PRE.md` for `manifest/OSSFSL-5044.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
+When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/Prefix-NumberStories-PRE.md` for `manifest/name-branch.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
 
 If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
 
@@ -410,7 +410,7 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 
 ### `manual collect` command
 
-Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `OSS-FSL-<story>-<PRE|POST>.md` pattern—files that start with `OSSFSL` are normalized automatically. Run the command with:
+Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -471,15 +471,15 @@ When you add `--partial --sprint-branch <name> [--base-branch master]`, the comm
 
 #### Example
 
-To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpackage.xml`:
+To merge every manifest whose filename contains `Prefix` into `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefix
 
 To restrict the merge to manifests that have not been merged back into `master` yet:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
 ```
 
@@ -818,9 +818,9 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -857,7 +857,7 @@ Solo se consideran confiables las clases de prueba cuyo nombre coincide directam
 
 ### Comando `manual collect`
 
-Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `OSS-FSL-<historia>-<PRE|POST>.md` (las variantes con `OSSFSL` se normalizan automáticamente). Ejecuta el comando así:
+Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -918,15 +918,15 @@ Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el coman
 
 #### Ejemplo
 
-Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globalpackage.xml`:
+Para unir todos los manifiestos cuyo nombre contenga `Prefijo` en `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefijo
 
 Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
 ```
 
