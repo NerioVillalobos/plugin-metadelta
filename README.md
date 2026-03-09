@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.9.8
+> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.9.9
 
 # Metadelta Salesforce CLI Plugin
 
@@ -7,9 +7,10 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers eight complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers ten complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
+* `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when deletions are detected. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
 * `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
@@ -25,6 +26,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Installation](#installation)
 - [`sf metadelta find`](#usage)
+- [`sf metadelta finddelta`](#finddelta-command)
 - [`sf metadelta cleanps`](#cleanps-command)
 - [`sf metadelta findtest`](#findtest-command)
 - [`sf metadelta manual collect`](#manual-collect-command)
@@ -44,7 +46,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.8`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.9`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -56,7 +58,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.8 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.9 (link)`.
 
 ### Usage
 
@@ -131,6 +133,41 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+
+
+### `finddelta` command
+
+Generate delta manifests by comparing two branches:
+
+```bash
+sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+What it does:
+
+1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
+2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
+3. Creates destructive manifests automatically when deletions exist.
+4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+
+Core outputs:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (only when needed)
+
+Vlocity outputs:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (only when needed)
+
+Flags:
+
+| Flag | Description |
+|------|-------------|
+| `--from` | **Required.** Source branch (typically the PR branch). |
+| `--to` | **Required.** Base branch for comparison. |
+| `--xml` | Existing destination `package.xml` to update with missing Core components. |
+| `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
 
 ### `postvalidate` command
 
@@ -511,9 +548,10 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece ocho flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece diez flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
+* `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
 * `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
@@ -529,6 +567,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Instalación](#instalación)
 - [`sf metadelta find`](#uso)
+- [`sf metadelta finddelta`](#comando-finddelta)
 - [`sf metadelta cleanps`](#comando-cleanps)
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
@@ -629,6 +668,41 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+
+### Comando `finddelta`
+
+Genera manifiestos delta comparando dos ramas:
+
+```bash
+sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+Qué hace:
+
+1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
+2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
+3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones.
+4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+
+Salidas Core:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (solo cuando corresponde)
+
+Salidas Vlocity:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (solo cuando corresponde)
+
+Banderas:
+
+| Bandera | Descripción |
+|---------|-------------|
+| `--from` | **Requerida.** Rama fuente (normalmente la rama del PR). |
+| `--to` | **Requerida.** Rama base para la comparación. |
+| `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
+| `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
 
 ### Comando `access`
 
