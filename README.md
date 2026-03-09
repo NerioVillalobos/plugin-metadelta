@@ -17,7 +17,7 @@ Metadelta is a custom Salesforce CLI plugin that offers ten complementary workfl
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
-* `sf metadelta security users` reads a security matrix plus a target users list, resolves IDs in the org, generates bulk-ready CSV files, and can optionally apply changes via Bulk API.
+* `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
@@ -274,6 +274,58 @@ By using `metadelta access` and all other commands in this plugin, you acknowled
 
 Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
 
+### `security users` command
+
+Use this command to transform a security matrix into actionable Bulk API files for a target org:
+
+```bash
+sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
+```
+
+This workflow mirrors the original Python utility and is designed for controlled migrations of user access models.
+
+**What it does**
+
+1. Reads the master matrix (`--master`) and the target users file (`--target-users`).
+2. Resolves org IDs by querying `User`, `UserRole`, `PermissionSetGroup`, and `Group` via Salesforce CLI.
+3. Builds these output files under `--output-dir` (default `out`):
+   - `user_role_updates.csv`
+   - `permissionsetassignment_insert.csv`
+   - `groupmember_insert.csv`
+   - `validation_errors.csv`
+4. Runs as dry-run by default (only generates files).
+5. When `--apply` is present, executes the corresponding bulk operations:
+   - `sf data update bulk -s User`
+   - `sf data import bulk -s PermissionSetAssignment`
+   - `sf data import bulk -s GroupMember`
+
+**Input expectations**
+
+- `--master` must include columns like: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
+- `PublicGroupSegmento` and `Queues` support multiple values separated by `|`.
+- `--target-users` should include at least: `Username`, `RoleName`.
+
+**Flags**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--master` | **Required.** Master security matrix CSV. | N/A |
+| `--target-users` | **Required.** CSV with users to process. | N/A |
+| `--org`, `-o` | **Required.** Alias/username of the target org. | N/A |
+| `--output-dir` | Output directory for generated CSV files. | `out` |
+| `--apply` | Applies generated operations through Bulk API. | `false` |
+
+**Examples**
+
+- Dry run (generate files only):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  ```
+- Apply mode (execute bulk operations):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  ```
+
 ### `initspace` command
 
 Create the recommended workspace scaffold in your current directory:
@@ -346,9 +398,9 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -356,7 +408,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 
 #### Manual-step documentation detection
 
-When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/OSS-FSL-5044-PRE.md` for `manifest/OSSFSL-5044.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
+When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/Prefix-NumberStories-PRE.md` for `manifest/name-branch.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
 
 If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
 
@@ -395,7 +447,7 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 
 ### `manual collect` command
 
-Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `OSS-FSL-<story>-<PRE|POST>.md` pattern—files that start with `OSSFSL` are normalized automatically. Run the command with:
+Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -456,15 +508,15 @@ When you add `--partial --sprint-branch <name> [--base-branch master]`, the comm
 
 #### Example
 
-To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpackage.xml`:
+To merge every manifest whose filename contains `Prefix` into `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefix
 
 To restrict the merge to manifests that have not been merged back into `master` yet:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
 ```
 
@@ -506,7 +558,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece diez flujos co
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
-* `sf metadelta security users` lee una matriz de seguridad y una lista de usuarios objetivo, resuelve IDs en la org, genera CSV listos para Bulk API y opcionalmente aplica los cambios.
+* `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
@@ -716,6 +768,58 @@ Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
 
 Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
 
+### Comando `security users`
+
+Usa este comando para convertir una matriz de seguridad en archivos ejecutables por Bulk API para una org destino:
+
+```bash
+sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
+```
+
+Este flujo replica la utilidad original en Python y está orientado a migraciones controladas del modelo de accesos de usuarios.
+
+**Qué realiza**
+
+1. Lee la matriz maestra (`--master`) y el archivo de usuarios objetivo (`--target-users`).
+2. Resuelve IDs en la org consultando `User`, `UserRole`, `PermissionSetGroup` y `Group` con Salesforce CLI.
+3. Genera estos archivos de salida en `--output-dir` (por defecto `out`):
+   - `user_role_updates.csv`
+   - `permissionsetassignment_insert.csv`
+   - `groupmember_insert.csv`
+   - `validation_errors.csv`
+4. Por defecto corre en dry-run (solo genera archivos).
+5. Si agregas `--apply`, ejecuta las operaciones bulk correspondientes:
+   - `sf data update bulk -s User`
+   - `sf data import bulk -s PermissionSetAssignment`
+   - `sf data import bulk -s GroupMember`
+
+**Formato esperado de entrada**
+
+- `--master` debe incluir columnas como: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
+- `PublicGroupSegmento` y `Queues` aceptan múltiples valores separados por `|`.
+- `--target-users` debe incluir al menos: `Username`, `RoleName`.
+
+**Banderas**
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--master` | **Requerida.** CSV maestro de matriz de seguridad. | N/A |
+| `--target-users` | **Requerida.** CSV con los usuarios a procesar. | N/A |
+| `--org`, `-o` | **Requerida.** Alias/usuario de la org destino. | N/A |
+| `--output-dir` | Directorio donde se generan los CSV de salida. | `out` |
+| `--apply` | Aplica las operaciones generadas vía Bulk API. | `false` |
+
+**Ejemplos**
+
+- Dry run (solo generación de archivos):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  ```
+- Modo apply (ejecuta operaciones bulk):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  ```
+
 ### Comando `initspace`
 
 Crea la estructura recomendada del workspace en el directorio actual:
@@ -788,9 +892,9 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -827,7 +931,7 @@ Solo se consideran confiables las clases de prueba cuyo nombre coincide directam
 
 ### Comando `manual collect`
 
-Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `OSS-FSL-<historia>-<PRE|POST>.md` (las variantes con `OSSFSL` se normalizan automáticamente). Ejecuta el comando así:
+Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -888,15 +992,15 @@ Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el coman
 
 #### Ejemplo
 
-Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globalpackage.xml`:
+Para unir todos los manifiestos cuyo nombre contenga `Prefijo` en `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefijo
 
 Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
 ```
 
