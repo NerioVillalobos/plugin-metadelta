@@ -128,13 +128,17 @@ class TaskPlay extends Command {
           .replace(/vfFrameId_\d+/g, 'vfFrameId_')
           .replace(/iframe\[name="vfFrameId_"\]/g, 'iframe[name^="vfFrameId_"]')
           .replace(/iframe\[name="vfFrameId_\d+"\]/g, 'iframe[name^="vfFrameId_"]')
+          .replace(/iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)/g, `iframe[name^="vfFrameId_"]').last().contentFrame()`)
       : original;
+    const normalizedDynamicVisualforceIds = normalizedFrames
+      .replace(/input\[name="thePage:theForm:thePageBlock:[^:]+:([^"]+)"\]/g, 'input[name$=":$1"]')
+      .replace(/input\[name="editPermSetAssignments"\]/g, 'input[name$="editPermSetAssignments"]');
     const normalizedButtons = this.shouldNormalizeGenericButtonSelectors()
-      ? normalizedFrames.replace(
+      ? normalizedDynamicVisualforceIds.replace(
           /contentFrame\(\)\.locator\('button:nth-child\(2\)'\)/g,
           "contentFrame().getByRole('button', { name: /Start/i })"
         )
-      : normalizedFrames;
+      : normalizedDynamicVisualforceIds;
     const normalizedStartRole = this.shouldNormalizeGenericButtonSelectors()
       ? normalizedButtons
           .replace(
@@ -205,36 +209,36 @@ class TaskPlay extends Command {
   await ensureStartTriggered(page);`
       );
     const normalizedModalStartClicks = normalizedStartClicks.replace(
-      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\{force: true\}\);/g,
-      `await clickModalStartIfPresent(page);
-  await page
-    .locator('iframe[name^="vfFrameId_"]')
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.getByRole\('button', \{ name: \/Start\/i \}\)\.first\(\)\.click\(\{force: true\}\);/g,
+      `await clickModalStartIfPresent($1);
+  await $1
+    .locator('iframe[name^="vfFrameId_"]').last()
     .contentFrame()
     .getByRole('button', {name: /Start/i})
     .first()
     .click({force: true});
-  await ensureStartTriggered(page);`
+  await ensureStartTriggered($1);`
     );
     const normalizedExactStartClicks = normalizedModalStartClicks.replace(
-      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Start' \}\)\.first\(\)\.click\(\);/g,
-      `await clickModalStartIfPresent(page);
-  await page
-    .locator('iframe[name^="vfFrameId_"]')
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Start' \}\)\.first\(\)\.click\(\);/g,
+      `await clickModalStartIfPresent($1);
+  await $1
+    .locator('iframe[name^="vfFrameId_"]').last()
     .contentFrame()
     .getByRole('button', {name: 'Start'})
     .first()
     .click({force: true});
-  await ensureStartTriggered(page);`
+  await ensureStartTriggered($1);`
     );
     const normalizedMaintenanceWaits = normalizedExactStartClicks.replace(
-      /await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('([^']*job-start[^']*)'\)\.click\(\);\s*\n\s*await page\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'OK' \}\)\.click\(\);/g,
-      `await page
-    .locator('iframe[name^="vfFrameId_"]')
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.locator\('([^']*job-start[^']*)'\)\.click\(\);\s*\n\s*await \1\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'OK' \}\)\.click\(\);/g,
+      `await $1
+    .locator('iframe[name^="vfFrameId_"]').last()
     .contentFrame()
-    .locator('$1')
+    .locator('$2')
     .click();
-  await page
-    .locator('iframe[name^="vfFrameId_"]')
+  await $1
+    .locator('iframe[name^="vfFrameId_"]').last()
     .contentFrame()
     .getByRole('button', {name: 'OK'})
     .click();
@@ -270,7 +274,7 @@ class TaskPlay extends Command {
   await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
     const normalizedIframeHtmlClicks = normalizedQuickFind.replace(
-      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
       `// omit iframe html click in patched tests to avoid timeouts in other orgs`
     );
     const normalizedBaseUrls = normalizedIframeHtmlClicks
@@ -286,7 +290,7 @@ class TaskPlay extends Command {
       .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
       .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
     const normalizedCheckboxes = normalizedBaseUrlExpressions.replace(
-      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
     if (checkbox) {
@@ -296,10 +300,10 @@ class TaskPlay extends Command {
   }`
     );
     const normalizedSetupSaveClicks = normalizedCheckboxes.replace(
-      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Save' \}\)\.click\(\);/g,
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.getByRole\('button', \{ name: 'Save' \}\)\.click\(\);/g,
       `{
     const saveButton = $1
-      .locator('iframe[name^="vfFrameId_"]')
+      .locator('iframe[name^="vfFrameId_"]').last()
       .contentFrame()
       .getByRole('button', {name: 'Save'});
     if (await saveButton.count()) {
