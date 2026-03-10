@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.9.9
+> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.10.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -46,7 +46,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.9`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.0`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -58,7 +58,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.9 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.0 (link)`.
 
 ### Usage
 
@@ -302,7 +302,7 @@ This workflow mirrors the original Python utility and is designed for controlled
 **Input expectations**
 
 - `--master` must include columns like: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
-- `PublicGroupSegmento` and `Queues` support multiple values separated by `|`.
+- `PermissionSetGroup`, `PublicGroupSegmento`, and `Queues` support multiple values separated by `|`.
 - `--target-users` should include at least: `Username`, `RoleName`.
 
 **Flags**
@@ -796,7 +796,7 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
 **Formato esperado de entrada**
 
 - `--master` debe incluir columnas como: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
-- `PublicGroupSegmento` y `Queues` aceptan múltiples valores separados por `|`.
+- `PermissionSetGroup`, `PublicGroupSegmento` y `Queues` aceptan múltiples valores separados por `|`.
 - `--target-users` debe incluir al menos: `Username`, `RoleName`.
 
 **Banderas**

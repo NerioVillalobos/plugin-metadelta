@@ -121,14 +121,14 @@ const loadMaster = (masterFile) => {
   const rows = parseCsv(content);
 
   for (const row of rows) {
-    const role = row.RoleName;
+    const role = (row.RoleName ?? '').trim();
     if (!role) {
       continue;
     }
 
     if (!matrix.has(role)) {
       matrix.set(role, {
-        psg: null,
+        psg: new Set(),
         puesto: null,
         segmentos: new Set(),
         queues: new Set()
@@ -137,8 +137,14 @@ const loadMaster = (masterFile) => {
 
     const config = matrix.get(role);
 
-    config.psg = row.PermissionSetGroup || null;
-    config.puesto = row.PublicGroupPuesto || null;
+    for (const psg of splitValues(row.PermissionSetGroup)) {
+      config.psg.add(psg);
+    }
+
+    const puesto = (row.PublicGroupPuesto ?? '').trim();
+    if (puesto) {
+      config.puesto = puesto;
+    }
 
     for (const segment of splitValues(row.PublicGroupSegmento)) {
       config.segmentos.add(segment);
@@ -171,14 +177,31 @@ class MetadeltaSecurityUsers extends Command {
     apply: Flags.boolean({summary: 'Aplica los cambios mediante Bulk API.', default: false})
   };
 
-  runSfJson(args) {
-    const stdout = execFileSync('sf', args, {
-      encoding: 'utf8',
-      shell: process.platform === 'win32'
-    });
+  runSfQuery(targetOrg, query) {
+    let result;
+    try {
+      result = execFileSync('sf', ['data', 'query', '-q', query, '-o', targetOrg, '--json'], {
+        encoding: 'utf8',
+        shell: process.platform === 'win32',
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+    } catch (error) {
+      const stderr = error.stderr?.toString() ?? error.message;
+      throw new Error(`Error ejecutando query:\n${query}\n\nSTDERR:\n${stderr}`);
+    }
 
-    const data = JSON.parse(stdout);
-    return data?.result?.records ?? [];
+    let data;
+    try {
+      data = JSON.parse(result);
+    } catch {
+      throw new Error(`No se pudo interpretar la respuesta JSON.\n\nSTDOUT:\n${result}`);
+    }
+
+    if (!data?.result?.records) {
+      throw new Error(`Respuesta inesperada del comando sf.\n\n${JSON.stringify(data, null, 2)}`);
+    }
+
+    return data.result.records;
   }
 
   runSfCommand(args) {
@@ -186,10 +209,6 @@ class MetadeltaSecurityUsers extends Command {
       stdio: 'inherit',
       shell: process.platform === 'win32'
     });
-  }
-
-  runSfQuery(targetOrg, query) {
-    return this.runSfJson(['data', 'query', '-q', query, '-o', targetOrg, '--json']);
   }
 
   async run() {
@@ -221,9 +240,18 @@ class MetadeltaSecurityUsers extends Command {
     const groupRows = [];
     const errors = [];
 
+    const seenRoleUpdates = new Set();
+    const seenPsgRows = new Set();
+    const seenGroupRows = new Set();
+
     for (const user of users) {
-      const username = user.Username;
-      const role = user.RoleName;
+      const username = (user.Username ?? '').trim();
+      const role = (user.RoleName ?? '').trim();
+
+      if (!username) {
+        errors.push({Username: '', Error: 'Username vacío en target-users'});
+        continue;
+      }
 
       if (!userMap.has(username)) {
         errors.push({Username: username, Error: 'User not found'});
@@ -233,49 +261,83 @@ class MetadeltaSecurityUsers extends Command {
       const userId = userMap.get(username);
 
       if (!matrix.has(role)) {
-        errors.push({Username: username, Error: 'Role not in matrix'});
+        errors.push({Username: username, Error: `Role not in matrix: ${role}`});
         continue;
       }
 
       const config = matrix.get(role);
 
       if (roleMap.has(role)) {
-        roleUpdates.push({
-          Id: userId,
-          UserRoleId: roleMap.get(role)
-        });
+        const roleKey = `${userId}|${roleMap.get(role)}`;
+        if (!seenRoleUpdates.has(roleKey)) {
+          roleUpdates.push({
+            Id: userId,
+            UserRoleId: roleMap.get(role)
+          });
+          seenRoleUpdates.add(roleKey);
+        }
+      } else {
+        errors.push({Username: username, Error: `UserRole not found in org: ${role}`});
       }
 
-      const psg = config.psg;
-      if (psg && psgMap.has(psg)) {
-        psgRows.push({
-          AssigneeId: userId,
-          PermissionSetGroupId: psgMap.get(psg)
-        });
+      for (const psg of config.psg) {
+        if (psgMap.has(psg)) {
+          const psgKey = `${userId}|${psgMap.get(psg)}`;
+          if (!seenPsgRows.has(psgKey)) {
+            psgRows.push({
+              AssigneeId: userId,
+              PermissionSetGroupId: psgMap.get(psg)
+            });
+            seenPsgRows.add(psgKey);
+          }
+        } else {
+          errors.push({Username: username, Error: `PermissionSetGroup not found in org: ${psg}`});
+        }
       }
 
-      if (config.puesto && groupMap.has(config.puesto)) {
-        groupRows.push({
-          GroupId: groupMap.get(config.puesto),
-          UserOrGroupId: userId
-        });
+      if (config.puesto) {
+        const puesto = config.puesto;
+        if (groupMap.has(puesto)) {
+          const groupKey = `${groupMap.get(puesto)}|${userId}`;
+          if (!seenGroupRows.has(groupKey)) {
+            groupRows.push({
+              GroupId: groupMap.get(puesto),
+              UserOrGroupId: userId
+            });
+            seenGroupRows.add(groupKey);
+          }
+        } else {
+          errors.push({Username: username, Error: `PublicGroupPuesto not found in org: ${puesto}`});
+        }
       }
 
       for (const segment of config.segmentos) {
         if (groupMap.has(segment)) {
-          groupRows.push({
-            GroupId: groupMap.get(segment),
-            UserOrGroupId: userId
-          });
+          const groupKey = `${groupMap.get(segment)}|${userId}`;
+          if (!seenGroupRows.has(groupKey)) {
+            groupRows.push({
+              GroupId: groupMap.get(segment),
+              UserOrGroupId: userId
+            });
+            seenGroupRows.add(groupKey);
+          }
+        } else {
+          errors.push({Username: username, Error: `PublicGroupSegmento not found in org: ${segment}`});
         }
       }
 
       for (const queue of config.queues) {
         if (groupMap.has(queue)) {
-          groupRows.push({
-            GroupId: groupMap.get(queue),
-            UserOrGroupId: userId
-          });
+          const groupKey = `${groupMap.get(queue)}|${userId}`;
+          if (!seenGroupRows.has(groupKey)) {
+            groupRows.push({
+              GroupId: groupMap.get(queue),
+              UserOrGroupId: userId
+            });
+            seenGroupRows.add(groupKey);
+          }
+        } else {
+          errors.push({Username: username, Error: `Queue/Group not found in org: ${queue}`});
         }
       }
     }
@@ -287,6 +349,10 @@ class MetadeltaSecurityUsers extends Command {
 
     this.log('');
     this.log(`Files generated in: ${outputDir}`);
+    this.log(`Role updates: ${roleUpdates.length}`);
+    this.log(`PSG assignments: ${psgRows.length}`);
+    this.log(`Group memberships: ${groupRows.length}`);
+    this.log(`Validation errors: ${errors.length}`);
 
     if (!flags.apply) {
       this.log('');
@@ -297,21 +363,29 @@ class MetadeltaSecurityUsers extends Command {
     this.log('');
     this.log('Applying changes via Bulk API...');
 
-    this.runSfCommand(['data', 'update', 'bulk', '-s', 'User', '-f', path.join(outputDir, 'user_role_updates.csv'), '-o', flags.org, '--line-ending', 'LF']);
-    this.runSfCommand([
-      'data',
-      'import',
-      'bulk',
-      '-s',
-      'PermissionSetAssignment',
-      '-f',
-      path.join(outputDir, 'permissionsetassignment_insert.csv'),
-      '-o',
-      flags.org,
-      '--line-ending',
-      'LF'
-    ]);
-    this.runSfCommand(['data', 'import', 'bulk', '-s', 'GroupMember', '-f', path.join(outputDir, 'groupmember_insert.csv'), '-o', flags.org, '--line-ending', 'LF']);
+    if (roleUpdates.length > 0) {
+      this.runSfCommand(['data', 'update', 'bulk', '-s', 'User', '-f', path.join(outputDir, 'user_role_updates.csv'), '-o', flags.org, '--line-ending', 'LF']);
+    }
+
+    if (psgRows.length > 0) {
+      this.runSfCommand([
+        'data',
+        'import',
+        'bulk',
+        '-s',
+        'PermissionSetAssignment',
+        '-f',
+        path.join(outputDir, 'permissionsetassignment_insert.csv'),
+        '-o',
+        flags.org,
+        '--line-ending',
+        'LF'
+      ]);
+    }
+
+    if (groupRows.length > 0) {
+      this.runSfCommand(['data', 'import', 'bulk', '-s', 'GroupMember', '-f', path.join(outputDir, 'groupmember_insert.csv'), '-o', flags.org, '--line-ending', 'LF']);
+    }
 
     this.log('Finished.');
   }
