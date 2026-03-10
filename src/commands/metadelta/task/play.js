@@ -341,7 +341,11 @@ class TaskPlay extends Command {
       /(import\s+\{\s*test[^;]+;\n)/,
       `$1${baseUrlDeclaration}`
     );
-    const injected = injectedBase.replace(
+    const popupResolutionFixed = injectedBase.replace(
+      /(var\s+(page\d+)Promise\s*=\s*[a-zA-Z0-9_]+\.waitForEvent\('popup'\);(?:(?:\s*\/\/.*|\s*console\.log[^;]+;)*)\s*)(?=await\s+\2\.)/g,
+      '$1var $2 = await $2Promise;\n  '
+    );
+    const injected = popupResolutionFixed.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
