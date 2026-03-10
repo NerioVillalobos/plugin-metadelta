@@ -330,10 +330,14 @@ class TaskPlay extends Command {
       /(import\s+\{\s*test[^;]+;)/,
       `$1\nimport {runTaskOrchestrator} from './metadelta-task-orchestrator-routes.js';`
     );
-    const baseUrlDeclaration = injectedImports.includes('const baseUrl')
+    const redeclarationFixed = injectedImports.replace(
+      /const\s+(page\d+(?:Promise)?)\s*=/g,
+      'var $1 ='
+    );
+    const baseUrlDeclaration = redeclarationFixed.includes('const baseUrl')
       ? ''
       : 'const baseUrl = process.env.METADELTA_BASE_URL;\n';
-    const injectedBase = injectedImports.replace(
+    const injectedBase = redeclarationFixed.replace(
       /(import\s+\{\s*test[^;]+;\n)/,
       `$1${baseUrlDeclaration}`
     );
