@@ -7,9 +7,10 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers eight complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers ten complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
+* `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when deletions are detected. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
 * `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
@@ -25,6 +26,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Installation](#installation)
 - [`sf metadelta find`](#usage)
+- [`sf metadelta finddelta`](#finddelta-command)
 - [`sf metadelta cleanps`](#cleanps-command)
 - [`sf metadelta findtest`](#findtest-command)
 - [`sf metadelta manual collect`](#manual-collect-command)
@@ -131,6 +133,41 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+
+
+### `finddelta` command
+
+Generate delta manifests by comparing two branches:
+
+```bash
+sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+What it does:
+
+1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
+2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
+3. Creates destructive manifests automatically when deletions exist.
+4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+
+Core outputs:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (only when needed)
+
+Vlocity outputs:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (only when needed)
+
+Flags:
+
+| Flag | Description |
+|------|-------------|
+| `--from` | **Required.** Source branch (typically the PR branch). |
+| `--to` | **Required.** Base branch for comparison. |
+| `--xml` | Existing destination `package.xml` to update with missing Core components. |
+| `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
 
 ### `postvalidate` command
 
@@ -361,9 +398,9 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -371,7 +408,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 
 #### Manual-step documentation detection
 
-When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/OSS-FSL-5044-PRE.md` for `manifest/OSSFSL-5044.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
+When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/Prefix-NumberStories-PRE.md` for `manifest/name-branch.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
 
 If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
 
@@ -410,7 +447,7 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 
 ### `manual collect` command
 
-Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `OSS-FSL-<story>-<PRE|POST>.md` pattern—files that start with `OSSFSL` are normalized automatically. Run the command with:
+Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -471,15 +508,15 @@ When you add `--partial --sprint-branch <name> [--base-branch master]`, the comm
 
 #### Example
 
-To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpackage.xml`:
+To merge every manifest whose filename contains `Prefix` into `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefix
 
 To restrict the merge to manifests that have not been merged back into `master` yet:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
 ```
 
@@ -511,9 +548,10 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece ocho flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece diez flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
+* `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
 * `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
@@ -529,6 +567,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Instalación](#instalación)
 - [`sf metadelta find`](#uso)
+- [`sf metadelta finddelta`](#comando-finddelta)
 - [`sf metadelta cleanps`](#comando-cleanps)
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
@@ -629,6 +668,41 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
+
+
+### Comando `finddelta`
+
+Genera manifiestos delta comparando dos ramas:
+
+```bash
+sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+Qué hace:
+
+1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
+2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
+3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones.
+4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+
+Salidas Core:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (solo cuando corresponde)
+
+Salidas Vlocity:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (solo cuando corresponde)
+
+Banderas:
+
+| Bandera | Descripción |
+|---------|-------------|
+| `--from` | **Requerida.** Rama fuente (normalmente la rama del PR). |
+| `--to` | **Requerida.** Rama base para la comparación. |
+| `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
+| `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
 
 ### Comando `access`
 
@@ -818,9 +892,9 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -857,7 +931,7 @@ Solo se consideran confiables las clases de prueba cuyo nombre coincide directam
 
 ### Comando `manual collect`
 
-Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `OSS-FSL-<historia>-<PRE|POST>.md` (las variantes con `OSSFSL` se normalizan automáticamente). Ejecuta el comando así:
+Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -918,15 +992,15 @@ Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el coman
 
 #### Ejemplo
 
-Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globalpackage.xml`:
+Para unir todos los manifiestos cuyo nombre contenga `Prefijo` en `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefijo
 
 Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
 ```
 

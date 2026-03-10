@@ -205,6 +205,59 @@
         "find.js"
       ]
     },
+    "metadelta:finddelta": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara dos ramas con git diff y genera package.xml/yaml de diferencias, incluyendo destructivos para eliminaciones.",
+      "flags": {
+        "from": {
+          "name": "from",
+          "required": true,
+          "summary": "Rama origen para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "to": {
+          "name": "to",
+          "required": true,
+          "summary": "Rama destino para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Archivo package.xml destino para incorporar componentes detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Archivo package.yaml destino para incorporar datapacks detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:finddelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera manifiestos delta (Core y Vlocity) comparando dos ramas.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "finddelta.js"
+      ]
+    },
     "metadelta:findtest": {
       "aliases": [],
       "args": {},
