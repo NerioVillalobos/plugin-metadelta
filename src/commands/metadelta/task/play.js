@@ -348,7 +348,7 @@ class TaskPlay extends Command {
       '$1var $2 = await $2Promise;\n  '
     );
     const setupMenuFixed = popupResolutionFixed.replace(
-      /(await\s+([a-zA-Z0-9_]+)\.getByRole\('button',\s*\{\s*name:\s*(?:'|"|`)Setup(?:'|"|`)\s*\}\)\.click\(\);\s*\n\s*var\s+[a-zA-Z0-9_]+Promise\s*=\s*\2\.waitForEvent\('popup'\);\s*\n)(?!\s*await\s+\2\.getByRole\('menuitem')/g,
+      /(await\s+([a-zA-Z0-9_]+)\.getByRole\('button',\s*\{\s*name:\s*(?:'|"|`)Setup(?:'|"|`)\s*\}\)\.click\(\);\s*\n\s*var\s+([a-zA-Z0-9_]+)Promise\s*=\s*\2\.waitForEvent\('popup'\);\s*\n)(?!\s*await\s+\2\.(?:getByRole|getByText|locator)\([^)]*(?:Setup|menuitem|new tab)[^)]*\))/gi,
       `$1  var setupMenuItem = $2.getByRole('menuitem', {name: /Setup Opens in a new tab/i});\n  if (await setupMenuItem.count()) {\n    await setupMenuItem.first().click();\n  }\n`
     );
     const injected = setupMenuFixed.replace(
