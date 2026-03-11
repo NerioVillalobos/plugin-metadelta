@@ -269,9 +269,11 @@ class TaskPlay extends Command {
   }`
     );
     const normalizedQuickFind = normalizedUserInterfaceClick.replace(
+      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);\s*\n\s*await \1\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);\s*\n\s*await \1\.getByRole\('link', \{ name: '\2'(?:,\s*exact:\s*true)? \}\)(?:\.nth\(\d+\))?\.click\(\);/g,
+      `await robustQuickFindClick($1, '$2');`
+    ).replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
-      `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
-  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
+      `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
     const normalizedIframeHtmlClicks = normalizedQuickFind.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.last\(\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
@@ -357,6 +359,41 @@ class TaskPlay extends Command {
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+async function robustQuickFindClick(page, searchText) {
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const searchbox = page.getByRole('searchbox', {name: 'Quick Find'});
+    await searchbox.click({timeout: 10000});
+    await searchbox.fill(searchText);
+
+    const link = page.getByRole('link', {name: searchText});
+
+    try {
+      if (await link.count() > 0) {
+        await link.first().click({timeout: 5000});
+        return;
+      }
+
+      const exactLink = page.getByRole('link', {name: searchText, exact: true});
+      if (await exactLink.count() > 0) {
+        await exactLink.first().click({timeout: 5000});
+        return;
+      }
+
+      await link.first().waitFor({state: 'visible', timeout: 5000});
+      await link.first().click({timeout: 5000});
+      return;
+    } catch (error) {
+      if (attempt < 8) {
+        console.log(\`⚠️ Opcion "\${searchText}" no encontrada en Quick Find. Recargando pagina (intento \${attempt}/8)...\`);
+        await page.reload({waitUntil: 'domcontentloaded'});
+        await page.waitForTimeout(2000);
+      } else {
+        throw new Error(\`No se pudo encontrar la opcion "\${searchText}" en Quick Find despues de 8 intentos de recarga.\`);
+      }
+    }
+  }
 }
 
 function installOrgDomainGuard(page) {
