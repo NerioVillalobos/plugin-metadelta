@@ -345,7 +345,11 @@ class TaskPlay extends Command {
       /(var\s+(page\d+)Promise\s*=\s*[a-zA-Z0-9_]+\.waitForEvent\('popup'\);(?:(?:\s*\/\/.*|\s*console\.log[^;]+;)*)\s*)(?=await\s+\2\.)/g,
       '$1var $2 = await $2Promise;\n  '
     );
-    const injected = popupResolutionFixed.replace(
+    const setupMenuFixed = popupResolutionFixed.replace(
+      /(await\s+([a-zA-Z0-9_]+)\.getByRole\('button',\s*\{\s*name:\s*(?:'|"|`)Setup(?:'|"|`)\s*\}\)\.click\(\);\s*\n\s*var\s+[a-zA-Z0-9_]+Promise\s*=\s*\2\.waitForEvent\('popup'\);\s*\n)(?!\s*await\s+\2\.getByRole\('menuitem')/g,
+      `$1  var setupMenuItem = $2.getByRole('menuitem', {name: /Setup Opens in a new tab/i});\n  if (await setupMenuItem.count()) {\n    await setupMenuItem.click();\n  }\n`
+    );
+    const injected = setupMenuFixed.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
