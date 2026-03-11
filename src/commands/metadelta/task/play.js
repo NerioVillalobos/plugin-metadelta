@@ -60,6 +60,7 @@ class TaskPlay extends Command {
       const {cacheDir, cliPath} = ensurePlaywrightTestDependency(process.cwd());
       ensurePlaywrightReady({baseDir: process.cwd(), playwrightCliPath: cliPath});
       const url = buildFrontdoorUrlFromOrgDisplay(targetOrg);
+      const baseOrigin = this.extractBaseOrigin(url);
       const patchedTestFile = this.createPatchedTestFile(testFile, flags['vlocity-job-time']);
       const configPath = this.createPlaywrightConfig(patchedTestFile);
       const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
@@ -73,7 +74,8 @@ class TaskPlay extends Command {
         stdio: 'inherit',
         env: {
           ...process.env,
-          METADELTA_BASE_URL: url,
+          METADELTA_BASE_URL: baseOrigin,
+          METADELTA_FRONTDOOR_URL: url,
           METADELTA_VLOCITY_JOB_WAIT_MS: String((flags['vlocity-job-time'] ?? 180) * 1000),
           NODE_PATH: cacheDir ? path.join(cacheDir, 'node_modules') : process.env.NODE_PATH,
         },
@@ -103,6 +105,14 @@ class TaskPlay extends Command {
         this.error(`${error.message}\nSugerencia: ${solution.solution}`);
       }
       this.error(error.message);
+    }
+  }
+
+  extractBaseOrigin(frontdoorUrl) {
+    try {
+      return new URL(frontdoorUrl).origin;
+    } catch (error) {
+      return frontdoorUrl;
     }
   }
 
@@ -464,7 +474,7 @@ class TaskPlay extends Command {
     );
     const injected = injectedBase.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
 async function waitForMaintenanceJob() {

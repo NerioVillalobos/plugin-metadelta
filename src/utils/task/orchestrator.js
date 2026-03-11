@@ -307,13 +307,23 @@ export function resolveTestFilePath({baseDir = process.cwd(), name}) {
   return path.resolve(baseDir, target);
 }
 
+
+function extractBaseOriginFromFrontdoor(urlValue) {
+  try {
+    return new URL(urlValue).origin;
+  } catch (error) {
+    return urlValue;
+  }
+}
+
 export function injectBaseUrlInTest({filePath, baseUrl}) {
   const raw = fs.readFileSync(filePath, 'utf8');
   if (raw.includes('METADELTA_BASE_URL')) {
     return;
   }
 
-  const baseUrlLiteral = JSON.stringify(baseUrl);
+  const normalizedBaseUrl = extractBaseOriginFromFrontdoor(baseUrl);
+  const baseUrlLiteral = JSON.stringify(normalizedBaseUrl);
   const baseUrlPlaceholder = '__METADELTA_BASE_URL_LITERAL__';
 
   const updated = raw
@@ -322,7 +332,9 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
       `$1\nconst baseUrl = process.env.METADELTA_BASE_URL ?? ${baseUrlPlaceholder};\n`
     )
     .replaceAll(`'${baseUrl}'`, 'baseUrl')
-    .replaceAll(`"${baseUrl}"`, 'baseUrl')
+    .replaceAll(`\"${baseUrl}\"`, 'baseUrl')
+    .replaceAll(`'${normalizedBaseUrl}'`, 'baseUrl')
+    .replaceAll(`\"${normalizedBaseUrl}\"`, 'baseUrl')
     .replace(baseUrlPlaceholder, baseUrlLiteral);
 
   fs.writeFileSync(filePath, updated, 'utf8');
