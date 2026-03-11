@@ -119,16 +119,83 @@ class TaskPlay extends Command {
     return configPath;
   }
 
+  applyStructuralStabilizers(source) {
+    let stabilized = source;
+    stabilized = this.fixSelfReferencingBaseUrl(stabilized);
+    stabilized = this.fixDuplicatePopupPromises(stabilized);
+    stabilized = this.rebindClosedPopupPageHandles(stabilized);
+    return stabilized;
+  }
+
+  fixSelfReferencingBaseUrl(source) {
+    return source.replace(
+      /const\s+baseUrl\s*=\s*process\.env\.METADELTA_BASE_URL\s*\?\?\s*baseUrl\s*;/g,
+      "const baseUrl = process.env.METADELTA_BASE_URL ?? 'https://login.salesforce.com';"
+    );
+  }
+
+  fixDuplicatePopupPromises(source) {
+    const promiseCount = new Map();
+    return source.replace(/const\s+(page\d*Promise)\s*=\s*([\w$.]+)\.waitForEvent\('popup'\);/g, (match, name, pageRef) => {
+      const count = (promiseCount.get(name) ?? 0) + 1;
+      promiseCount.set(name, count);
+      if (count === 1) {
+        return match;
+      }
+      const renamed = `${name}_${count}`;
+      return `const ${renamed} = ${pageRef}.waitForEvent('popup');`;
+    });
+  }
+
+  rebindClosedPopupPageHandles(source) {
+    const closeRegex = /await\s+(page\d*)\.close\(\);/g;
+    let updated = source;
+    const matches = [...source.matchAll(closeRegex)];
+
+    for (const match of matches) {
+      const pageVar = match[1];
+      const closeStatement = match[0];
+      const closeIndex = match.index ?? -1;
+      if (closeIndex < 0) {
+        continue;
+      }
+
+      const afterClose = updated.slice(closeIndex + closeStatement.length);
+      if (!new RegExp(`\\b${pageVar}\\.`).test(afterClose)) {
+        continue;
+      }
+
+      const suffix = pageVar.replace('page', '') || '1';
+      const reopenedVar = `${pageVar}Reopened`;
+      const promiseVar = `page${suffix}PromiseReopened`;
+      const reopenSnippet = `
+  const ${promiseVar} = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const ${reopenedVar} = await ${promiseVar};
+`;
+
+      updated = `${updated.slice(0, closeIndex + closeStatement.length)}${reopenSnippet}${updated.slice(closeIndex + closeStatement.length)}`;
+
+      const injectedAt = closeIndex + closeStatement.length + reopenSnippet.length;
+      const tail = updated.slice(injectedAt).replace(new RegExp(`\\b${pageVar}\\.`, 'g'), `${reopenedVar}.`);
+      updated = `${updated.slice(0, injectedAt)}${tail}`;
+    }
+
+    return updated;
+  }
+
+
   createPatchedTestFile(testFile, vlocityJobTime) {
     const patchedPath = path.resolve(process.cwd(), 'tests', `.metadelta.${path.basename(testFile)}`);
     const original = fs.readFileSync(testFile, 'utf8');
+    const stabilizedOriginal = this.applyStructuralStabilizers(original);
     this.ensureRoutesFile();
     const normalizedFrames = this.shouldNormalizeVisualforceFrames()
-      ? original
+      ? stabilizedOriginal
           .replace(/vfFrameId_\d+/g, 'vfFrameId_')
           .replace(/iframe\[name="vfFrameId_"\]/g, 'iframe[name^="vfFrameId_"]')
           .replace(/iframe\[name="vfFrameId_\d+"\]/g, 'iframe[name^="vfFrameId_"]')
-      : original;
+      : stabilizedOriginal;
     const normalizedButtons = this.shouldNormalizeGenericButtonSelectors()
       ? normalizedFrames.replace(
           /contentFrame\(\)\.locator\('button:nth-child\(2\)'\)/g,

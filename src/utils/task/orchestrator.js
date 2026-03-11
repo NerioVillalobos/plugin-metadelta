@@ -313,14 +313,21 @@ export function injectBaseUrlInTest({filePath, baseUrl}) {
     return;
   }
 
-  const baseUrlLine = `const baseUrl = process.env.METADELTA_BASE_URL ?? '${baseUrl}';\n`;
+  const baseUrlLiteral = JSON.stringify(baseUrl);
+  const baseUrlPlaceholder = '__METADELTA_BASE_URL_LITERAL__';
+
   const updated = raw
-    .replace(/(import[^;]+;\n)/, `$1\n${baseUrlLine}`)
+    .replace(
+      /(import[^;]+;\n)/,
+      `$1\nconst baseUrl = process.env.METADELTA_BASE_URL ?? ${baseUrlPlaceholder};\n`
+    )
     .replaceAll(`'${baseUrl}'`, 'baseUrl')
-    .replaceAll(`"${baseUrl}"`, 'baseUrl');
+    .replaceAll(`"${baseUrl}"`, 'baseUrl')
+    .replace(baseUrlPlaceholder, baseUrlLiteral);
 
   fs.writeFileSync(filePath, updated, 'utf8');
 }
+
 
 export function ensurePlaywrightReady({baseDir = process.cwd(), playwrightCliPath} = {}) {
   const runtime = playwrightCliPath
