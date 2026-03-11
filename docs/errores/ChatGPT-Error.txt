@@ -1,0 +1,5722 @@
+Error en PermissionSetGroup
+
+User: Nerio Villalobos (nervill@gmail.com)
+Created: 3/10/2026 11:21:13
+Updated: 3/10/2026 19:56:09
+Exported: 3/10/2026 22:26:30
+Link: https://chatgpt.com/c/69b0287f-3c9c-8331-89d8-5643194d5768
+
+## Prompt:
+tengo este script que lo que le estoy agregando es que tambien en los PermissionSetGroup tambien tome varios con el separador |
+
+
+Pero me esta dando error puedes corregirme por favor
+
+
+import csv
+import json
+import subprocess
+import argparse
+from pathlib import Path
+from collections import defaultdict
+
+
+SEPARATOR = "|"
+
+
+def split_values(value):
+    if not value:
+        return []
+    return [v.strip() for v in value.split(SEPARATOR) if v.strip()]
+
+
+def run_sf_query(org, query):
+    cmd = [
+        "sf",
+        "data",
+        "query",
+        "-q",
+        query,
+        "-o",
+        org,
+        "--json"
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    data = json.loads(result.stdout)
+    return data["result"]["records"]
+
+
+def write_csv(path, rows, headers):
+    with open(path, "w", newline="", encoding="utf8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=headers,
+            lineterminator="\n"
+        )
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(r)
+
+
+def load_master(master_file):
+    matrix = defaultdict(lambda: {
+        "psg": None,
+        "puesto": None,
+        "segmentos": set(),
+        "queues": set()
+    })
+
+
+with open(master_file, newline="", encoding="utf8") as f:
+    reader = csv.DictReader(f)
+
+    for row in reader:
+        role = row["RoleName"]
+
+        matrix[role]["psg"] = row["PermissionSetGroup"]
+
+        for seg in split_values(row["PermissionSetGroup"]):
+            matrix[role]["psg"].add(seg)
+
+        matrix[role]["puesto"] = row["PublicGroupPuesto"]
+
+        for seg in split_values(row["PublicGroupSegmento"]):
+            matrix[role]["segmentos"].add(seg)
+
+        for q in split_values(row["Queues"]):
+            matrix[role]["queues"].add(q)
+
+return matrix
+
+
+def load_target_users(path):
+    users = []
+    with open(path, newline="", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            users.append(r)
+    return users
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--master", required=True)
+    parser.add_argument("--target-users", required=True)
+    parser.add_argument("--target-org", required=True)
+    parser.add_argument("--output-dir", default="out")
+    parser.add_argument("--apply", action="store_true")
+
+
+args = parser.parse_args()
+
+out = Path(args.output_dir)
+out.mkdir(exist_ok=True)
+
+print("Loading master matrix...")
+matrix = load_master(args.master)
+
+print("Loading target users...")
+users = load_target_users(args.target_users)
+
+print("Resolving IDs from org...")
+
+user_records = run_sf_query(args.target_org,
+                            "SELECT Id, Username, UserRoleId FROM User")
+
+role_records = run_sf_query(args.target_org,
+                            "SELECT Id, DeveloperName FROM UserRole")
+
+psg_records = run_sf_query(args.target_org,
+                           "SELECT Id, DeveloperName FROM PermissionSetGroup")
+
+group_records = run_sf_query(args.target_org,
+                             "SELECT Id, DeveloperName FROM Group")
+
+user_map = {u["Username"]: u["Id"] for u in user_records}
+role_map = {r["DeveloperName"]: r["Id"] for r in role_records}
+psg_map = {p["DeveloperName"]: p["Id"] for p in psg_records}
+group_map = {g["DeveloperName"]: g["Id"] for g in group_records}
+
+role_updates = []
+psg_rows = []
+group_rows = []
+
+errors = []
+
+for u in users:
+
+    username = u["Username"]
+    role = u["RoleName"]
+
+    if username not in user_map:
+        errors.append({"Username": username, "Error": "User not found"})
+        continue
+
+    user_id = user_map[username]
+
+    if role not in matrix:
+        errors.append({"Username": username, "Error": "Role not in matrix"})
+        continue
+
+    config = matrix[role]
+
+    # Role
+    if role in role_map:
+        role_updates.append({
+            "Id": user_id,
+            "UserRoleId": role_map[role]
+        })
+
+    # PSG
+    psg = config["psg"]
+    if psg and psg in psg_map:
+        psg_rows.append({
+            "AssigneeId": user_id,
+            "PermissionSetGroupId": psg_map[psg]
+        })
+
+    # Public Groups
+    if config["puesto"]:
+        g = config["puesto"]
+        if g in group_map:
+            group_rows.append({
+                "GroupId": group_map[g],
+                "UserOrGroupId": user_id
+            })
+
+    for seg in config["segmentos"]:
+        if seg in group_map:
+            group_rows.append({
+                "GroupId": group_map[seg],
+                "UserOrGroupId": user_id
+            })
+
+    for q in config["queues"]:
+        if q in group_map:
+            group_rows.append({
+                "GroupId": group_map[q],
+                "UserOrGroupId": user_id
+            })
+
+write_csv(out / "user_role_updates.csv", role_updates, ["Id", "UserRoleId"])
+write_csv(out / "permissionsetassignment_insert.csv", psg_rows,
+          ["AssigneeId", "PermissionSetGroupId"])
+write_csv(out / "groupmember_insert.csv", group_rows,
+          ["GroupId", "UserOrGroupId"])
+
+write_csv(out / "validation_errors.csv", errors,
+          ["Username", "Error"])
+
+print("")
+print("Files generated in:", out)
+
+if not args.apply:
+    print("")
+    print("DRY RUN completed. No changes applied.")
+    return
+
+print("")
+print("Applying changes via Bulk API...")
+
+subprocess.run([
+    "sf", "data", "update", "bulk",
+    "-s", "User",
+    "-f", str(out / "user_role_updates.csv"),
+    "-o", args.target_org,
+    "--line-ending", "LF"
+])
+
+subprocess.run([
+    "sf", "data", "import", "bulk",
+    "-s", "PermissionSetAssignment",
+    "-f", str(out / "permissionsetassignment_insert.csv"),
+    "-o", args.target_org,
+    "--line-ending", "LF"
+])
+
+subprocess.run([
+    "sf", "data", "import", "bulk",
+    "-s", "GroupMember",
+    "-f", str(out / "groupmember_insert.csv"),
+    "-o", args.target_org,
+    "--line-ending", "LF"
+])
+
+print("Finished.")
+
+
+if name == "main":
+    main()
+
+## Response:
+Sí, el error está en esta parte:
+
+
+matrix[role]["psg"] = row["PermissionSetGroup"]
+
+for seg in split_values(row["PermissionSetGroup"]):
+    matrix[role]["psg"].add(seg)
+
+
+Ahí matrix[role]["psg"] queda siendo un string, y luego intentas hacer .add(...) como si fuera un set.
+
+
+La corrección es que psg también sea un set, igual que segmentos y queues.
+
+
+Te dejo el script completo corregido para que soporte varios PermissionSetGroup separados por |:
+
+
+import csv
+import json
+import subprocess
+import argparse
+from pathlib import Path
+from collections import defaultdict
+
+SEPARATOR = "|"
+
+def split_values(value):
+    if not value:
+        return []
+    return [v.strip() for v in value.split(SEPARATOR) if v.strip()]
+
+def run_sf_query(org, query):
+    cmd = [
+        "sf",
+        "data",
+        "query",
+        "-q",
+        query,
+        "-o",
+        org,
+        "--json"
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Error ejecutando query:\n{query}\n\nSTDERR:\n{result.stderr}"
+        )
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            f"No se pudo interpretar la respuesta JSON.\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
+        ) from e
+
+    if "result" not in data or "records" not in data["result"]:
+        raise RuntimeError(
+            f"Respuesta inesperada del comando sf.\n\n{json.dumps(data, indent=2)}"
+        )
+
+    return data["result"]["records"]
+
+def write_csv(path, rows, headers):
+    with open(path, "w", newline="", encoding="utf8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=headers,
+            lineterminator="\n"
+        )
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(r)
+
+def load_master(master_file):
+    matrix = defaultdict(lambda: {
+        "psg": set(),
+        "puesto": None,
+        "segmentos": set(),
+        "queues": set()
+    })
+
+    with open(master_file, newline="", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+
+        for row in reader:
+            role = row["RoleName"].strip()
+
+            if not role:
+                continue
+
+            for psg in split_values(row.get("PermissionSetGroup", "")):
+                matrix[role]["psg"].add(psg)
+
+            puesto = (row.get("PublicGroupPuesto") or "").strip()
+            if puesto:
+                matrix[role]["puesto"] = puesto
+
+            for seg in split_values(row.get("PublicGroupSegmento", "")):
+                matrix[role]["segmentos"].add(seg)
+
+            for q in split_values(row.get("Queues", "")):
+                matrix[role]["queues"].add(q)
+
+    return matrix
+
+def load_target_users(path):
+    users = []
+    with open(path, newline="", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            users.append(r)
+    return users
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--master", required=True)
+    parser.add_argument("--target-users", required=True)
+    parser.add_argument("--target-org", required=True)
+    parser.add_argument("--output-dir", default="out")
+    parser.add_argument("--apply", action="store_true")
+
+    args = parser.parse_args()
+
+    out = Path(args.output_dir)
+    out.mkdir(exist_ok=True)
+
+    print("Loading master matrix...")
+    matrix = load_master(args.master)
+
+    print("Loading target users...")
+    users = load_target_users(args.target_users)
+
+    print("Resolving IDs from org...")
+
+    user_records = run_sf_query(
+        args.target_org,
+        "SELECT Id, Username, UserRoleId FROM User"
+    )
+
+    role_records = run_sf_query(
+        args.target_org,
+        "SELECT Id, DeveloperName FROM UserRole"
+    )
+
+    psg_records = run_sf_query(
+        args.target_org,
+        "SELECT Id, DeveloperName FROM PermissionSetGroup"
+    )
+
+    group_records = run_sf_query(
+        args.target_org,
+        "SELECT Id, DeveloperName FROM Group"
+    )
+
+    user_map = {u["Username"]: u["Id"] for u in user_records}
+    role_map = {r["DeveloperName"]: r["Id"] for r in role_records}
+    psg_map = {p["DeveloperName"]: p["Id"] for p in psg_records}
+    group_map = {g["DeveloperName"]: g["Id"] for g in group_records}
+
+    role_updates = []
+    psg_rows = []
+    group_rows = []
+    errors = []
+
+    seen_role_updates = set()
+    seen_psg_rows = set()
+    seen_group_rows = set()
+
+    for u in users:
+        username = (u.get("Username") or "").strip()
+        role = (u.get("RoleName") or "").strip()
+
+        if not username:
+            errors.append({"Username": "", "Error": "Username vacío en target-users"})
+            continue
+
+        if username not in user_map:
+            errors.append({"Username": username, "Error": "User not found"})
+            continue
+
+        user_id = user_map[username]
+
+        if role not in matrix:
+            errors.append({"Username": username, "Error": f"Role not in matrix: {role}"})
+            continue
+
+        config = matrix[role]
+
+        # Role
+        if role in role_map:
+            key = (user_id, role_map[role])
+            if key not in seen_role_updates:
+                role_updates.append({
+                    "Id": user_id,
+                    "UserRoleId": role_map[role]
+                })
+                seen_role_updates.add(key)
+        else:
+            errors.append({"Username": username, "Error": f"UserRole not found in org: {role}"})
+
+        # PSGs
+        for psg in config["psg"]:
+            if psg in psg_map:
+                key = (user_id, psg_map[psg])
+                if key not in seen_psg_rows:
+                    psg_rows.append({
+                        "AssigneeId": user_id,
+                        "PermissionSetGroupId": psg_map[psg]
+                    })
+                    seen_psg_rows.add(key)
+            else:
+                errors.append({"Username": username, "Error": f"PermissionSetGroup not found in org: {psg}"})
+
+        # Public Group Puesto
+        if config["puesto"]:
+            g = config["puesto"]
+            if g in group_map:
+                key = (group_map[g], user_id)
+                if key not in seen_group_rows:
+                    group_rows.append({
+                        "GroupId": group_map[g],
+                        "UserOrGroupId": user_id
+                    })
+                    seen_group_rows.add(key)
+            else:
+                errors.append({"Username": username, "Error": f"PublicGroupPuesto not found in org: {g}"})
+
+        # Public Group Segmento
+        for seg in config["segmentos"]:
+            if seg in group_map:
+                key = (group_map[seg], user_id)
+                if key not in seen_group_rows:
+                    group_rows.append({
+                        "GroupId": group_map[seg],
+                        "UserOrGroupId": user_id
+                    })
+                    seen_group_rows.add(key)
+            else:
+                errors.append({"Username": username, "Error": f"PublicGroupSegmento not found in org: {seg}"})
+
+        # Queues
+        for q in config["queues"]:
+            if q in group_map:
+                key = (group_map[q], user_id)
+                if key not in seen_group_rows:
+                    group_rows.append({
+                        "GroupId": group_map[q],
+                        "UserOrGroupId": user_id
+                    })
+                    seen_group_rows.add(key)
+            else:
+                errors.append({"Username": username, "Error": f"Queue/Group not found in org: {q}"})
+
+    write_csv(out / "user_role_updates.csv", role_updates, ["Id", "UserRoleId"])
+    write_csv(
+        out / "permissionsetassignment_insert.csv",
+        psg_rows,
+        ["AssigneeId", "PermissionSetGroupId"]
+    )
+    write_csv(
+        out / "groupmember_insert.csv",
+        group_rows,
+        ["GroupId", "UserOrGroupId"]
+    )
+    write_csv(
+        out / "validation_errors.csv",
+        errors,
+        ["Username", "Error"]
+    )
+
+    print("")
+    print("Files generated in:", out)
+    print(f"Role updates: {len(role_updates)}")
+    print(f"PSG assignments: {len(psg_rows)}")
+    print(f"Group memberships: {len(group_rows)}")
+    print(f"Validation errors: {len(errors)}")
+
+    if not args.apply:
+        print("")
+        print("DRY RUN completed. No changes applied.")
+        return
+
+    print("")
+    print("Applying changes via Bulk API...")
+
+    if role_updates:
+        subprocess.run([
+            "sf", "data", "update", "bulk",
+            "-s", "User",
+            "-f", str(out / "user_role_updates.csv"),
+            "-o", args.target_org,
+            "--line-ending", "LF"
+        ], check=True)
+
+    if psg_rows:
+        subprocess.run([
+            "sf", "data", "import", "bulk",
+            "-s", "PermissionSetAssignment",
+            "-f", str(out / "permissionsetassignment_insert.csv"),
+            "-o", args.target_org,
+            "--line-ending", "LF"
+        ], check=True)
+
+    if group_rows:
+        subprocess.run([
+            "sf", "data", "import", "bulk",
+            "-s", "GroupMember",
+            "-f", str(out / "groupmember_insert.csv"),
+            "-o", args.target_org,
+            "--line-ending", "LF"
+        ], check=True)
+
+    print("Finished.")
+
+if __name__ == "__main__":
+    main()
+
+
+Qué corregí
+
+
+Los cambios importantes son estos:
+
+
+psg ahora es un set()
+Antes estaba como None y luego como string. Ahora soporta múltiples valores.
+
+Se recorren todos los PSG
+Antes hacías:
+psg = config["psg"]
+if psg and psg in psg_map:
+
+Eso solo servía para uno. Ahora hace:
+for psg in config["psg"]:
+
+Agregué validaciones más seguras
+Para que si falla una query o el JSON viene mal, el error sea más claro.
+
+Evité duplicados
+Si un mismo usuario repite PSG, grupos o role update, no lo agrega dos veces.
+
+Uso de check=True en los subprocess.run de apply
+Así si falla el import/update, el script corta con error real.
+
+
+
+El error exacto que seguramente te estaba dando
+
+
+Muy probablemente era algo como:
+
+
+AttributeError: 'str' object has no attribute 'add'
+
+
+porque estabas haciendo .add() sobre esto:
+
+
+matrix[role]["psg"] = row["PermissionSetGroup"]
+
+
+
+Cómo debe venir el CSV ahora
+
+
+En la columna PermissionSetGroup puedes tener algo así:
+
+
+RoleName,PermissionSetGroup,PublicGroupPuesto,PublicGroupSegmento,Queues
+Supervisor,PSG_Ventas|PSG_Cobranzas,PG_SUPERVISOR,SEG_NORTE|SEG_SUR,QUEUE_A|QUEUE_B
+
+
+Y el script va a tomar todos los PSG separados por |.
+
+
+Si quieres, te puedo dejar una versión aún mejorada que además soporte también múltiples valores en PublicGroupPuesto, por si mañana quieres usar | ahí también.
+
+## Prompt:
+dame un SOQL que me muestre a que grupos esta asociado un usuario en especifico
+
+## Response:
+En Salesforce los usuarios pertenecen a grupos mediante el objeto GroupMember.
+Por lo tanto, debes consultar GroupMember + Group + User.
+
+
+SOQL para ver los grupos de un usuario específico (por Username)
+
+
+SELECT 
+    Group.Id,
+    Group.Name,
+    Group.DeveloperName,
+    Group.Type
+FROM GroupMember
+WHERE UserOrGroupId IN (
+    SELECT Id 
+    FROM User 
+    WHERE Username = 'usuario@empresa.com'
+)
+
+
+SOQL si ya tienes el UserId
+
+
+SELECT 
+    Group.Id,
+    Group.Name,
+    Group.DeveloperName,
+    Group.Type
+FROM GroupMember
+WHERE UserOrGroupId = '005XXXXXXXXXXXX'
+
+
+Campos útiles que devuelve
+
+Campo
+Significado
+Group.Name
+Nombre visible del grupo
+Group.DeveloperName
+API Name del grupo
+Group.Type
+Tipo de grupo
+
+Tipos de grupos que puedes ver en Group.Type
+
+
+Algunos comunes:
+
+
+Regular → Public Group
+
+Queue → Queue
+
+Role → Grupo basado en Role
+
+RoleAndSubordinates
+
+Territory
+
+
+Si quieres algo más completo para auditoría
+
+
+SELECT 
+    Group.Name,
+    Group.DeveloperName,
+    Group.Type,
+    UserOrGroupId
+FROM GroupMember
+WHERE UserOrGroupId = '005XXXXXXXXXXXX'
+ORDER BY Group.Type, Group.Name
+
+
+Ejecutarlo con sf
+
+
+sf data query -q "SELECT Group.Name, Group.DeveloperName, Group.Type FROM GroupMember WHERE UserOrGroupId = '005XXXXXXXXXXXX'" -o TU_ORG
+
+
+
+💡 Tip DevOps (muy útil en tu script):
+Si quieres validar que un usuario ya pertenece a un grupo antes de insertarlo, este es el query ideal para construir el groupmember_insert.csv sin duplicados.
+
+
+Si quieres, también puedo darte un SOQL que te muestre todos los usuarios de un grupo específico, que suele ser el query inverso que se usa para auditorías.
+
+## Prompt:
+Si necesito quitarle los Permission SEt Group de aquellos usuario que tenga en el username la palabra dummy y scarles los permission set group se podra por query
+
+## Response:
+Sí 👍 pero con una aclaración importante en Salesforce:
+
+
+Con SOQL no puedes eliminar registros.
+SOQL solo consulta. Para quitar Permission Set Groups debes:
+
+
+1️⃣ Consultar los PermissionSetAssignment del usuario
+2️⃣ Eliminar esos registros
+
+
+
+1️⃣ Query para ver qué Permission Set Groups tienen los usuarios "dummy"
+
+
+SELECT 
+    Id,
+    Assignee.Username,
+    PermissionSetGroupId,
+    PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND PermissionSetGroupId != NULL
+
+
+Esto te mostrará exactamente qué PSG tiene cada usuario dummy.
+
+
+
+2️⃣ Exportar esos registros con sf CLI
+
+
+sf data query \
+-q "SELECT Id FROM PermissionSetAssignment WHERE Assignee.Username LIKE '%dummy%' AND PermissionSetGroupId != NULL" \
+-o TU_ORG \
+-r csv > remove_psg.csv
+
+
+El archivo quedará algo así:
+
+
+Id
+0PaXXXXXXXXXXXX
+0PaXXXXXXXXXXXX
+0PaXXXXXXXXXXXX
+
+
+
+3️⃣ Eliminar los PSG (Bulk)
+
+
+sf data delete bulk \
+-s PermissionSetAssignment \
+-f remove_psg.csv \
+-o TU_ORG
+
+
+Esto remueve los Permission Set Groups de todos los usuarios dummy.
+
+
+
+🚀 Alternativa en un solo comando (más rápido)
+
+
+sf data delete bulk \
+-s PermissionSetAssignment \
+-w "Assignee.Username LIKE '%dummy%' AND PermissionSetGroupId != NULL" \
+-o TU_ORG
+
+
+
+⚠️ Importante
+
+
+Esto solo elimina Permission Set Groups, no los Permission Sets normales.
+
+
+Si también quisieras eliminar Permission Sets directos, el query sería:
+
+
+SELECT Id
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND PermissionSetId != NULL
+AND PermissionSetGroupId = NULL
+
+
+
+💡 Tip DevOps
+
+
+Antes de borrar te recomiendo correr esto:
+
+
+SELECT Assignee.Username, PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND PermissionSetGroupId != NULL
+ORDER BY Assignee.Username
+
+
+para validar exactamente qué se eliminará.
+
+
+
+Si quieres, también puedo darte un script Python de 20 líneas que quite todos los PSG de usuarios dummy automáticamente, sin tener que generar CSV ni comandos manuales. Es bastante útil para limpieza de sandboxes.
+
+## Prompt:
+pero necesito sacar ests usersname
+admin.dummy@telecentro.ams
+gestion_administrativa.dummy
+alianzas.dummy
+gerencial_starlink.dummy
+dirección_administrativa.dummy
+
+## Response:
+Sí, puedes hacerlo con SOQL filtrando por una lista específica de usuarios usando IN.
+
+
+Primero obtienes los PermissionSetAssignment que corresponden a Permission Set Groups de esos usuarios.
+
+
+SOQL
+
+
+SELECT 
+    Id,
+    Assignee.Username,
+    PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username IN (
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+)
+AND PermissionSetGroupId != NULL
+
+
+Esto te devolverá los registros que debes eliminar.
+
+
+
+Ejecutarlo con sf CLI
+
+
+1️⃣ Exportar los IDs
+
+
+sf data query \
+-q "SELECT Id FROM PermissionSetAssignment WHERE Assignee.Username IN ('admin.dummy@telecentro.ams','gestion_administrativa.dummy','alianzas.dummy','gerencial_starlink.dummy','dirección_administrativa.dummy') AND PermissionSetGroupId != NULL" \
+-o TU_ORG \
+-r csv > remove_psg.csv
+
+
+
+2️⃣ Borrar los Permission Set Groups
+
+
+sf data delete bulk \
+-s PermissionSetAssignment \
+-f remove_psg.csv \
+-o TU_ORG
+
+
+
+Resultado
+
+
+Esto remueve todos los Permission Set Groups de esos usuarios específicos.
+
+
+No afecta:
+
+
+Roles
+
+Permission Sets individuales
+
+Public Groups
+
+Queues
+
+
+Solo elimina las asignaciones de PSG.
+
+
+
+💡 Tip importante:
+Antes de borrar puedes revisar qué se eliminará con:
+
+
+SELECT Assignee.Username, PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username IN (
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+)
+AND PermissionSetGroupId != NULL
+
+
+
+Si quieres, también puedo pasarte un solo comando sf que exporte y borre todo automáticamente sin crear CSV, que es lo que solemos usar en scripts DevOps para limpiar usuarios dummy en sandboxes.
+
+## Prompt:
+no perdon es al reves los que quiero quitarles los PSG son todos menos estos
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+
+## Response:
+Perfecto 👍 entonces el filtro es todos los usuarios dummy EXCEPTO esos 5.
+
+
+Para eso se usa NOT IN en el SOQL.
+
+
+
+SOQL correcto
+
+
+SELECT 
+    Id,
+    Assignee.Username,
+    PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND Assignee.Username NOT IN (
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+)
+AND PermissionSetGroupId != NULL
+
+
+Esto devuelve todos los PSG asignados a usuarios dummy excepto esos 5.
+
+
+
+Exportar para eliminar
+
+
+sf data query \
+-q "SELECT Id FROM PermissionSetAssignment WHERE Assignee.Username LIKE '%dummy%' AND Assignee.Username NOT IN ('admin.dummy@telecentro.ams','gestion_administrativa.dummy','alianzas.dummy','gerencial_starlink.dummy','dirección_administrativa.dummy') AND PermissionSetGroupId != NULL" \
+-o TU_ORG \
+-r csv > remove_psg.csv
+
+
+
+Eliminar los PSG
+
+
+sf data delete bulk \
+-s PermissionSetAssignment \
+-f remove_psg.csv \
+-o TU_ORG
+
+
+
+Resultado
+
+
+Se eliminarán los Permission Set Groups de todos los usuarios que tengan dummy en el username, excepto estos 5:
+
+
+admin.dummy@telecentro.ams
+
+gestion_administrativa.dummy
+
+alianzas.dummy
+
+gerencial_starlink.dummy
+
+dirección_administrativa.dummy
+
+
+
+💡 Tip DevOps (muy útil antes de borrar):
+
+
+Puedes revisar primero qué se eliminará:
+
+
+SELECT Assignee.Username, PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND Assignee.Username NOT IN (
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+)
+AND PermissionSetGroupId != NULL
+ORDER BY Assignee.Username
+
+
+
+Si quieres, también puedo pasarte un comando sf mucho más rápido (sin CSV) que elimina directamente esos PSG en un solo paso, que es el que normalmente usamos en pipelines de limpieza de sandbox.
+
+## Prompt:
+que tengo que hacer para quitarle la asignacion de los PSG?
+
+## Response:
+Thought for 11s
+
+
+Para quitar la asignación de un Permission Set Group (PSG) no se hace “editando” el usuario ni con un UPDATE. En Salesforce, la asignación vive en el objeto PermissionSetAssignment, y para removerla hay que borrar ese registro. Salesforce indica que PermissionSetAssignment representa la asignación de un permission set o permission set group a un usuario, y que para quitar una asignación se usa delete. Developer+1
+
+
+Hazlo así:
+
+
+1. Consultar qué asignaciones vas a borrar
+
+
+Para tu caso de “todos los dummy excepto esos 5”:
+
+
+SELECT 
+    Id,
+    Assignee.Username,
+    PermissionSetGroup.DeveloperName
+FROM PermissionSetAssignment
+WHERE Assignee.Username LIKE '%dummy%'
+AND Assignee.Username NOT IN (
+    'admin.dummy@telecentro.ams',
+    'gestion_administrativa.dummy',
+    'alianzas.dummy',
+    'gerencial_starlink.dummy',
+    'dirección_administrativa.dummy'
+)
+AND PermissionSetGroupId != NULL
+ORDER BY Assignee.Username
+
+
+Ese query te muestra exactamente qué PSG se le quitará a cada usuario.
+
+
+2. Exportar los IDs de PermissionSetAssignment
+
+
+sf data query \
+-q "SELECT Id FROM PermissionSetAssignment WHERE Assignee.Username LIKE '%dummy%' AND Assignee.Username NOT IN ('admin.dummy@telecentro.ams','gestion_administrativa.dummy','alianzas.dummy','gerencial_starlink.dummy','dirección_administrativa.dummy') AND PermissionSetGroupId != NULL" \
+-o TU_ORG \
+-r csv > remove_psg.csv
+
+
+3. Borrar esas asignaciones
+
+
+El comando de Salesforce CLI para borrado masivo existe en sf data delete bulk. Developer
+
+
+sf data delete bulk \
+-s PermissionSetAssignment \
+-f remove_psg.csv \
+-o TU_ORG
+
+
+Qué pasa realmente
+
+
+Ese borrado elimina las filas de PermissionSetAssignment, así que el usuario queda sin ese PSG. No borra el PSG del org ni toca roles, colas, grupos públicos o permission sets que no pertenezcan a un group. Developer+1
+
+
+Recomendación segura
+
+
+Primero corre solo el SELECT y revisa la lista. Si se ve bien, exportas los Id y luego haces el delete bulk.
+
+
+Si quieres, te dejo el comando exacto ya armado con tu alias de org.
+
+## Prompt:
+si yo tengo un archivo ts de playwright y tengo un archivo de .ts que realiza primer un acceso a un ambiente de salesforce, el siguiente paso es ingresar al engranaje y de alli a setup cuando se le da a setup se abre automaticamente un nuevo tab y alli con un procedimiento que me pide esperar para encontrar los nuevos valores pero me he cansado de poner cualquier cantidad de delays o comandos para refrescar y aun no consigo que me funcione a cabalidad, entonces que me gustaria colocarle el comando de cerrar el tab donde se encuentra y volverle a indicar que abra setup, por eso te pediria cual es el comando que debo usar en playwright para cerrar el tab activo en ese momento. Te muestro el codigo hasta donde hago la espera de tiempo
+
+
+y quiero sustituir esa espera de tiempo y refresh con el cierre del tab activo
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+  await page1.waitForTimeout(20000);
+  await page1.keyboard.press('Control+R');
+
+## Response:
+En Playwright cerrar el tab activo es simplemente:
+
+
+await page1.close();
+
+
+Ese page1 es el popup/tab que abrió Setup.
+
+
+Después puedes volver a abrir Setup desde el tab principal (page).
+
+
+
+Cómo quedaría tu flujo correcto
+
+
+La idea sería:
+
+
+Abrir Setup
+
+Trabajar en el tab
+
+Si falla o no carga bien
+
+Cerrar el tab
+
+Volver a abrir Setup
+
+
+Ejemplo aplicado a tu código
+
+
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+
+  await page.goto('https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const page1Promise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+
+  const page1 = await page1Promise;
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+
+  await page1.locator('.slds-checkbox_faux').first().click();
+
+  // cerrar el tab de setup
+  await page1.close();
+
+  // volver a abrir Setup
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const page2Promise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+
+  const page2 = await page2Promise;
+
+  await page2.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+
+});
+
+
+
+Comandos importantes de Playwright para tabs
+
+Acción
+Comando
+Cerrar tab
+await page.close()
+Esperar nuevo tab
+page.waitForEvent('popup')
+Obtener todas las tabs
+context.pages()
+Cambiar de tab
+usar la referencia pageX
+
+
+Recomendación MUY importante para Salesforce Setup (te evitará muchos problemas)
+
+
+En vez de usar waitForTimeout, usa:
+
+
+await page1.waitForLoadState('domcontentloaded');
+
+
+o
+
+
+await page1.waitForLoadState('networkidle');
+
+
+porque Setup carga muchos recursos asincrónicos y los timeout suelen fallar.
+
+
+
+Si quieres (muy recomendable para tu proyecto metadelta)
+
+
+Te puedo mostrar una técnica mucho más robusta para Salesforce Setup que evita el popup completamente y abre Setup en el mismo tab, lo que hace que Playwright sea 10x más estable.
+
+## Prompt:
+Estaria bien de esta manera todo el .ts?
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+  await page1.waitForTimeout(20000);
+  await page1.keyboard.press('Control+R');
+  await page1.close();
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  //await page1.goto('https://ruby-customer-2903--pocdev02.sandbox.my.salesforce-setup.com/lightning/setup/EinsteinGPTSetup/home');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await page1.locator('.slds-checkbox_faux').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]').contentFrame().getByRole('link', { name: 'Villalobos, Nerio' }).nth(2).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos ');
+  await page2.getByPlaceholder('Example: Work leads by').click();
+  await page2.getByPlaceholder('Example: Work leads by').fill('Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency');
+  await page2.getByPlaceholder('Example: You're a Digital').click();
+  await page2.getByPlaceholder('Example: You're a Digital').fill('You are an Agentforce Employee Agent');
+  await page2.getByPlaceholder('Example: Your company').click();
+  await page2.getByPlaceholder('Example: Your company').fill('Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia. ');
+  await page2.locator('.slds-checkbox_faux').click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Create' }).click();
+  await page1.bringToFront();
+  await page1.waitForLoadState('domcontentloaded');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]').contentFrame().getByRole('button', { name: 'New Trusted URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).fill('Puntos_Colombia_Empresas_Page');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).fill('https://www.puntoscolombia.com');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+
+## Response:
+No, así como está no te va a funcionar bien.
+Tiene varios problemas importantes.
+
+
+Los principales son estos:
+
+
+1. Esta línea está mal
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+Ahí baseUrl se referencia a sí misma. Eso rompe.
+
+
+Debe ser algo como:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? 'https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com';
+
+
+
+2. Estás declarando page1Promise dos veces
+
+
+Primero aquí:
+
+
+const page1Promise = page.waitForEvent('popup');
+
+
+y luego otra vez aquí:
+
+
+const page1Promise = page.waitForEvent('popup');
+
+
+Eso da error porque ya existe una constante con ese nombre dentro del mismo scope.
+
+
+
+3. Cierras page1 y luego sigues usándolo
+
+
+Haces esto:
+
+
+await page1.close();
+
+
+pero después vuelves a usar page1 aquí:
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+
+
+Después de close(), esa referencia ya no sirve.
+
+
+Debes capturar un nuevo popup y guardarlo en otra variable, por ejemplo page2 o volver a asignarlo.
+
+
+
+4. Falta el click para reabrir Setup
+
+
+Después de cerrar la pestaña haces esto:
+
+
+await page.getByRole('button', { name: 'Setup' }).click();
+const page1Promise = page.waitForEvent('popup');
+
+
+pero te falta otra vez este paso:
+
+
+await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+
+
+Sin eso, el popup nuevo no se abre.
+
+
+
+5. Todavía dejaste el waitForTimeout y el refresh
+
+
+Dijiste que querías sustituir esto:
+
+
+await page1.waitForTimeout(20000);
+await page1.keyboard.press('Control+R');
+
+
+pero aún está allí. Si quieres cambiar la estrategia, eso debería salir.
+
+
+
+6. Los iframe[name="vfFrameId_1772137752963"] son muy frágiles
+
+
+Esos nombres suelen cambiar entre ejecuciones.
+Eso te va a romper el test aunque hoy funcione.
+
+
+
+Te dejo una versión corregida de tu bloque principal
+
+
+No estoy corrigiendo todavía todos los iframes dinámicos, pero sí la parte del cerrar pestaña y volver a abrir Setup para que quede estructuralmente bien:
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com';
+
+test('test', async ({ page }) => {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  // Abrir Setup por primera vez
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const setupPopup1Promise = page.waitForEvent('popup');
+  await page
+    .getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+    .click();
+
+  const setupPage1 = await setupPopup1Promise;
+
+  await setupPage1.waitForLoadState('domcontentloaded');
+  await setupPage1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await setupPage1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await setupPage1.locator('.slds-checkbox_faux').first().click();
+
+  // Cerrar el tab actual de Setup
+  await setupPage1.close();
+
+  // Volver a abrir Setup
+  await page.bringToFront();
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const setupPopup2Promise = page.waitForEvent('popup');
+  await page
+    .getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+    .click();
+
+  const setupPage2 = await setupPopup2Promise;
+
+  await setupPage2.waitForLoadState('domcontentloaded');
+
+  await setupPage2.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage2.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await setupPage2.getByRole('link', { name: 'Agentforce Agents' }).click();
+
+  await setupPage2.locator('.slds-checkbox_faux').click();
+
+  await setupPage2.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage2.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await setupPage2.getByRole('link', { name: 'Users' }).nth(1).click();
+
+  // aquí sigues con el resto de tu lógica usando setupPage2
+});
+
+
+
+Mi recomendación para que quede realmente estable
+
+
+Haz una función reutilizable para abrir Setup:
+
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page
+    .getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+    .click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+
+Y la usas así:
+
+
+const setupPage1 = await openSetupPopup(page);
+await setupPage1.close();
+const setupPage2 = await openSetupPopup(page);
+
+
+Eso te limpia muchísimo el .ts.
+
+
+
+Lo más delicado ahora no es el close
+
+
+Lo más delicado de tu script realmente es esto:
+
+
+iframe[name="vfFrameId_1772137752963"]
+iframe[name="vfFrameId_1772137819218"]
+iframe[name="vfFrameId_1772137839299"]
+
+
+Esos IDs parecen dinámicos.
+Si quieres estabilidad real, hay que reemplazar eso por selectores más robustos, por ejemplo:
+
+
+page.frameLocator('iframe[title*="Users"]')
+page.frameLocator('iframe').filter(...)
+
+
+o localizar por contenido visible dentro del frame.
+
+
+
+Conclusión
+
+
+No, no está bien todavía.
+La estructura correcta es:
+
+
+arreglar baseUrl
+
+no redeclarar page1Promise
+
+no reutilizar page1 después de cerrarlo
+
+volver a hacer el click del menú Setup Opens in a new tab...
+
+eliminar el waitForTimeout y el refresh si ya usarás cierre/reapertura
+
+reemplazar los vfFrameId_* porque son inestables
+
+
+Puedo pasarte el archivo completo corregido, manteniendo toda tu lógica pero ya acomodado con nombres de páginas correctos y con una función openSetupPopup() para que quede mucho más sólido.
+
+## Prompt:
+hice esto , lo que queria es que cerrar y volviera a levantar la pagina como desde el inicio, como puedo lograr eso?
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+  await page1.close();
+});
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await page1.locator('.slds-checkbox_faux').click();
+});
+
+
+pero me interesa que se cierren todas las tabs y hasta la apgina y la volviera abrir
+
+## Response:
+Lo que hiciste funciona, pero no es la forma correcta en Playwright para “reiniciar todo”.
+Tener dos test() hace que Playwright cree dos contextos independientes, pero no garantiza cerrar todo lo anterior exactamente como quieres.
+
+
+Si lo que quieres es:
+
+Cerrar todas las tabs, cerrar el navegador y volver a empezar desde cero
+
+entonces debes cerrar el context y crear uno nuevo.
+
+
+
+Forma correcta de reiniciar completamente el navegador
+
+
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ browser }) => {
+
+  // contexto inicial
+  let context = await browser.newContext();
+  let page = await context.newPage();
+
+  await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+
+  // 🔴 Cerrar todo el navegador (todas las tabs)
+  await context.close();
+
+  // 🟢 Crear nuevo navegador limpio
+  context = await browser.newContext();
+  page = await context.newPage();
+
+  await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page2Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page2 = await page2Promise;
+
+  await page2.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page2.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await page2.locator('.slds-checkbox_faux').click();
+
+});
+
+
+
+Qué hace cada cosa
+
+Comando
+Qué hace
+context.close()
+Cierra todas las tabs y ventanas
+browser.newContext()
+Crea navegador limpio
+context.newPage()
+Abre nueva tab
+page.close()
+Cierra solo esa tab
+
+
+La opción más simple (recomendada)
+
+
+Si solo quieres reiniciar la página sin cerrar el navegador:
+
+
+await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home', { waitUntil: 'domcontentloaded' });
+
+
+o
+
+
+await page.reload();
+
+
+
+Algo MUY importante para Salesforce Setup
+
+
+Tu problema probablemente no es el refresh, es que Setup cambia de dominio:
+
+
+lightning.force.com
+↓
+my.salesforce-setup.com
+
+
+Eso rompe muchos waits.
+
+
+La forma más estable es abrir Setup directamente:
+
+
+https://YOURORG.my.salesforce-setup.com/lightning/setup/EinsteinGPTSetup/home
+
+
+
+Si quieres, puedo darte una solución mucho mejor
+
+
+Para Salesforce uso un patrón que:
+
+
+evita el popup de Setup
+
+evita los waitForTimeout
+
+funciona 100% estable con Setup
+
+reduce el script a la mitad
+
+
+y es ideal para lo que estás construyendo con metadelta + record/play.
+
+
+Si quieres, te lo muestro. Es bastante potente.
+
+## Prompt:
+pero si no usa esto:
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+no toma las credenciales para ingresar al ambiente especifico de salesforce que se esta utilizando como quedaria utilizando eso?
+
+## Response:
+Sí puedes usarlo, pero esa línea está mal escrita.
+
+
+Así como la tienes:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+eso se referencia a sí misma y falla.
+
+
+Debe quedar con un valor por defecto real, por ejemplo:
+
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+
+Ahora bien, baseUrl no guarda credenciales.
+Normalmente las credenciales o la sesión en Playwright para Salesforce vienen de una de estas dos formas:
+
+
+ya estás autenticado por un storageState
+
+tu framework genera primero el login y luego entra a la URL
+
+el plugin/record-play usa variables de entorno para construir la URL y reutiliza sesión
+
+
+Entonces, si tú necesitas reiniciar todo pero seguir usando el ambiente autenticado, la forma correcta sería con browser.newContext() y usando el mismo storageState si aplica.
+
+
+Ejemplo correcto usando baseUrl
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page
+    .getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+    .click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+test('test', async ({ browser }) => {
+  // Si tú proyecto usa storageState, aquí lo puedes volver a reutilizar.
+  let context = await browser.newContext();
+  let page = await context.newPage();
+
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  let setupPage = await openSetupPopup(page);
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await setupPage.getByRole('link', { name: 'Einstein Setup' }).click();
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  // cerrar todo
+  await context.close();
+
+  // volver a iniciar desde cero
+  context = await browser.newContext();
+  page = await context.newPage();
+
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  setupPage = await openSetupPopup(page);
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await setupPage.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await setupPage.locator('.slds-checkbox_faux').click();
+});
+
+
+
+Si usas storageState
+
+
+Entonces debería verse mejor así:
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page
+    .getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+    .click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+test('test', async ({ browser }) => {
+  let context = await browser.newContext({
+    storageState: 'playwright/.auth/user.json'
+  });
+
+  let page = await context.newPage();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  let setupPage = await openSetupPopup(page);
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await setupPage.getByRole('link', { name: 'Einstein Setup' }).click();
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  await context.close();
+
+  context = await browser.newContext({
+    storageState: 'playwright/.auth/user.json'
+  });
+
+  page = await context.newPage();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  setupPage = await openSetupPopup(page);
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await setupPage.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await setupPage.locator('.slds-checkbox_faux').click();
+});
+
+
+
+Punto clave
+
+
+Si al cerrar el contexto “pierdes las credenciales”, entonces tus credenciales no vienen de baseUrl, sino de una sesión previa. En ese caso necesitas una de estas dos cosas:
+
+
+reutilizar storageState
+
+o volver a ejecutar el flujo de login
+
+
+
+Corrección mínima a tu línea
+
+
+Si solo quieres arreglar esa parte, sería:
+
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+
+y luego:
+
+
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+
+Recomendación
+
+
+Para tu caso, lo más probable es que te convenga:
+
+
+mantener METADELTA_BASE_URL
+
+reiniciar con browser.newContext()
+
+reutilizar storageState
+
+
+Porque eso sí te deja “cerrar todo y volver a empezar” sin perder la sesión.
+
+
+Pásame cómo haces actualmente el login en tu proyecto y te lo dejo exactamente adaptado a ese flujo.
+
+## Prompt:
+Por ejemplo te muestro de esta manera el archivo funciona correctamente pero solo hace una sola cosa de la clic a donde indica y termina pero funciona el acceso a el ambiente de salesforce indicado, si lo usamos de otra manera no funciona
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+});
+
+## Response:
+Thought for 16s
+
+
+Sí, ya veo el punto clave: ese archivo te funciona porque la sesión/autenticación ya viene resuelta por cómo está corriendo tu proyecto, no por baseUrl en sí.
+
+
+Y además hay algo importante:
+
+
+En tu ejemplo, baseUrl realmente no se está usando
+
+
+Tienes esto:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+pero luego haces:
+
+
+await page.goto('https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+
+
+O sea, estás entrando con una URL fija, no con baseUrl.
+
+
+
+Lo que te conviene en tu caso
+
+
+Como “de otra manera no funciona”, entonces no cierres el browser ni el context.
+
+
+Haz esto:
+
+
+Mantén el page principal
+
+Abres Setup en popup
+
+Haces lo que necesites
+
+Cierras solo el popup
+
+Regresas al page principal
+
+Vuelves a navegar al inicio
+
+Vuelves a abrir Setup
+
+
+Eso reinicia el flujo sin perder la sesión.
+
+
+
+Cómo debería quedar bien
+
+
+Primero corrige esta línea:
+
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+
+Luego usa baseUrl de verdad.
+
+
+Ejemplo completo
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+test('test', async ({ page }) => {
+  // Inicio normal
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  // Abrir setup
+  let setupPage = await openSetupPopup(page);
+
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await setupPage.getByRole('link', { name: 'Einstein Setup' }).click();
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  // Cerrar SOLO el popup de setup
+  await setupPage.close();
+
+  // Volver al tab principal
+  await page.bringToFront();
+
+  // Volver a cargar desde el inicio, sin perder la sesión
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  // Reabrir setup desde cero
+  setupPage = await openSetupPopup(page);
+
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await setupPage.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await setupPage.locator('.slds-checkbox_faux').click();
+});
+
+
+
+Por qué esta forma sí te sirve
+
+
+Porque:
+
+
+no cierras el navegador
+
+no cierras el contexto
+
+no pierdes la sesión
+
+solo cierras la pestaña popup de Setup
+
+vuelves a entrar al home con el mismo page
+
+
+Eso es lo más cercano a:
+
+“cerrar la pestaña activa y volver a levantar la página como al inicio”
+
+sin romper el acceso al ambiente.
+
+
+
+Si quieres reiniciar todavía más “limpio”
+
+
+En vez de hacer esto:
+
+
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+puedes también hacer:
+
+
+await page.goto(`${baseUrl}`);
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+pero normalmente con una sola navegación basta.
+
+
+
+Qué no te recomiendo en tu caso
+
+
+No uses esto por ahora:
+
+
+browser.newContext()
+
+context.close()
+
+separar en dos test()
+
+
+porque por lo que describes, ahí es donde pierdes la sesión o el acceso al ambiente.
+
+
+
+Resumen práctico
+
+
+Si quieres reiniciar sin perder autenticación:
+
+
+usa baseUrl bien definido
+
+cierra solo setupPage
+
+vuelve al page
+
+haz page.goto(...)
+
+abre otra vez Setup
+
+
+La corrección mínima que necesitas es esta:
+
+
+const baseUrl =
+  process.env.METADELTA_BASE_URL ??
+  'https://ruby-customer-2903--pocdemo.sandbox.lightning.force.com';
+
+
+y luego navegar así:
+
+
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+Si quieres, te preparo tu archivo completo actual, pero ya acomodado para que haga exactamente: Einstein Setup → cerrar popup → volver al home → abrir Setup otra vez → continuar con Agentforce Agents.
+
+## Prompt:
+lo voy a probar pero me parece que se coloco asi es porque si cambio de ambiente el queda con esa url no cambia en realidad de ambiente la idea es que pueda utilizarlo en cualquier ambiente de salesforce autentificado
+
+## Response:
+Exacto, ahí está el detalle: no debes dejar una URL fija como fallback, porque entonces tu .ts queda amarrado a un sandbox específico.
+
+
+Si la idea es que funcione en cualquier ambiente autenticado, entonces debes usar la variable de entorno y navegar con ella.
+
+
+Pero la línea correcta no puede ser esta:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+porque se rompe al referirse a sí misma.
+
+
+La forma correcta
+
+
+Si siempre esperas que el ambiente venga por variable de entorno, hazlo así:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+
+Y luego:
+
+
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+De esa manera:
+
+
+no queda fija la URL
+
+cambia según el ambiente autenticado
+
+el mismo test sirve para cualquier org
+
+si la variable no existe, falla claro y rápido
+
+
+
+Ejemplo completo adaptado a cualquier ambiente autenticado
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+test('test', async ({ page }) => {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  let setupPage = await openSetupPopup(page);
+
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await setupPage.getByRole('link', { name: 'Einstein Setup' }).click();
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  await setupPage.close();
+
+  await page.bringToFront();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  setupPage = await openSetupPopup(page);
+
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await setupPage.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await setupPage.locator('.slds-checkbox_faux').click();
+});
+
+
+
+Qué logra esto
+
+
+Con eso el script:
+
+
+usa el ambiente actual
+
+no queda pegado a pocdemo
+
+conserva la autenticación actual del flujo donde lo estás ejecutando
+
+te permite cerrar el popup y volver a arrancar desde el home
+
+
+
+Si quieres fallback, que sea seguro
+
+
+Si igual quieres fallback, hazlo explícito:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL || 'https://tu-org-default.lightning.force.com';
+
+
+Pero en tu caso, por lo que explicas, yo no usaría fallback.
+Yo lo dejaría obligatorio:
+
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+
+Así te aseguras de que siempre tome el ambiente correcto.
+
+
+
+Recomendación final
+
+
+Para tu proyecto, lo ideal es esto:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+if (!baseUrl) throw new Error('METADELTA_BASE_URL no está definida');
+
+
+y nunca poner una URL fija en page.goto(...).
+
+
+Si quieres, te puedo devolver tu archivo completo ya corregido con esa lógica aplicada y sin dejar ninguna URL hardcodeada.
+
+## Prompt:
+creo que funciono bien pero no le dio clic a la opcion que espero que es Agentforce Agents, quedo de esta manera
+
+## Response:
+Seguramente ya resolviste la parte de cerrar y reabrir, y ahora el problema está en el timing o en el selector de Agentforce Agents.
+
+
+En Salesforce Setup pasa mucho esto: el fill() ocurre, pero el resultado del menú lateral tarda un poco en renderizarse y el click se intenta demasiado rápido.
+
+
+Prueba cambiando esa parte por una versión más robusta:
+
+
+await setupPage.getByRole('searchbox', { name: 'Quick Find' }).click();
+await setupPage.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+
+// esperar explícitamente a que aparezca la opción
+const agentforceLink = setupPage.getByRole('link', { name: 'Agentforce Agents' });
+await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+await agentforceLink.click();
+
+
+Si sigue fallando, usa todavía más estabilidad con exact: true:
+
+
+const agentforceLink = setupPage.getByRole('link', {
+  name: 'Agentforce Agents',
+  exact: true
+});
+await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+await agentforceLink.click();
+
+
+También te recomiendo limpiar primero el buscador antes de escribir:
+
+
+const quickFind = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+await quickFind.click();
+await quickFind.fill('');
+await quickFind.fill('Agentforce Agents');
+
+const agentforceLink = setupPage.getByRole('link', {
+  name: 'Agentforce Agents',
+  exact: true
+});
+await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+await agentforceLink.click();
+
+
+Y si Salesforce sigue raro, usa pressSequentially, que a veces funciona mejor en buscadores dinámicos:
+
+
+const quickFind = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+await quickFind.click();
+await quickFind.fill('');
+await quickFind.pressSequentially('Agentforce Agents');
+
+const agentforceLink = setupPage.getByRole('link', {
+  name: 'Agentforce Agents',
+  exact: true
+});
+await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+await agentforceLink.click();
+
+
+Te dejo el bloque completo recomendado para esa parte:
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetupPopup(page) {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+test('test', async ({ page }) => {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  let setupPage = await openSetupPopup(page);
+
+  const quickFind1 = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind1.click();
+  await quickFind1.fill('Einstein Setup');
+  await setupPage.getByRole('link', { name: 'Einstein Setup', exact: true }).click();
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  await setupPage.close();
+
+  await page.bringToFront();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  setupPage = await openSetupPopup(page);
+
+  const quickFind2 = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind2.click();
+  await quickFind2.fill('');
+  await quickFind2.pressSequentially('Agentforce Agents');
+
+  const agentforceLink = setupPage.getByRole('link', {
+    name: 'Agentforce Agents',
+    exact: true
+  });
+
+  await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+  await agentforceLink.click();
+});
+
+
+Si aún no hace clic, el siguiente sospechoso no sería el texto, sino que la página de Setup todavía no terminó de quedar lista. En ese caso agrega justo antes del buscador:
+
+
+await setupPage.waitForLoadState('domcontentloaded');
+await setupPage.waitForLoadState('networkidle');
+
+
+quedando así:
+
+
+await setupPage.waitForLoadState('domcontentloaded');
+await setupPage.waitForLoadState('networkidle');
+
+const quickFind2 = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+await quickFind2.click();
+await quickFind2.fill('');
+await quickFind2.pressSequentially('Agentforce Agents');
+
+
+Si me pegas el bloque exacto como te quedó después del cambio, te lo ajusto línea por línea.
+
+## Prompt:
+puedes entregarme la mejor opcion con la cual me serviria completa para copiar y pegar por favor
+
+## Response:
+Sí. Te dejo una versión completa, lista para copiar y pegar, pensada para tu caso:
+
+
+usa METADELTA_BASE_URL
+
+no deja URL fija
+
+abre Setup
+
+hace la acción en Einstein Setup
+
+cierra el popup
+
+vuelve al tab principal
+
+reabre Setup desde cero
+
+busca y hace clic en Agentforce Agents de forma más robusta
+
+
+import { test, expect, Page } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetupPopup(page: Page): Promise<Page> {
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+async function searchAndClickSetupOption(setupPage: Page, optionName: string): Promise<void> {
+  const quickFind = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+
+  await quickFind.waitFor({ state: 'visible', timeout: 15000 });
+  await quickFind.click();
+  await quickFind.fill('');
+  await quickFind.pressSequentially(optionName);
+
+  const optionLink = setupPage.getByRole('link', {
+    name: optionName,
+    exact: true
+  });
+
+  await optionLink.waitFor({ state: 'visible', timeout: 15000 });
+  await optionLink.click();
+}
+
+test('test', async ({ page }) => {
+  // Ir al home del ambiente autenticado actual
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  // =========================
+  // 1) Abrir Setup y entrar a Einstein Setup
+  // =========================
+  let setupPage = await openSetupPopup(page);
+
+  await searchAndClickSetupOption(setupPage, 'Einstein Setup');
+
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+
+  // Cerrar popup de Setup
+  await setupPage.close();
+
+  // =========================
+  // 2) Volver al tab principal y abrir Setup otra vez desde cero
+  // =========================
+  await page.bringToFront();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  setupPage = await openSetupPopup(page);
+
+  // Espera extra para Setup
+  await setupPage.waitForLoadState('domcontentloaded');
+
+  // Buscar y entrar a Agentforce Agents
+  await searchAndClickSetupOption(setupPage, 'Agentforce Agents');
+
+  // Acción posterior
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+});
+
+
+Qué mejora esta versión
+
+
+Corrige estos problemas que tenías:
+
+
+elimina esta línea incorrecta:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+usa METADELTA_BASE_URL de verdad
+
+no deja una org hardcodeada
+
+no reutiliza una pestaña cerrada
+
+no redeclara variables como page1Promise
+
+hace la búsqueda de Agentforce Agents con una función más estable
+
+
+Si quieres la versión más simple posible
+
+
+Te dejo una aún más directa, sin funciones auxiliares:
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+test('test', async ({ page }) => {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popup1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  let setupPage = await popup1Promise;
+
+  const quickFind1 = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind1.waitFor({ state: 'visible', timeout: 15000 });
+  await quickFind1.click();
+  await quickFind1.fill('');
+  await quickFind1.pressSequentially('Einstein Setup');
+
+  const einsteinLink = setupPage.getByRole('link', {
+    name: 'Einstein Setup',
+    exact: true
+  });
+  await einsteinLink.waitFor({ state: 'visible', timeout: 15000 });
+  await einsteinLink.click();
+
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+  await setupPage.close();
+
+  await page.bringToFront();
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popup2Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  setupPage = await popup2Promise;
+
+  const quickFind2 = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind2.waitFor({ state: 'visible', timeout: 15000 });
+  await quickFind2.click();
+  await quickFind2.fill('');
+  await quickFind2.pressSequentially('Agentforce Agents');
+
+  const agentforceLink = setupPage.getByRole('link', {
+    name: 'Agentforce Agents',
+    exact: true
+  });
+  await agentforceLink.waitFor({ state: 'visible', timeout: 15000 });
+  await agentforceLink.click();
+
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+});
+
+
+La mejor de las dos para ti es la primera, porque queda más ordenada y la puedes reutilizar dentro de tu proyecto metadelta.
+
+
+Si quieres, en el siguiente mensaje te la devuelvo ya extendida con la continuación completa de tu flujo después de Agentforce Agents.
+
+## Prompt:
+Ok aqui nos encontramos nuevamente con el problema inicial
+de la cual nacio mi idea de cerrar y volver abrir el navegador , cuando se activa Einstein Setup se debe esperar un tiempo y refrescar o cerrar y volver abrir para que se vea la nueva opcion en el quick find de Agentforce Agents, con el .ts que me entregastes se ve de esta manera
+
+## Response:
+Thought for 12s
+
+
+Sí, ahí el problema real no es Playwright en sí, sino que Salesforce tarda en propagar el cambio de Einstein Setup y por eso Agentforce Agents no aparece inmediatamente en Quick Find.
+
+
+Entonces la mejor solución no es un solo waitForTimeout, sino esto:
+
+
+activar Einstein Setup
+
+cerrar el popup
+
+volver al home
+
+reabrir Setup
+
+buscar Agentforce Agents
+
+si no aparece, cerrar y repetir varias veces hasta que aparezca
+
+
+Eso te deja un flujo más confiable que un delay fijo.
+
+
+Te dejo una versión completa para copiar y pegar:
+
+
+import { test, expect, Page } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetupPopup(page: Page): Promise<Page> {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`, {
+    waitUntil: 'domcontentloaded'
+  });
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+async function searchQuickFind(setupPage: Page, text: string): Promise<void> {
+  const quickFind = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind.waitFor({ state: 'visible', timeout: 15000 });
+  await quickFind.click();
+  await quickFind.fill('');
+  await quickFind.pressSequentially(text);
+}
+
+async function clickSetupOptionIfExists(
+  setupPage: Page,
+  optionName: string
+): Promise<boolean> {
+  const optionLink = setupPage.getByRole('link', {
+    name: optionName,
+    exact: true
+  });
+
+  try {
+    await optionLink.waitFor({ state: 'visible', timeout: 5000 });
+    await optionLink.click();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function enableEinsteinSetup(setupPage: Page): Promise<void> {
+  await searchQuickFind(setupPage, 'Einstein Setup');
+
+  const einsteinLink = setupPage.getByRole('link', {
+    name: 'Einstein Setup',
+    exact: true
+  });
+
+  await einsteinLink.waitFor({ state: 'visible', timeout: 15000 });
+  await einsteinLink.click();
+
+  const firstCheckbox = setupPage.locator('.slds-checkbox_faux').first();
+  await firstCheckbox.waitFor({ state: 'visible', timeout: 15000 });
+  await firstCheckbox.click();
+
+  // Pequeña espera para que Salesforce procese el cambio
+  await setupPage.waitForTimeout(3000);
+}
+
+async function reopenUntilAgentforceAgentsAppears(
+  page: Page,
+  maxAttempts = 8,
+  waitBetweenAttemptsMs = 10000
+): Promise<Page> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`Intento ${attempt}/${maxAttempts}: buscando "Agentforce Agents"...`);
+
+    const setupPage = await openSetupPopup(page);
+
+    try {
+      await searchQuickFind(setupPage, 'Agentforce Agents');
+
+      const found = await clickSetupOptionIfExists(setupPage, 'Agentforce Agents');
+      if (found) {
+        console.log('"Agentforce Agents" encontrado.');
+        return setupPage;
+      }
+    } catch (e) {
+      console.log(`Intento ${attempt}: aún no disponible.`);
+    }
+
+    await setupPage.close();
+
+    if (attempt < maxAttempts) {
+      await page.bringToFront();
+      await page.waitForTimeout(waitBetweenAttemptsMs);
+    }
+  }
+
+  throw new Error(
+    'No apareció "Agentforce Agents" en Quick Find después de varios intentos.'
+  );
+}
+
+test('test', async ({ page }) => {
+  // Paso 1: abrir Setup y activar Einstein Setup
+  let setupPage = await openSetupPopup(page);
+  await enableEinsteinSetup(setupPage);
+  await setupPage.close();
+
+  // Paso 2: volver a intentar hasta que aparezca Agentforce Agents
+  setupPage = await reopenUntilAgentforceAgentsAppears(page, 8, 10000);
+
+  // Paso 3: ya dentro de Agentforce Agents, haces tu siguiente acción
+  await setupPage.locator('.slds-checkbox_faux').first().click();
+});
+
+
+Por qué esta opción es mejor
+
+
+Esto mejora tu caso porque:
+
+
+no depende de un solo tiempo fijo
+
+reabre Setup desde cero
+
+intenta varias veces hasta que la opción exista
+
+falla claro si Salesforce nunca la publica
+
+sigue funcionando con cualquier org autenticada usando METADELTA_BASE_URL
+
+
+Qué puedes ajustar
+
+
+Si Salesforce tarda más, cambia esto:
+
+
+setupPage = await reopenUntilAgentforceAgentsAppears(page, 8, 10000);
+
+
+Por ejemplo:
+
+
+setupPage = await reopenUntilAgentforceAgentsAppears(page, 12, 15000);
+
+
+Eso significa:
+
+
+hasta 12 intentos
+
+esperando 15 segundos entre intentos
+
+
+El punto clave
+
+
+Tu idea de cerrar y volver a abrir sí era válida, pero había que hacerla como reintento controlado, no solo una vez.
+
+
+Si quieres, te preparo la siguiente versión para que además, cuando no aparezca Agentforce Agents, intente también con un page.reload() dentro del popup antes de cerrarlo.
+
+## Prompt:
+Perfecto funciono, ahora los siguientes pasos son estos como los podemos adaptar al archivo?
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]').contentFrame().getByRole('link', { name: 'Villalobos, Nerio' }).nth(2).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos ');
+  await page2.getByPlaceholder('Example: Work leads by').click();
+  await page2.getByPlaceholder('Example: Work leads by').fill('Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency');
+  await page2.getByPlaceholder('Example: You're a Digital').click();
+  await page2.getByPlaceholder('Example: You're a Digital').fill('You are an Agentforce Employee Agent');
+  await page2.getByPlaceholder('Example: Your company').click();
+  await page2.getByPlaceholder('Example: Your company').fill('Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia. ');
+  await page2.locator('.slds-checkbox_faux').click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Create' }).click();
+
+
+y al final de esos pasos se requiere lo mismo cerrar la tab y el navegador y que vuelva a setup para continuar luego con estos pasos
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]').contentFrame().getByRole('button', { name: 'New Trusted URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).fill('Puntos_Colombia_Empresas_Page');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).fill('https://www.puntoscolombia.com');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+
+
+y alli terminaria todo
+
+## Response:
+Thought for 39s
+
+
+Sí. Te lo adapto en una versión completa, robusta y lista para copiar y pegar, manteniendo esta lógica:
+
+
+abre Setup
+
+activa Einstein Setup
+
+cierra y reabre Setup hasta que aparezca Agentforce Agents
+
+entra a Users
+
+abre el usuario
+
+entra a Permission Set Assignments
+
+asigna varios Permission Sets
+
+vuelve a Agentforce Agents
+
+crea el agente
+
+cierra las tabs secundarias
+
+vuelve al tab principal
+
+reabre Setup
+
+entra a Trusted URLs
+
+crea la Trusted URL
+
+termina
+
+
+Además, te quité la dependencia de vfFrameId_1772..., porque esos nombres cambian y rompen el script.
+
+
+import { test, expect, Page, Frame } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+const USER_DISPLAY_NAME = 'Villalobos, Nerio';
+
+const PERMISSION_SET_IDS = [
+  '0PSfn000001KgOI',
+  '0PSfn000001HrA0',
+  '0PSfn000001Ht5z',
+  '0PSfn000001Kiac',
+  '0PSfn000001Hr9y'
+];
+
+const AGENT_NAME = 'Agentforce Employee Puntos';
+const AGENT_API_NAME = 'Agentforce_Employee_Puntos';
+const AGENT_DESCRIPTION =
+  'Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency';
+const AGENT_ROLE = 'You are an Agentforce Employee Agent';
+const AGENT_COMPANY =
+  'Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia.';
+
+const TRUSTED_URL_API_NAME = 'Puntos_Colombia_Empresas_Page';
+const TRUSTED_URL = 'https://www.puntoscolombia.com';
+
+async function openSetupPopup(page: Page): Promise<Page> {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`, {
+    waitUntil: 'domcontentloaded'
+  });
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+async function searchQuickFind(setupPage: Page, text: string): Promise<void> {
+  const quickFind = setupPage.getByRole('searchbox', { name: 'Quick Find' });
+  await quickFind.waitFor({ state: 'visible', timeout: 15000 });
+  await quickFind.click();
+  await quickFind.fill('');
+  await quickFind.pressSequentially(text);
+}
+
+async function clickSetupOptionIfExists(
+  setupPage: Page,
+  optionName: string
+): Promise<boolean> {
+  const optionLink = setupPage.getByRole('link', {
+    name: optionName,
+    exact: true
+  });
+
+  try {
+    await optionLink.waitFor({ state: 'visible', timeout: 5000 });
+    await optionLink.click();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function searchAndOpenSetupOption(setupPage: Page, optionName: string): Promise<void> {
+  await searchQuickFind(setupPage, optionName);
+
+  const found = await clickSetupOptionIfExists(setupPage, optionName);
+  if (!found) {
+    throw new Error(`No se encontró la opción "${optionName}" en Quick Find`);
+  }
+}
+
+async function enableEinsteinSetup(setupPage: Page): Promise<void> {
+  await searchAndOpenSetupOption(setupPage, 'Einstein Setup');
+
+  const firstCheckbox = setupPage.locator('.slds-checkbox_faux').first();
+  await firstCheckbox.waitFor({ state: 'visible', timeout: 15000 });
+  await firstCheckbox.click();
+
+  await setupPage.waitForTimeout(3000);
+}
+
+async function reopenUntilAgentforceAgentsAppears(
+  page: Page,
+  maxAttempts = 8,
+  waitBetweenAttemptsMs = 10000
+): Promise<Page> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`Intento ${attempt}/${maxAttempts}: buscando "Agentforce Agents"...`);
+
+    const setupPage = await openSetupPopup(page);
+
+    try {
+      await searchQuickFind(setupPage, 'Agentforce Agents');
+
+      const found = await clickSetupOptionIfExists(setupPage, 'Agentforce Agents');
+      if (found) {
+        console.log('"Agentforce Agents" encontrado.');
+        return setupPage;
+      }
+    } catch {
+      // seguir intentando
+    }
+
+    await setupPage.close();
+
+    if (attempt < maxAttempts) {
+      await page.bringToFront();
+      await page.waitForTimeout(waitBetweenAttemptsMs);
+    }
+  }
+
+  throw new Error(
+    'No apareció "Agentforce Agents" en Quick Find después de varios intentos.'
+  );
+}
+
+async function findFrameWithLink(
+  page: Page,
+  linkName: string,
+  timeoutMs = 20000
+): Promise<Frame> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    for (const frame of page.frames()) {
+      try {
+        const count = await frame.getByRole('link', { name: linkName }).count();
+        if (count > 0) {
+          return frame;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error(`No se encontró un iframe con el link "${linkName}"`);
+}
+
+async function findFrameWithButton(
+  page: Page,
+  buttonName: string,
+  timeoutMs = 20000
+): Promise<Frame> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    for (const frame of page.frames()) {
+      try {
+        const count = await frame.getByRole('button', { name: buttonName }).count();
+        if (count > 0) {
+          return frame;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error(`No se encontró un iframe con el botón "${buttonName}"`);
+}
+
+async function findFrameWithTextbox(
+  page: Page,
+  textboxName: string,
+  timeoutMs = 20000
+): Promise<Frame> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    for (const frame of page.frames()) {
+      try {
+        const count = await frame.getByRole('textbox', { name: textboxName }).count();
+        if (count > 0) {
+          return frame;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error(`No se encontró un iframe con el textbox "${textboxName}"`);
+}
+
+async function goToUsersAndOpenUser(setupPage: Page, userDisplayName: string): Promise<void> {
+  await searchAndOpenSetupOption(setupPage, 'Users');
+
+  const userFrame = await findFrameWithLink(setupPage, userDisplayName, 30000);
+  await userFrame.getByRole('link', { name: userDisplayName }).first().click();
+}
+
+async function openPermissionSetAssignments(setupPage: Page): Promise<void> {
+  const detailFrame = await findFrameWithLink(setupPage, /Permission Set Assignments\[\d+\]/.source, 30000)
+    .catch(async () => {
+      // fallback manual si el regex como texto no ayuda
+      const start = Date.now();
+      while (Date.now() - start < 30000) {
+        for (const frame of setupPage.frames()) {
+          try {
+            const links = frame.locator('a');
+            const count = await links.count();
+            for (let i = 0; i < count; i++) {
+              const text = (await links.nth(i).textContent())?.trim() ?? '';
+              if (/^Permission Set Assignments\[\d+\]$/.test(text)) {
+                await links.nth(i).click();
+                return null;
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+        await setupPage.waitForTimeout(500);
+      }
+      throw new Error('No se encontró el link "Permission Set Assignments[n]"');
+    });
+
+  if (detailFrame) {
+    await detailFrame.getByRole('link', { name: /Permission Set Assignments\[\d+\]/ }).first().click();
+  }
+
+  const editFrame = await findFrameWithButton(setupPage, 'Edit Assignments', 30000);
+  await editFrame.getByRole('button', { name: 'Edit Assignments' }).click().catch(async () => {
+    await editFrame.locator('input[name="editPermSetAssignments"]').click();
+  });
+}
+
+async function assignPermissionSets(setupPage: Page, permissionSetIds: string[]): Promise<void> {
+  const assignFrame = await findFrameWithTextbox(setupPage, 'Available Permission Sets', 30000)
+    .catch(async () => {
+      const start = Date.now();
+      while (Date.now() - start < 30000) {
+        for (const frame of setupPage.frames()) {
+          try {
+            const count = await frame.getByLabel('Available Permission Sets').count();
+            if (count > 0) {
+              return frame;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        await setupPage.waitForTimeout(500);
+      }
+      throw new Error('No se encontró el frame de asignación de Permission Sets');
+    });
+
+  for (const permissionSetId of permissionSetIds) {
+    await assignFrame.getByLabel('Available Permission Sets').selectOption(permissionSetId);
+    await assignFrame.getByRole('link', { name: 'Add' }).click();
+  }
+
+  await assignFrame
+    .locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]')
+    .click();
+}
+
+async function createAgentFromAgentforce(setupPage: Page): Promise<void> {
+  await searchAndOpenSetupOption(setupPage, 'Agentforce Agents');
+
+  const agentPopupPromise = setupPage.waitForEvent('popup');
+  await setupPage.getByRole('button', { name: 'New Agent' }).click();
+  const agentPage = await agentPopupPromise;
+
+  await agentPage.waitForLoadState('domcontentloaded');
+
+  await agentPage.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await agentPage.getByRole('button', { name: 'Next' }).click();
+  await agentPage.getByRole('button', { name: 'Next' }).click();
+
+  await agentPage.getByRole('textbox', { name: 'Name', exact: true }).fill(AGENT_NAME);
+  await agentPage.getByRole('textbox', { name: 'API Name' }).fill(AGENT_API_NAME);
+  await agentPage
+    .getByPlaceholder('Example: Work leads by')
+    .fill(AGENT_DESCRIPTION);
+  await agentPage
+    .getByPlaceholder("Example: You're a Digital")
+    .fill(AGENT_ROLE);
+  await agentPage
+    .getByPlaceholder('Example: Your company')
+    .fill(AGENT_COMPANY);
+
+  await agentPage.locator('.slds-checkbox_faux').click();
+  await agentPage.getByRole('button', { name: 'Next' }).click();
+  await agentPage.getByRole('button', { name: 'Create' }).click();
+
+  await agentPage.waitForTimeout(3000);
+  await agentPage.close();
+}
+
+async function createTrustedUrl(setupPage: Page): Promise<void> {
+  await searchAndOpenSetupOption(setupPage, 'Trusted URLs');
+
+  const trustedFrame = await findFrameWithButton(setupPage, 'New Trusted URL', 30000);
+  await trustedFrame.getByRole('button', { name: 'New Trusted URL' }).click();
+
+  const editFrame = await findFrameWithTextbox(setupPage, '* API Name', 30000);
+
+  await editFrame.getByRole('textbox', { name: '* API Name' }).fill(TRUSTED_URL_API_NAME);
+  await editFrame.getByRole('textbox', { name: '* URL' }).fill(TRUSTED_URL);
+
+  await editFrame.getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await editFrame.getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await editFrame.getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await editFrame.getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+
+  await editFrame.locator('input[name="save"]').click();
+}
+
+test('test', async ({ page }) => {
+  // 1) Einstein Setup
+  let setupPage = await openSetupPopup(page);
+  await enableEinsteinSetup(setupPage);
+  await setupPage.close();
+
+  // 2) Reabrir hasta encontrar Agentforce Agents
+  setupPage = await reopenUntilAgentforceAgentsAppears(page, 8, 10000);
+
+  // 3) Users -> usuario -> Permission Set Assignments -> agregar PS
+  await goToUsersAndOpenUser(setupPage, USER_DISPLAY_NAME);
+  await openPermissionSetAssignments(setupPage);
+  await assignPermissionSets(setupPage, PERMISSION_SET_IDS);
+
+  // 4) Volver a Agentforce Agents y crear agente
+  await createAgentFromAgentforce(setupPage);
+
+  // 5) Cerrar Setup y volver al inicio para continuar limpio
+  await setupPage.close();
+  await page.bringToFront();
+
+  // 6) Reabrir Setup y crear Trusted URL
+  setupPage = await openSetupPopup(page);
+  await createTrustedUrl(setupPage);
+
+  // 7) Fin
+  await setupPage.close();
+  await page.bringToFront();
+});
+
+
+Lo más importante de esta adaptación
+
+
+Hice tres mejoras clave:
+
+
+1. Quité los vfFrameId_177213...
+
+
+Eso era muy frágil.
+Ahora el script busca el iframe que contiene el link, botón o textbox que necesita.
+
+
+2. Mantuve tu lógica de “cerrar y volver a abrir”
+
+
+Pero sin cerrar el contexto principal, para no perder la sesión autenticada del ambiente actual.
+
+
+3. Dejé separado el flujo en funciones
+
+
+Así puedes modificar solo una parte si algo cambia:
+
+
+enableEinsteinSetup
+
+goToUsersAndOpenUser
+
+openPermissionSetAssignments
+
+assignPermissionSets
+
+createAgentFromAgentforce
+
+createTrustedUrl
+
+
+Nota importante
+
+
+Hay una parte de tu bloque original que hacía esto después del save:
+
+
+await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+
+
+No la dejé, porque justo después te vas a Agentforce Agents, y eso en la práctica no aporta nada y mete fragilidad.
+Si quieres, te la reincorporo también.
+
+
+Un detalle técnico
+
+
+En algunas orgs Salesforce renderiza:
+
+
+Edit Assignments como botón
+
+en otras como input clásico Visualforce
+
+
+Por eso dejé este fallback:
+
+
+await editFrame.getByRole('button', { name: 'Edit Assignments' }).click().catch(async () => {
+  await editFrame.locator('input[name="editPermSetAssignments"]').click();
+});
+
+
+Eso hace el script mucho más resistente.
+
+
+Pégalo y pruébalo así. Si una sola línea falla, me pegas el error exacto y te la ajusto sobre esta misma base.
+
+## Prompt:
+Quisiera llegar a un punto medio, actualmente el plugin me crea un archivo como este:
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+  await page1.waitForTimeout(20000);
+  await page1.keyboard.press('Control+R');
+  await page1.close();
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  //await page1.goto('https://ruby-customer-2903--pocdev02.sandbox.my.salesforce-setup.com/lightning/setup/EinsteinGPTSetup/home');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await page1.locator('.slds-checkbox_faux').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]').contentFrame().getByRole('link', { name: 'Villalobos, Nerio' }).nth(2).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos ');
+  await page2.getByPlaceholder('Example: Work leads by').click();
+  await page2.getByPlaceholder('Example: Work leads by').fill('Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency');
+  await page2.getByPlaceholder('Example: You're a Digital').click();
+  await page2.getByPlaceholder('Example: You're a Digital').fill('You are an Agentforce Employee Agent');
+  await page2.getByPlaceholder('Example: Your company').click();
+  await page2.getByPlaceholder('Example: Your company').fill('Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia. ');
+  await page2.locator('.slds-checkbox_faux').click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Create' }).click();
+  await page1.bringToFront();
+  await page1.waitForLoadState('domcontentloaded');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]').contentFrame().getByRole('button', { name: 'New Trusted URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).fill('Puntos_Colombia_Empresas_Page');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).fill('https://www.puntoscolombia.com');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+
+
+Porsupuesto ya vi que las fallas fueron resueltas por ti de la forma en que me entregastes pero la idea de tener constantes no me parece natural porque la idea es mantener la ruta dela captura tal cual como se realiza, ahora bien, como pudiesemos hacer que tu solucion se mantenga pero sea o este muy cercano a la captura lo de la utilizacion del iframe el plugin ya lo maneja con un archivo que se llama orchestrator , dime como pudiese darte lectura de la solucion actual para que observes pero sino quiero que me acerques tu solucion lo mas posible a lo que me entrega la funcion de record
+
+## Response:
+Sí, se puede. Y entiendo exactamente lo que quieres:
+
+
+mantener el estilo “natural” del record
+
+que el archivo siga pareciendo una captura de Playwright
+
+sin convertir todo en un framework lleno de constantes
+
+pero corrigiendo solo lo necesario para que funcione
+
+
+Ese punto medio, para mí, es este:
+
+
+dejar casi todas las líneas del record tal como salen
+
+agregar solo unas pocas funciones auxiliares
+
+no reemplazar tus textos por constantes
+
+no reestructurar todo en demasiadas funciones
+
+mantener page1, page2, getByRole, locator, etc. muy parecido al record
+
+
+Además, como dices que el manejo del iframe lo hace tu orchestrator, entonces no te voy a tocar esa parte. La dejamos parecida al record.
+
+
+Lo que sí hay que corregir siempre
+
+
+Estas son las mínimas correcciones inevitables:
+
+
+1. baseUrl
+
+
+Tu línea original está mal:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+Debe quedar así:
+
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+
+2. Reabrir Setup correctamente
+
+
+No puedes hacer esto:
+
+
+await page1.close();
+await page.getByRole('button', { name: 'Setup' }).click();
+const page1Promise = page.waitForEvent('popup');
+await page1.getByRole(...)
+
+
+porque page1 ya fue cerrada.
+
+
+3. Esperar a que aparezca Agentforce Agents
+
+
+Ese fue el problema real. Entonces ahí sí conviene una pequeña función de reintento, pero sin romper el estilo del record.
+
+
+
+Te dejo una versión “punto medio”
+
+
+Esta versión:
+
+
+se parece muchísimo al archivo grabado
+
+conserva page1, page2
+
+conserva textos literales
+
+conserva tus locators
+
+solo agrega helpers pequeños para:
+abrir Setup
+
+cerrar y reabrir hasta que exista Agentforce Agents
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetup(page) {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+  return popup;
+}
+
+async function waitForAgentforceAgents(page, maxAttempts = 8, waitMs = 10000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const page1 = await openSetup(page);
+
+    try {
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('');
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).pressSequentially('Agentforce Agents');
+
+      const agentforceLink = page1.getByRole('link', { name: 'Agentforce Agents', exact: true });
+      await agentforceLink.waitFor({ state: 'visible', timeout: 5000 });
+      await agentforceLink.click();
+
+      return page1;
+    } catch (e) {
+      await page1.close();
+      if (attempt < maxAttempts) {
+        await page.bringToFront();
+        await page.waitForTimeout(waitMs);
+      }
+    }
+  }
+
+  throw new Error('No apareció "Agentforce Agents" en Quick Find después de varios intentos.');
+}
+
+test('test', async ({ page }) => {
+  let page1 = await openSetup(page);
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+
+  await page1.close();
+  await page.bringToFront();
+
+  page1 = await waitForAgentforceAgents(page);
+
+  await page1.locator('.slds-checkbox_faux').click();
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]').contentFrame().getByRole('link', { name: 'Villalobos, Nerio' }).nth(2).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos ');
+  await page2.getByPlaceholder('Example: Work leads by').click();
+  await page2.getByPlaceholder('Example: Work leads by').fill('Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency');
+  await page2.getByPlaceholder('Example: You\'re a Digital').click();
+  await page2.getByPlaceholder('Example: You\'re a Digital').fill('You are an Agentforce Employee Agent');
+  await page2.getByPlaceholder('Example: Your company').click();
+  await page2.getByPlaceholder('Example: Your company').fill('Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia. ');
+  await page2.locator('.slds-checkbox_faux').click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Create' }).click();
+
+  await page2.close();
+  await page1.close();
+  await page.bringToFront();
+
+  page1 = await openSetup(page);
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]').contentFrame().getByRole('button', { name: 'New Trusted URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).fill('Puntos_Colombia_Empresas_Page');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).fill('https://www.puntoscolombia.com');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+
+
+
+Por qué esta versión sí es “punto medio”
+
+
+Porque:
+
+
+mantiene la forma del record
+
+no te obliga a declarar 15 constantes
+
+no te rompe la lógica del plugin
+
+no te cambia todos los iframe
+
+deja tus pasos casi tal cual
+
+solo agrega dos helpers:
+openSetup
+
+waitForAgentforceAgents
+
+
+Eso es lo mínimo útil.
+
+
+
+Qué haría yo en tu plugin
+
+
+Si quieres que esto quede bien integrado en tu record, yo haría que el orchestrator aplique un post-procesado al .ts grabado:
+
+
+Regla 1
+
+
+Si detecta:
+
+
+await page1.waitForTimeout(20000);
+await page1.keyboard.press('Control+R');
+
+
+lo reemplace por una estrategia como:
+
+
+close()
+
+bringToFront()
+
+waitForAgentforceAgents(...)
+
+
+Regla 2
+
+
+Si detecta que cerraste una popup y luego vuelves a usar la misma variable, regenere:
+
+
+page1 = await openSetup(page);
+
+
+Regla 3
+
+
+No tocar los bloques de iframe si orchestrator ya los resuelve bien.
+
+
+
+Si quieres mostrarme cómo lo resuelve el orchestrator
+
+
+Lo ideal sería que me pases una de estas tres cosas:
+
+
+el archivo orchestrator.ts
+
+la función que transforma el record en el .ts final
+
+un ejemplo de entrada y salida del proceso
+
+
+Con eso sí te lo puedo dejar todavía más natural, ya pensando en cómo modificar el plugin y no solo el archivo final.
+
+
+Mi recomendación concreta
+
+
+Para ahora mismo, usa esta estrategia:
+
+
+deja el archivo casi igual al record
+
+solo mete helpers pequeños
+
+no conviertas todo en constantes
+
+no toques los iframe si ya el orchestrator lo hace bien
+
+
+Si quieres, en el próximo mensaje te puedo devolver tu mismo archivo original, pero con solo los cambios mínimos línea por línea, para que veas exactamente qué se reemplaza y qué se deja intacto.
+
+## Prompt:
+disculpa puedes repetirme la respuesta y el codigo porque solo se ve puro texto aglomerado no entiendo lo que es codigo o texto y no te leo bien
+
+## Response:
+Perfecto, vamos a repetirlo bien ordenado para que puedas leerlo claro.
+Te voy a explicar primero la idea y luego te dejo el código completo para copiar y pegar.
+
+
+
+🎯 Lo que quieres lograr (punto medio)
+
+
+Quieres:
+
+
+Mantener el archivo parecido al que genera el record de Playwright.
+
+No llenar el archivo de constantes o funciones complejas.
+
+Mantener los pasos tal cual fueron grabados.
+
+Solo agregar lo necesario para resolver el problema de:
+cerrar Setup
+
+volver a abrir Setup
+
+esperar hasta que aparezca Agentforce Agents
+
+
+Entonces vamos a agregar solo dos funciones pequeñas:
+
+
+openSetup(page) → abre Setup popup
+
+waitForAgentforceAgents(page) → reabre Setup hasta que aparezca Agentforce
+
+
+Todo lo demás se queda muy parecido al record.
+
+
+
+📦 Código completo limpio para copiar
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetup(page) {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+
+  return popup;
+}
+
+async function waitForAgentforceAgents(page, maxAttempts = 8, waitMs = 10000) {
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+
+    const page1 = await openSetup(page);
+
+    try {
+
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('');
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).pressSequentially('Agentforce Agents');
+
+      const agentforceLink = page1.getByRole('link', {
+        name: 'Agentforce Agents',
+        exact: true
+      });
+
+      await agentforceLink.waitFor({ state: 'visible', timeout: 5000 });
+      await agentforceLink.click();
+
+      return page1;
+
+    } catch (e) {
+
+      await page1.close();
+
+      if (attempt < maxAttempts) {
+        await page.bringToFront();
+        await page.waitForTimeout(waitMs);
+      }
+
+    }
+  }
+
+  throw new Error('Agentforce Agents no apareció en Quick Find');
+}
+
+test('test', async ({ page }) => {
+
+  let page1 = await openSetup(page);
+
+  // Einstein Setup
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+
+  await page1.locator('.slds-checkbox_faux').first().click();
+
+  await page1.close();
+
+  await page.bringToFront();
+
+  // esperar a que aparezca Agentforce
+
+  page1 = await waitForAgentforceAgents(page);
+
+  await page1.locator('.slds-checkbox_faux').click();
+
+  // Users
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Villalobos, Nerio' })
+    .nth(2)
+    .click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Permission Set Assignments[0]' })
+    .click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]')
+    .contentFrame()
+    .locator('input[name="editPermSetAssignments"]')
+    .click();
+
+  // asignar permission sets
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame()
+    .getByLabel('Available Permission Sets')
+    .selectOption('0PSfn000001KgOI');
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Add' })
+    .click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame()
+    .getByLabel('Available Permission Sets')
+    .selectOption('0PSfn000001HrA0');
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Add' })
+    .click();
+
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame()
+    .locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]')
+    .click();
+
+  // crear agente
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+
+  const page2Promise = page1.waitForEvent('popup');
+
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+
+  const page2 = await page2Promise;
+
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+
+  await page2.getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Agentforce Employee Puntos');
+
+  await page2.getByRole('textbox', { name: 'API Name' })
+    .fill('Agentforce_Employee_Puntos');
+
+  await page2.getByRole('button', { name: 'Create' }).click();
+
+  await page2.close();
+
+  await page1.close();
+
+  await page.bringToFront();
+
+  // Trusted URLs
+
+  page1 = await openSetup(page);
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]')
+    .contentFrame()
+    .getByRole('button', { name: 'New Trusted URL' })
+    .click();
+
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* API Name' })
+    .fill('Puntos_Colombia_Empresas_Page');
+
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* URL' })
+    .fill('https://www.puntoscolombia.com');
+
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .locator('input[name="save"]')
+    .click();
+
+});
+
+
+
+👍 Ventajas de esta versión
+
+
+Esta versión:
+
+
+✔ se parece mucho al record original
+✔ no introduce muchas constantes
+✔ mantiene page1 / page2
+✔ no rompe tu orchestrator de iframes
+✔ solo agrega dos helpers pequeños
+
+
+
+🧠 Si quieres mejorar tu plugin
+
+
+La mejor mejora para tu plugin sería que cuando detecte esto:
+
+
+await page1.waitForTimeout(20000);
+await page1.keyboard.press('Control+R');
+
+
+lo transforme automáticamente en:
+
+
+await page1.close();
+await page.bringToFront();
+page1 = await waitForAgentforceAgents(page);
+
+
+Eso haría que todas tus grabaciones funcionen automáticamente.
+
+
+
+Si quieres, en el siguiente mensaje también puedo mostrarte algo muy importante para tu plugin:
+
+
+👉 cómo eliminar completamente el problema de vfFrameId_123456 para que tus grabaciones nunca se rompan entre orgs o ejecuciones.
+
+## Prompt:
+dio el siguiente error:
+
+
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ sf metadelta task play --org PuntosColombia-Demo --tstname tests/PuntosColombia-Demo-10032026-15-40.ts --header
+ ›   Warning: @nervill/metadelta is a linked ESM module and cannot be auto-transpiled. Existing compiled source will be used instead.
+Ejecutando prueba en PuntosColombia-Demo con archivo /home/nervill/DevOps/Talkia/tests/PuntosColombia-Demo-10032026-15-40.ts
+
+
+Running 1 test using 1 worker
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Einstein Setup"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Users"
+
+
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ───────────────────────────
+
+
+Error: locator.click: Error: strict mode violation: locator('input[name="editPermSetAssignments"]') resolved to 4 elements:
+    1) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/PermissionSet/assignPermissionSet.apexp?userId=005an000003UtF3&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]')
+    2) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/PermissionSet/assignPermissionSet.apexp?userId=005an000003UtF3&requiresActivation=1&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set Assignments:' }).locator('input[name="editPermSetAssignments"]')
+    3) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/PermissionSetGroup/assignPermissionSet.apexp?userId=005an000003UtF3&isPermsetGroup=1&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set Group' }).locator('input[name="editPermSetAssignments"]')
+    4) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/Licensing/assignPermissionSetLicense.apexp?userId=005an000003UtF3&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set License Assignments Edit Assignments Permission Set License' }).locator('input[name="editPermSetAssignments"]')
+
+Call log:
+  - waiting for locator('iframe[name^="vfFrameId_"]').contentFrame().locator('input[name="editPermSetAssignments"]')
+
+  283 |     .contentFrame()
+  284 |     .locator('input[name="editPermSetAssignments"]')
+> 285 |     .click();
+      |      ^
+  286 |
+  287 |   // asignar permission sets
+  288 |
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:285:6
+
+Error Context: ../../test-results/.metadelta.PuntosColombia-Demo-10032026-15-40.ts-test/error-context.md
+
+
+1 failed
+    tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ────────────────────────────
+ ›   Error: La ejecución de Playwright finalizó con errores. Código de salida: 1
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$
+
+## Response:
+Sí, el error ya está claro.
+
+
+Qué pasó
+
+
+Este locator:
+
+
+.locator('input[name="editPermSetAssignments"]')
+
+
+encuentra 4 botones distintos dentro del iframe:
+
+
+Permission Set Assignments
+
+Permission Sets con activation
+
+Permission Set Group
+
+Permission Set License Assignments
+
+
+Y Playwright en strict mode exige que el locator apunte a un solo elemento.
+
+
+
+La solución correcta
+
+
+Tienes que decirle explícitamente que haga click en el botón Edit Assignments de la fila Permission Set Assignments.
+
+
+En vez de esto:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+usa esto:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .first()
+  .click();
+
+
+
+Mejor opción todavía
+
+
+Como el texto del row puede variar un poco, te recomiendo esta forma más robusta:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+Eso apunta a la fila que empieza con Permission Set Assignments.
+
+
+
+Qué debes reemplazar en tu archivo
+
+
+Busca esta parte:
+
+
+await page1.locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+o la versión que dejamos más genérica, y cámbiala por esta:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Si quieres evitar depender tanto del nombre del iframe
+
+
+Puedes incluso dejarlo así, muy cercano al record pero más exacto:
+
+
+await page1
+  .locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .getByRole('button', { name: 'Edit Assignments' })
+  .click();
+
+
+Aunque en Visualforce a veces ese botón no sale como button accesible, así que la opción más segura sigue siendo la del input[name="editPermSetAssignments"].
+
+
+
+Bloque corregido completo
+
+
+Te dejo solo el bloque corregido para copiar y pegar:
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+await page1.locator('iframe[name="vfFrameId_1772137752963"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Villalobos, Nerio' })
+  .nth(2)
+  .click();
+
+await page1.locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Permission Set Assignments[0]' })
+  .click();
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Si vuelve a fallar
+
+
+Entonces lo más probable es que el problema no sea el botón, sino que el selector del link:
+
+
+.getByRole('link', { name: 'Permission Set Assignments[0]' })
+
+
+debería ser más flexible, por ejemplo:
+
+
+.getByRole('link', { name: /Permission Set Assignments\[\d+\]/ })
+
+
+quedando así:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('link', { name: /Permission Set Assignments\[\d+\]/ })
+  .click();
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Resumen corto
+
+
+El error fue por esto:
+
+
+tu locator coincidía con 4 botones
+
+Playwright necesita 1 solo
+
+
+La corrección es:
+
+
+filtrar por la fila Permission Set Assignments
+
+luego hacer click al botón dentro de esa fila
+
+
+Usa esta línea:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+Si quieres, te puedo devolver todo el archivo completo ya corregido con este ajuste exacto metido en su lugar.
+
+## Prompt:
+dio este error ahora:
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ sf metadelta task play --org PuntosColombia-Demo --tstname tests/PuntosColombia-Demo-10032026-15-40.ts --header
+ ›   Warning: @nervill/metadelta is a linked ESM module and cannot be auto-transpiled. Existing compiled source will be used instead.
+Ejecutando prueba en PuntosColombia-Demo con archivo /home/nervill/DevOps/Talkia/tests/PuntosColombia-Demo-10032026-15-40.ts
+
+
+Running 1 test using 1 worker
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Einstein Setup"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Users"
+
+
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ───────────────────────────
+
+
+Error: locator.click: Error: strict mode violation: getByRole('row', { name: /^Permission Set Assignments/i }).locator('input[name="editPermSetAssignments"]') resolved to 2 elements:
+    1) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/PermissionSet/assignPermissionSet.apexp?userId=005an000003UtF3&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]')
+    2) <input class="btn" type="button" value="Edit Assignments" title="Edit Assignments" name="editPermSetAssignments" onclick="navigateToUrl('/udd/PermissionSet/assignPermissionSet.apexp?userId=005an000003UtF3&requiresActivation=1&isdtp=p1',null,'editPermSetAssignments');"/> aka getByRole('row', { name: 'Permission Set Assignments:' }).locator('input[name="editPermSetAssignments"]')
+
+Call log:
+  - waiting for locator('iframe[name^="vfFrameId_"]').contentFrame().getByRole('row', { name: /^Permission Set Assignments/i }).locator('input[name="editPermSetAssignments"]')
+
+  284 |     .getByRole('row', { name: /^Permission Set Assignments/i })
+  285 |     .locator('input[name="editPermSetAssignments"]')
+> 286 |     .click();
+      |      ^
+  287 |
+  288 |   // asignar permission sets
+  289 |
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:286:6
+
+Error Context: ../../test-results/.metadelta.PuntosColombia-Demo-10032026-15-40.ts-test/error-context.md
+
+
+1 failed
+    tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ────────────────────────────
+ ›   Error: La ejecución de Playwright finalizó con errores. Código de salida: 1
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$
+
+## Response:
+Sí, ahora quedó mucho más claro.
+
+
+Qué está pasando ahora
+
+
+Ya no tienes 4 coincidencias.
+Ahora solo quedan 2:
+
+
+Permission Set Assignments Edit Assignments Permission Set Assignments Help
+
+Permission Set Assignments:
+
+
+Ambas empiezan por Permission Set Assignments, así que este selector:
+
+
+.getByRole('row', { name: /^Permission Set Assignments/i })
+
+
+sigue trayendo 2 filas.
+
+
+
+Solución más simple y efectiva
+
+
+Debes tomar la primera coincidencia.
+
+
+Reemplaza esto:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+por esto:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Por qué funciona
+
+
+Porque ahora haces:
+
+
+buscar las filas que empiezan por Permission Set Assignments
+
+tomar solo la primera
+
+dentro de esa, buscar el botón editPermSetAssignments
+
+
+Eso elimina el problema de strict mode.
+
+
+
+Bloque completo corregido
+
+
+Copia este bloque así:
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+await page1.locator('iframe[name="vfFrameId_1772137752963"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Villalobos, Nerio' })
+  .nth(2)
+  .click();
+
+await page1.locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Permission Set Assignments[0]' })
+  .click();
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Opción todavía más directa
+
+
+Si quieres ir todavía más al grano, puedes hacer esto:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .locator('input[name="editPermSetAssignments"]')
+  .first()
+  .click();
+
+
+Pero esa opción es menos segura, porque si el orden cambia podrías terminar dando click al botón incorrecto.
+
+
+Por eso te recomiendo más esta:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Recomendación práctica
+
+
+Usa esta línea exacta:
+
+
+await page1.locator('iframe[name^="vfFrameId_"]')
+  .contentFrame()
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+Si luego aparece otro error, ya seguramente será en el siguiente bloque de selección de Permission Sets, y te lo ajusto sobre el mismo archivo.
+
+## Prompt:
+Ahora me dio el error luego de una larga espera pero note diferentes cosas, en primer lugar se queda en la imagen que te adjunto, en segundo lugar la selección de los permission set veo que la selecciona por lo menos logre alcanzar a ver que solo selecciono dos pero nunca los guardo nunca oprimio el boton de "save" y por último en esta pantalla que te anexo creo que no logro encontrar el boton de next para continuar pero tampoco llegó a rellenar todas las variables correspondientes, luego de bastante tiempo muestra este error:
+
+
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ sf metadelta task play --org PuntosColombia-Demo --tstname tests/PuntosColombia-Demo-10032026-15-40.ts --header
+ ›   Warning: @nervill/metadelta is a linked ESM module and cannot be auto-transpiled. Existing compiled source will be used instead.
+Ejecutando prueba en PuntosColombia-Demo con archivo /home/nervill/DevOps/Talkia/tests/PuntosColombia-Demo-10032026-15-40.ts
+
+
+Running 1 test using 1 worker
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Einstein Setup"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Users"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Agentforce Agents"
+➡️ Click: name: "New Agent"
+➡️ Click: name: "Agentforce Employee Agent"
+➡️ Click: name: "Next"
+➡️ Click: name: "Next"
+➡️ Click: name: "Create"
+
+
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ───────────────────────────
+
+
+Test timeout of 300000ms exceeded.
+
+Error: locator.click: Test timeout of 300000ms exceeded.
+Call log:
+  - waiting for getByRole('button', { name: 'Create' })
+
+  352 |   console.log('➡️ Click: name: "Create"');
+  353 |
+> 354 |   await page2.getByRole('button', { name: 'Create' }).click();
+      |                                                       ^
+  355 |
+  356 |   await page2.close();
+  357 |
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:354:55
+
+Error Context: ../../test-results/.metadelta.PuntosColombia-Demo-10032026-15-40.ts-test/error-context.md
+
+
+Slow test file: tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts (5.0m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:228:1 › test ────────────────────────────
+ ›   Error: La ejecución de Playwright finalizó con errores. Código de salida: 1
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ 
+ creo que en si no esta siguiente exactamente los pasos del archivo original creado por el recorder, te paso el archivo original creado por el recorder para que completes lo que falta por favor si es que falta algo
+
+
+import { test, expect } from '@playwright/test';
+
+
+const baseUrl = process.env.METADELTA_BASE_URL ?? baseUrl;
+
+
+test('test', async ({ page }) => {
+  await page.goto('https://ruby-customer-2903--pocdev02.sandbox.lightning.force.com/lightning/o/UserAppMenuItem/home');
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const page1 = await page1Promise;
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+  await page1.waitForTimeout(20000);
+  await page1.keyboard.press('Control+R');
+  await page1.close();
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const page1Promise = page.waitForEvent('popup');
+  //await page1.goto('https://ruby-customer-2903--pocdev02.sandbox.my.salesforce-setup.com/lightning/setup/EinsteinGPTSetup/home');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  await page1.locator('.slds-checkbox_faux').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+  await page1.locator('iframe[name="vfFrameId_1772137752963"]').contentFrame().getByRole('link', { name: 'Villalobos, Nerio' }).nth(2).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137819218"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().getByRole('link', { name: 'Add' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137839299"]').contentFrame().locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[5]' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772137925259"]').contentFrame().getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' }).locator('input[name="editPermSetAssignments"]').click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos ');
+  await page2.getByPlaceholder('Example: Work leads by').click();
+  await page2.getByPlaceholder('Example: Work leads by').fill('Automates common business tasks and assists employees in their flow of work. The agent answers user inquiries by searching authorized Knowledge articles and connected data sources, providing accurate and contextual responses. It can also execute automations and actions to improve productivity and operational efficiency');
+  await page2.getByPlaceholder('Example: You're a Digital').click();
+  await page2.getByPlaceholder('Example: You're a Digital').fill('You are an Agentforce Employee Agent');
+  await page2.getByPlaceholder('Example: Your company').click();
+  await page2.getByPlaceholder('Example: Your company').fill('Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia. ');
+  await page2.locator('.slds-checkbox_faux').click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Create' }).click();
+  await page1.bringToFront();
+  await page1.waitForLoadState('domcontentloaded');
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198118660"]').contentFrame().getByRole('button', { name: 'New Trusted URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* API Name' }).fill('Puntos_Colombia_Empresas_Page');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).click();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('textbox', { name: '* URL' }).fill('https://www.puntoscolombia.com');
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'connect-src (scripts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'font-src (fonts)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'frame-src (iframe content)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('checkbox', { name: 'style-src (stylesheets)' }).check();
+  await page1.locator('iframe[name="vfFrameId_1772198124506"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+
+## Response:
+Thought for 21s
+
+
+Sí, ahora ya se ve mejor cuál es el problema real.
+
+
+Lo que está pasando
+
+
+Veo dos fallas distintas:
+
+
+1. En Agentforce Builder
+
+
+En la captura se ve que llegaste a la pantalla Customize your agent, pero el campo Company quedó vacío.
+Por eso muy probablemente el botón Next no completó el avance correcto y después Create nunca apareció.
+
+
+El recorder había grabado esto:
+
+
+await page2.getByPlaceholder('Example: Your company').fill(...)
+
+
+pero en esta pantalla ese locator por placeholder no parece estar funcionando de forma confiable.
+
+
+La mejor corrección es usar los labels obligatorios:
+
+
+* Description
+
+* Role
+
+* Company
+
+
+
+2. En la asignación de Permission Sets
+
+
+Aunque el recorder grabó las acciones, parece que Salesforce re-renderiza la pantalla después de cada Add, y por eso varias veces:
+
+
+selecciona uno o dos
+
+no alcanza a guardar
+
+o no llega bien al Save
+
+
+Ahí conviene mantener el flujo original, pero agregando pequeñas esperas controladas entre cada Add y antes de Save.
+
+
+
+Te dejo una versión corregida, pero muy cercana al archivo original del recorder
+
+
+Mantengo:
+
+
+page1, page2
+
+los pasos en el mismo orden
+
+los iframe[...]
+
+la estructura general del record
+
+
+Y solo corrijo:
+
+
+baseUrl
+
+reapertura de Setup para Agentforce Agents
+
+botón Edit Assignments
+
+waits entre Permission Sets
+
+labels correctos para Description / Role / Company
+
+espera correcta de Create
+
+
+
+Código completo para copiar y pegar
+
+
+import { test, expect } from '@playwright/test';
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+async function openSetup(page) {
+  await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup');
+
+  await page.getByRole('menuitem', {
+    name: 'Setup Opens in a new tab Setup for current app'
+  }).click();
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+
+  return popup;
+}
+
+async function waitForAgentforceAgents(page, maxAttempts = 8, waitMs = 10000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const page1 = await openSetup(page);
+
+    try {
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('');
+      await page1.getByRole('searchbox', { name: 'Quick Find' }).pressSequentially('Agentforce Agents');
+
+      const agentforceLink = page1.getByRole('link', {
+        name: 'Agentforce Agents',
+        exact: true
+      });
+
+      await agentforceLink.waitFor({ state: 'visible', timeout: 5000 });
+      await agentforceLink.click();
+
+      return page1;
+    } catch (e) {
+      await page1.close();
+
+      if (attempt < maxAttempts) {
+        await page.bringToFront();
+        await page.waitForTimeout(waitMs);
+      }
+    }
+  }
+
+  throw new Error('Agentforce Agents no apareció en Quick Find');
+}
+
+test('test', async ({ page }) => {
+  let page1 = await openSetup(page);
+
+  // Einstein Setup
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Einstein Setup');
+  await page1.getByRole('link', { name: 'Einstein Setup' }).click();
+  await page1.locator('.slds-checkbox_faux').first().click();
+
+  // cerrar y reabrir hasta que aparezca Agentforce Agents
+  await page1.close();
+  await page.bringToFront();
+
+  page1 = await waitForAgentforceAgents(page);
+
+  await page1.locator('.slds-checkbox_faux').click();
+
+  // Users
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+  await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772137752963"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Villalobos, Nerio' })
+    .nth(2)
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772137819218"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Permission Set Assignments[0]' })
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772137819218"]')
+    .contentFrame()
+    .getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' })
+    .locator('input[name="editPermSetAssignments"]')
+    .click();
+
+  // asignar permission sets
+  const psFrame = page1
+    .locator('iframe[name="vfFrameId_1772137839299"]')
+    .contentFrame();
+
+  await psFrame.getByLabel('Available Permission Sets').selectOption('0PSfn000001KgOI');
+  await psFrame.getByRole('link', { name: 'Add' }).click();
+  await page1.waitForTimeout(1000);
+
+  await psFrame.getByLabel('Available Permission Sets').selectOption('0PSfn000001HrA0');
+  await psFrame.getByRole('link', { name: 'Add' }).click();
+  await page1.waitForTimeout(1000);
+
+  await psFrame.getByLabel('Available Permission Sets').selectOption('0PSfn000001Ht5z');
+  await psFrame.getByRole('link', { name: 'Add' }).click();
+  await page1.waitForTimeout(1000);
+
+  await psFrame.getByLabel('Available Permission Sets').selectOption('0PSfn000001Kiac');
+  await psFrame.getByRole('link', { name: 'Add' }).click();
+  await page1.waitForTimeout(1000);
+
+  await psFrame.getByLabel('Available Permission Sets').selectOption('0PSfn000001Hr9y');
+  await psFrame.getByRole('link', { name: 'Add' }).click();
+  await page1.waitForTimeout(1500);
+
+  await psFrame
+    .locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]')
+    .waitFor({ state: 'visible', timeout: 15000 });
+
+  await psFrame
+    .locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]')
+    .click();
+
+  await page1.waitForTimeout(3000);
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772137925259"]')
+    .contentFrame()
+    .getByRole('link', { name: 'Permission Set Assignments[5]' })
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772137925259"]')
+    .contentFrame()
+    .getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' })
+    .locator('input[name="editPermSetAssignments"]')
+    .click();
+
+  // volver a Agentforce Agents
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Agentforce Agents');
+  await page1.getByRole('link', { name: 'Agentforce Agents' }).click();
+
+  const page2Promise = page1.waitForEvent('popup');
+  await page1.getByRole('button', { name: 'New Agent' }).click();
+  const page2 = await page2Promise;
+
+  // flujo del wizard
+  await page2.getByRole('heading', { name: 'Agentforce Employee Agent' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+  await page2.getByRole('button', { name: 'Next' }).click();
+
+  // completar datos del agente
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).click();
+  await page2.getByRole('textbox', { name: 'Name', exact: true }).fill('Agentforce Employee Puntos');
+
+  await page2.getByRole('textbox', { name: 'API Name' }).click();
+  await page2.getByRole('textbox', { name: 'API Name' }).fill('Agentforce_Employee_Puntos');
+
+  await page2.getByLabel('* Description').click();
+  await page2.getByLabel('* Description').fill(
+    'Automate common business tasks and assist users in their flow of work. Agentforce Employee Agent can search knowledge articles and other data sources. Customize it further to meet your employees’ business needs.'
+  );
+
+  await page2.getByLabel('* Role').click();
+  await page2.getByLabel('* Role').fill(
+    'You are an Agentforce Employee Agent'
+  );
+
+  await page2.getByLabel('* Company').click();
+  await page2.getByLabel('* Company').fill(
+    'Your company specializes in customer loyalty and rewards programs, enabling users to earn and redeem points across a network of partner brands in Colombia.'
+  );
+
+  await page2.locator('.slds-checkbox_faux').click();
+
+  await page2.getByRole('button', { name: 'Next' }).click();
+
+  // esperar que aparezca Create realmente
+  await page2.getByRole('button', { name: 'Create' }).waitFor({
+    state: 'visible',
+    timeout: 30000
+  });
+
+  await page2.getByRole('button', { name: 'Create' }).click();
+
+  await page2.close();
+
+  // volver a setup principal
+  await page1.bringToFront();
+  await page1.waitForLoadState('domcontentloaded');
+
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+  await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Trusted URLs');
+  await page1.getByRole('link', { name: 'Trusted URLs', exact: true }).click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198118660"]')
+    .contentFrame()
+    .getByRole('button', { name: 'New Trusted URL' })
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* API Name' })
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* API Name' })
+    .fill('Puntos_Colombia_Empresas_Page');
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* URL' })
+    .click();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('textbox', { name: '* URL' })
+    .fill('https://www.puntoscolombia.com');
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('checkbox', { name: 'connect-src (scripts)' })
+    .check();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('checkbox', { name: 'font-src (fonts)' })
+    .check();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('checkbox', { name: 'frame-src (iframe content)' })
+    .check();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('checkbox', { name: 'style-src (stylesheets)' })
+    .check();
+
+  await page1
+    .locator('iframe[name="vfFrameId_1772198124506"]')
+    .contentFrame()
+    .getByRole('row', { name: 'Save Save & New Cancel', exact: true })
+    .locator('input[name="save"]')
+    .click();
+});
+
+
+
+Qué corregí exactamente
+
+
+En Agentforce Builder
+
+
+Cambié esto:
+
+
+getByPlaceholder('Example: Work leads by')
+getByPlaceholder("Example: You're a Digital")
+getByPlaceholder('Example: Your company')
+
+
+por esto:
+
+
+getByLabel('* Description')
+getByLabel('* Role')
+getByLabel('* Company')
+
+
+Eso es mucho más confiable y explica por qué en tu captura Company quedó vacío.
+
+
+
+En Permission Sets
+
+
+Agregué pequeñas pausas después de cada Add:
+
+
+await page1.waitForTimeout(1000);
+
+
+y antes del Save:
+
+
+await psFrame.locator('input[name="thePage:theForm:thePageBlock:j_id22:save"]').waitFor(...)
+
+
+Eso ayuda mucho cuando Salesforce recarga el bloque después de cada agregación.
+
+
+
+En Create
+
+
+No hago click directo. Primero espero:
+
+
+await page2.getByRole('button', { name: 'Create' }).waitFor(...)
+
+
+porque antes se estaba quedando esperando algo que nunca aparecía.
+
+
+
+Mi lectura del fallo principal
+
+
+El bloqueo más fuerte era este:
+
+
+el wizard llegó a Step 3
+
+Company no se llenó
+
+por eso Next no habilitó el flujo real hacia Create
+
+y el test quedó esperando Create hasta timeout
+
+
+
+Recomendación
+
+
+Prueba este archivo exacto primero.
+
+
+Si vuelve a fallar, el siguiente paso ya no sería “adivinar”, sino ajustar solo uno de estos dos puntos:
+
+
+el iframe vfFrameId_... del bloque de permission sets
+
+el nombre accesible real del botón Create en esa org
+
+
+Pero por la captura, mi apuesta fuerte es que con el cambio a getByLabel('* Company') ya avanzará mucho mejor.
+
+
+Si quieres, después del próximo intento te ayudo a hacer una versión híbrida para tu plugin, donde el recorder siga generando casi todo igual y solo se postprocese automáticamente estas tres situaciones: Setup reopen, Edit Assignments, y Agent Builder fields.
+
+## Prompt:
+se probo con los nuevos cambios y se quedo alli durante bastante tiempo pero no avanzo de alli sencillamente no localiza el siguiente paso, hasta que emitio este error
+
+
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ sf metadelta task play --org PuntosColombia-Demo --tstname tests/PuntosColombia-Demo-10032026-15-40.ts --header
+ ›   Warning: @nervill/metadelta is a linked ESM module and cannot be auto-transpiled. Existing compiled source will be used instead.
+Ejecutando prueba en PuntosColombia-Demo con archivo /home/nervill/DevOps/Talkia/tests/PuntosColombia-Demo-10032026-15-40.ts
+
+
+Running 1 test using 1 worker
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Einstein Setup"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Setup"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Quick Find"
+➡️ Click: name: "Users"
+
+
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test ───────────────────────────
+
+
+Test timeout of 300000ms exceeded.
+
+Error: locator.click: Test timeout of 300000ms exceeded.
+Call log:
+  - waiting for locator('iframe[name^="vfFrameId_"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' })
+
+  263 |     .contentFrame()
+  264 |     .getByRole('link', { name: 'Permission Set Assignments[0]' })
+> 265 |     .click();
+      |      ^
+  266 |
+  267 |   await page1
+  268 |     .locator('iframe[name^="vfFrameId_"]')
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:265:6
+
+Error Context: ../../test-results/.metadelta.PuntosColombia-Demo-10032026-15-40.ts-test/error-context.md
+
+
+Slow test file: tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts (5.0m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test ────────────────────────────
+ ›   Error: La ejecución de Playwright finalizó con errores. Código de salida: 1
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$
+
+## Response:
+Sí, ahora el problema quedó clarísimo con la captura.
+
+
+Qué está pasando
+
+
+En esa pantalla de Users ya no estás dentro de un iframe para ese paso.
+Además, el link no dice:
+
+
+Permission Set Assignments[0]
+
+
+sino algo como:
+
+
+Permission Set Assignments [2]
+
+
+o sea:
+
+
+el número cambió
+
+el texto tiene espacio antes del corchete
+
+no parece estar dentro del iframe que está buscando el script
+
+
+Por eso se queda esperando eternamente este locator:
+
+
+locator('iframe[name^="vfFrameId_"]').contentFrame().getByRole('link', { name: 'Permission Set Assignments[0]' })
+
+
+
+La corrección correcta
+
+
+Debes cambiar ese bloque por uno que:
+
+
+haga click directamente en page1
+
+no use [0] fijo
+
+acepte cualquier número [1], [2], [5], etc.
+
+
+Reemplaza esto:
+
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Permission Set Assignments[0]' })
+  .click();
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+por esto:
+
+
+await page1.getByRole('link', { name: /Permission Set Assignments\s*\[\d+\]/ }).click();
+
+await page1
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Por qué esta versión sí sirve
+
+
+Porque ahora:
+
+
+no dependes de iframe
+
+no dependes de que sea [0]
+
+soporta:
+Permission Set Assignments[0]
+
+Permission Set Assignments [2]
+
+Permission Set Assignments [5]
+
+
+
+Bloque completo corregido de esa parte
+
+
+Te dejo el bloque exacto, listo para copiar y pegar:
+
+
+await page1.getByRole('searchbox', { name: 'Quick Find' }).click();
+await page1.getByRole('searchbox', { name: 'Quick Find' }).fill('Users');
+await page1.getByRole('link', { name: 'Users' }).nth(1).click();
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137752963"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Villalobos, Nerio' })
+  .nth(2)
+  .click();
+
+await page1.getByRole('link', { name: /Permission Set Assignments\s*\[\d+\]/ }).click();
+
+await page1
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Ojo con esta línea también
+
+
+Esta parte probablemente también te va a fallar después:
+
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137925259"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Permission Set Assignments[5]' })
+  .click();
+
+
+porque tiene el mismo problema: número fijo + iframe.
+
+
+Cámbiala también por esto:
+
+
+await page1.getByRole('link', { name: /Permission Set Assignments\s*\[\d+\]/ }).click();
+
+
+Y la siguiente línea:
+
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137925259"]')
+  .contentFrame()
+  .getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+por esta:
+
+
+await page1
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Entonces hay 2 cambios clave
+
+
+Cambio 1
+
+
+Antes:
+
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('link', { name: 'Permission Set Assignments[0]' })
+  .click();
+
+
+Ahora:
+
+
+await page1.getByRole('link', { name: /Permission Set Assignments\s*\[\d+\]/ }).click();
+
+
+Cambio 2
+
+
+Antes:
+
+
+await page1
+  .locator('iframe[name="vfFrameId_1772137819218"]')
+  .contentFrame()
+  .getByRole('row', { name: 'Permission Set Assignments Edit Assignments Permission Set Assignments Help' })
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+Ahora:
+
+
+await page1
+  .getByRole('row', { name: /^Permission Set Assignments/i })
+  .first()
+  .locator('input[name="editPermSetAssignments"]')
+  .click();
+
+
+
+Mi lectura final de esta parte
+
+
+El recorder grabó algo demasiado literal de una sesión específica:
+
+
+iframe específico
+
+contador fijo [0]
+
+nombre exacto del frame
+
+
+Pero en la ejecución real cambió a:
+
+
+sin iframe
+
+contador [2]
+
+layout distinto
+
+
+Entonces aquí sí conviene un pequeño ajuste más robusto, aunque el resto siga parecido al record.
+
+
+Si quieres, te devuelvo en el próximo mensaje el archivo completo entero, pero ya con estas correcciones metidas exactamente en su sitio, para que copies y pegues una sola vez.
+
+## Prompt:
+Ahra fue peor ahora no llega ni al setup cuando antes si llegaba mas alla de lo esperado, y luego despues de tanto tiempo da el siguiente mensaje en consola
+
+
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$ sf metadelta task play --org PuntosColombia-Demo --tstname tests/PuntosColombia-Demo-10032026-15-40.ts --header
+ ›   Warning: @nervill/metadelta is a linked ESM module and cannot be auto-transpiled. Existing compiled source will be used instead.
+Ejecutando prueba en PuntosColombia-Demo con archivo /home/nervill/DevOps/Talkia/tests/PuntosColombia-Demo-10032026-15-40.ts
+
+
+Running 1 test using 1 worker
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test
+➡️ Click: name: "Setup"
+
+
+tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test ───────────────────────────
+
+
+TimeoutError: page.waitForEvent: Timeout 60000ms exceeded while waiting for event "popup"
+=========================== logs ===========================
+waiting for event "popup"
+============================================================
+
+  175 |   await page.getByRole('button', { name: 'Setup' }).click();
+  176 |
+> 177 |   const popupPromise = page.waitForEvent('popup');
+      |                             ^
+  178 |
+  179 |   await page.getByRole('menuitem', {
+  180 |     name: 'Setup Opens in a new tab Setup for current app'
+    at openSetup (/home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:177:29)
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:227:15
+
+TimeoutError: locator.click: Timeout 60000ms exceeded.
+Call log:
+  - waiting for getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+
+  179 |   await page.getByRole('menuitem', {
+  180 |     name: 'Setup Opens in a new tab Setup for current app'
+> 181 |   }).click();
+      |      ^
+  182 |
+  183 |   const popup = await popupPromise;
+  184 |   await popup.waitForLoadState('domcontentloaded');
+    at openSetup (/home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:181:6)
+    at /home/nervill/DevOps/Talkia/tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:227:15
+
+Error Context: ../../test-results/.metadelta.PuntosColombia-Demo-10032026-15-40.ts-test/error-context.md
+
+
+1 failed
+    tests/.metadelta.PuntosColombia-Demo-10032026-15-40.ts:221:1 › test ────────────────────────────
+ ›   Error: La ejecución de Playwright finalizó con errores. Código de salida: 1
+nervill@DESKTOP-L91RLI8:~/DevOps/Talkia$
+
+## Response:
+Sí, ahora el problema cambió y ya se ve claro:
+
+
+Qué está pasando ahora
+
+
+El script sí hace click en Setup, pero no aparece este selector:
+
+
+getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+
+
+En tu captura, el menú que se abre ya no está exponiendo esa opción con ese nombre accesible.
+Se ve un panel con la opción visible “Setup”, pero no como menuitem con ese texto largo.
+
+
+Por eso falla aquí:
+
+
+no encuentra el item del menú
+
+no se dispara el popup
+
+se queda esperando hasta timeout
+
+
+
+Solución correcta
+
+
+Hay que hacer la función openSetup más tolerante, para que:
+
+
+haga click en el botón/ícono de Setup
+
+intente varias formas de encontrar la opción Setup
+
+espere el popup correctamente
+
+
+
+Reemplaza tu función openSetup por esta
+
+
+async function openSetup(page) {
+  await page.goto(`${baseUrl}/lightning/page/home`);
+
+  // abrir menú de setup
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  // intentar abrir el popup de Setup usando varios selectores posibles
+  const popupPromise = page.waitForEvent('popup', { timeout: 30000 });
+
+  const setupOptionCandidates = [
+    page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }),
+    page.getByRole('menuitem', { name: /^Setup$/ }),
+    page.getByRole('link', { name: /^Setup$/ }),
+    page.getByText('Setup', { exact: true }).last()
+  ];
+
+  let clicked = false;
+
+  for (const candidate of setupOptionCandidates) {
+    try {
+      await candidate.waitFor({ state: 'visible', timeout: 5000 });
+      await candidate.click();
+      clicked = true;
+      break;
+    } catch (e) {
+      // probar siguiente opción
+    }
+  }
+
+  if (!clicked) {
+    throw new Error('No se pudo encontrar la opción Setup dentro del menú de Setup');
+  }
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+
+  return popup;
+}
+
+
+
+Por qué esta versión es mejor
+
+
+Porque ya no depende solo de esto:
+
+
+getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' })
+
+
+Ahora intenta varias posibilidades:
+
+
+menuitem largo
+
+menuitem simple "Setup"
+
+link "Setup"
+
+texto visible "Setup"
+
+
+Eso se adapta mejor a los cambios de UI de Salesforce.
+
+
+
+Además cambia esta línea
+
+
+Si hoy estás usando:
+
+
+await page.goto(`${baseUrl}/lightning/o/UserAppMenuItem/home`);
+
+
+yo te recomiendo cambiarla por esta, porque en tu captura el home está en:
+
+
+await page.goto(`${baseUrl}/lightning/page/home`);
+
+
+Es más consistente con la navegación actual.
+
+
+
+Entonces haz estos 2 cambios
+
+
+1. Define baseUrl así
+
+
+const baseUrl = process.env.METADELTA_BASE_URL;
+
+if (!baseUrl) {
+  throw new Error('METADELTA_BASE_URL no está definida');
+}
+
+
+2. Usa esta openSetup
+
+
+async function openSetup(page) {
+  await page.goto(`${baseUrl}/lightning/page/home`);
+
+  await page.getByRole('button', { name: 'Setup' }).click();
+
+  const popupPromise = page.waitForEvent('popup', { timeout: 30000 });
+
+  const setupOptionCandidates = [
+    page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }),
+    page.getByRole('menuitem', { name: /^Setup$/ }),
+    page.getByRole('link', { name: /^Setup$/ }),
+    page.getByText('Setup', { exact: true }).last()
+  ];
+
+  let clicked = false;
+
+  for (const candidate of setupOptionCandidates) {
+    try {
+      await candidate.waitFor({ state: 'visible', timeout: 5000 });
+      await candidate.click();
+      clicked = true;
+      break;
+    } catch (e) {
+      // intentar siguiente candidato
+    }
+  }
+
+  if (!clicked) {
+    throw new Error('No se pudo encontrar la opción Setup dentro del menú');
+  }
+
+  const popup = await popupPromise;
+  await popup.waitForLoadState('domcontentloaded');
+
+  return popup;
+}
+
+
+
+Nota importante
+
+
+En tu captura, la opción visible del panel sí dice Setup, así que esta línea:
+
+
+page.getByText('Setup', { exact: true }).last()
+
+
+probablemente será la que termine funcionando.
+
+
+
+Recomendación práctica
+
+
+Haz solo esto primero:
+
+
+reemplaza openSetup
+
+no toques más nada todavía
+
+vuelve a correr
+
+
+Si abre Setup correctamente, el siguiente punto a ajustar será el flujo después de Users, pero primero hay que estabilizar esta entrada.
+
+
+Si quieres, en el siguiente mensaje te pego el archivo completo entero con esta openSetup ya integrada y sin tocar el resto.
+
+
+
+Powered by ChatGPT Exporter (https://www.chatgptexporter.com)
