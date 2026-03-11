@@ -244,7 +244,39 @@ class TaskPlay extends Command {
             "contentFrame().getByRole('button', { name: /Start/i }).first()).toBeVisible()"
           )
       : normalizedButtons;
-    const normalizedOptionClick = normalizedStartRole.replace(
+    const normalizedAppLauncherSearchClick = normalizedStartRole.replace(
+      /await page\.getByRole\('combobox', \{ name: 'Search apps and items\.\.\.' \}\)\.click\(\);/g,
+      `{
+    const launcherSearch = page.getByRole('combobox', {name: 'Search apps and items...'}).first();
+    if ((await launcherSearch.count()) === 0) {
+      const launcherButton = page.getByRole('button', {name: 'App Launcher'}).first();
+      if (await launcherButton.count()) {
+        await launcherButton.click({timeout: 15000});
+      }
+    }
+    if ((await launcherSearch.count()) > 0) {
+      await launcherSearch.click({timeout: 15000});
+    } else {
+      const launcherFallback = page.getByPlaceholder('Search apps and items...').first();
+      await launcherFallback.waitFor({timeout: 15000});
+      await launcherFallback.click({timeout: 15000});
+    }
+  }`
+    );
+    const normalizedAppLauncherSearchFill = normalizedAppLauncherSearchClick.replace(
+      /await page\.getByRole\('combobox', \{ name: 'Search apps and items\.\.\.' \}\)\.fill\('([^']+)'\);/g,
+      `{
+    const launcherSearch = page.getByRole('combobox', {name: 'Search apps and items...'}).first();
+    if ((await launcherSearch.count()) > 0) {
+      await launcherSearch.fill('$1');
+    } else {
+      const launcherFallback = page.getByPlaceholder('Search apps and items...').first();
+      await launcherFallback.waitFor({timeout: 15000});
+      await launcherFallback.fill('$1');
+    }
+  }`
+    );
+    const normalizedOptionClick = normalizedAppLauncherSearchFill.replace(
       /await page\.getByRole\('option', \{ name: 'Vlocity CMT Administration' \}\)\.click\(\);/g,
       `{
     const option = page.getByRole('option', {name: 'Vlocity CMT Administration'});
