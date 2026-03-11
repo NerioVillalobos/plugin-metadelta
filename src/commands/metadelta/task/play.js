@@ -124,6 +124,7 @@ class TaskPlay extends Command {
     stabilized = this.fixSelfReferencingBaseUrl(stabilized);
     stabilized = this.fixDuplicatePopupPromises(stabilized);
     stabilized = this.rebindClosedPopupPageHandles(stabilized);
+    stabilized = this.removeOrphanPopupPromises(stabilized);
     return stabilized;
   }
 
@@ -144,6 +145,16 @@ class TaskPlay extends Command {
       }
       const renamed = `${name}_${count}`;
       return `const ${renamed} = ${pageRef}.waitForEvent('popup');`;
+    });
+  }
+
+
+  removeOrphanPopupPromises(source) {
+    const declarationRegex = /const\s+(page\d*Promise(?:_\d+)?)\s*=\s*[\w$.]+\.waitForEvent\('popup'\);\n?/g;
+    return source.replace(declarationRegex, (match, promiseVar, offset, fullSource) => {
+      const remaining = fullSource.slice(offset + match.length);
+      const awaitPattern = new RegExp(`await\\s+${promiseVar}\\b`);
+      return awaitPattern.test(remaining) ? match : '';
     });
   }
 
@@ -342,7 +353,25 @@ class TaskPlay extends Command {
       `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
   await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
-    const normalizedIframeHtmlClicks = normalizedQuickFind.replace(
+    const normalizedAgentforceLink = normalizedQuickFind.replace(
+      /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
+      `{
+    const agentforceLink = $1.getByRole('link', {name: 'Agentforce Agents'}).first();
+    if ((await agentforceLink.count()) === 0) {
+      await $1.waitForLoadState('domcontentloaded');
+      await $1.waitForTimeout(3000);
+      await $1.reload({waitUntil: 'domcontentloaded'});
+      await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('Agentforce Agents');
+      await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');
+    }
+    if ((await agentforceLink.count()) > 0) {
+      await agentforceLink.click({timeout: 15000});
+    } else {
+      await $1.getByText('Agentforce Agents', {exact: true}).first().click({timeout: 15000, force: true});
+    }
+  }`
+    );
+    const normalizedIframeHtmlClicks = normalizedAgentforceLink.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.locator\('html'\)\.click\(\);/g,
       `// omit iframe html click in patched tests to avoid timeouts in other orgs`
     );
