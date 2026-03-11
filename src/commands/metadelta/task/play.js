@@ -424,7 +424,11 @@ class TaskPlay extends Command {
     const normalizedBaseUrlExpressions = normalizedBaseUrls
       .replace(/'baseUrl(\/[^']*)'/g, "baseUrl + '$1'")
       .replace(/"baseUrl(\/[^"]*)"/g, "baseUrl + '$1'");
-    const normalizedCheckboxes = normalizedBaseUrlExpressions.replace(
+    const normalizedGotoCalls = normalizedBaseUrlExpressions.replace(
+      /await (\w+)\.goto\(([^;]+)\);/g,
+      `await gotoWithRetry($1, $2);`
+    );
+    const normalizedCheckboxes = normalizedGotoCalls.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -474,9 +478,23 @@ class TaskPlay extends Command {
     );
     const injected = injectedBase.replace(
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
-      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await page.goto(process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
+      `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await gotoWithRetry(page, process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
+async function gotoWithRetry(page, destination, options = {}) {
+  const defaultOptions = {waitUntil: 'domcontentloaded', ...options};
+  try {
+    await page.goto(destination, defaultOptions);
+  } catch (error) {
+    const message = String(error?.message ?? '');
+    if (!/net::ERR_ABORTED/i.test(message)) {
+      throw error;
+    }
+    await page.waitForTimeout(1200);
+    await page.goto(destination, defaultOptions);
+  }
+}
+
 async function waitForMaintenanceJob() {
   const waitMs = Number(process.env.METADELTA_VLOCITY_JOB_WAIT_MS ?? 180000);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
