@@ -170,7 +170,13 @@ class TaskPlay extends Command {
       const promiseVar = `page${suffix}PromiseReopened`;
       const reopenSnippet = `
   const ${promiseVar} = page.waitForEvent('popup');
-  await page.getByRole('menuitem', { name: 'Setup Opens in a new tab Setup for current app' }).click();
+  const setupButton = page.getByRole('button', {name: 'Setup'}).first();
+  if (await setupButton.count()) {
+    await setupButton.click({timeout: 15000});
+  }
+  const setupMenuItem = page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).first();
+  await setupMenuItem.waitFor({timeout: 15000});
+  await setupMenuItem.click({timeout: 15000});
   const ${reopenedVar} = await ${promiseVar};
 `;
 
