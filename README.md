@@ -63,63 +63,6 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.0 (link)`.
 
-> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
-> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
-> **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
-
-### `task record` / `task play` command
-
-Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching and diagnostics:
-
-```bash
-sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header]
-```
-
-Supported coverage for `sf metadelta task play` (scope and limits):
-
-* `task play` creates a temporary patched file (`tests/.metadelta.*`) to stabilize recurring Salesforce UI differences.
-* The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
-
-Automatic mitigations currently covered:
-
-* frontdoor URL vs base origin separation to avoid malformed navigation URLs.
-* Retry flow for transient `net::ERR_ABORTED` style navigation interruptions.
-* Popup rebind/reopen handling when a recorded tab/window is closed and reused later.
-* App Launcher fallback path (combobox/placeholder/reopen launcher).
-* Dynamic selectors for Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
-* Action Library waits + scroll handling before selecting actions.
-* Finish-button enablement checks before click.
-* Normalization of dynamic `vfFrameId_*` and related fragile selectors in recorded tests.
-
-Known limits (not guaranteed by automation only):
-
-* Org-specific permissions/visibility gaps (apps/actions/records/features).
-* Deep UX/DOM changes not yet modeled by current stabilizers.
-* Missing business data dependencies in the target org.
-* External MFA/session policies that block unattended playback.
-
-Expected reliability:
-
-* High for recurrent failures already covered by existing stabilizers.
-* Medium for new flows with moderate UI variation.
-* Low for orgs with strong functional divergence (permissions/data/features/layouts).
-
-How we measure coverage:
-
-* Recommended metric is by recurrent failure families, not code lines.
-* **Stabilization coverage = (recurrent failure families with automatic mitigation) / (recurrent failure families observed) × 100**.
-* Current technical estimate: **~60%–70% coverage** over known recurrent failure families (not all possible Salesforce scenarios).
-
-Diagnostics + collaboration:
-
-1. Review `test-results/.../error-context.md`.
-2. Review `.metadelta/metadelta-task-orchestrator.json` for suggestions/history.
-3. Re-run with `--header` for visual evidence.
-4. Open **Issues → New issue → `task play bug report`** and complete all required fields.
-
-> Please report new failures using the **`task play bug report`** template so issues can be triaged publicly and prioritized incrementally.
-
 ### Usage
 
 Run the command from any directory after linking:
@@ -409,6 +352,63 @@ What the command creates:
 
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
+> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
+> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
+
+### `task record` / `task play` command
+
+Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching and diagnostics:
+
+```bash
+sf metadelta task record --org <alias>
+sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header]
+```
+
+Supported coverage for `sf metadelta task play` (scope and limits):
+
+* `task play` creates a temporary patched file (`tests/.metadelta.*`) to stabilize recurring Salesforce UI differences.
+* The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
+
+Automatic mitigations currently covered:
+
+* frontdoor URL vs base origin separation to avoid malformed navigation URLs.
+* Retry flow for transient `net::ERR_ABORTED` style navigation interruptions.
+* Popup rebind/reopen handling when a recorded tab/window is closed and reused later.
+* App Launcher fallback path (combobox/placeholder/reopen launcher).
+* Dynamic selectors for Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
+* Action Library waits + scroll handling before selecting actions.
+* Finish-button enablement checks before click.
+* Normalization of dynamic `vfFrameId_*` and related fragile selectors in recorded tests.
+
+Known limits (not guaranteed by automation only):
+
+* Org-specific permissions/visibility gaps (apps/actions/records/features).
+* Deep UX/DOM changes not yet modeled by current stabilizers.
+* Missing business data dependencies in the target org.
+* External MFA/session policies that block unattended playback.
+
+Expected reliability:
+
+* High for recurrent failures already covered by existing stabilizers.
+* Medium for new flows with moderate UI variation.
+* Low for orgs with strong functional divergence (permissions/data/features/layouts).
+
+How we measure coverage:
+
+* Recommended metric is by recurrent failure families, not code lines.
+* **Stabilization coverage = (recurrent failure families with automatic mitigation) / (recurrent failure families observed) × 100**.
+* Current technical estimate: **~60%–70% coverage** over known recurrent failure families (not all possible Salesforce scenarios).
+
+Diagnostics + collaboration:
+
+1. Review `test-results/.../error-context.md`.
+2. Review `.metadelta/metadelta-task-orchestrator.json` for suggestions/history.
+3. Re-run with `--header` for visual evidence.
+4. Open **Issues → New issue → `task play bug report`** and complete all required fields.
+
+> Please report new failures using the **`task play bug report`** template so issues can be triaged publicly and prioritized incrementally.
+
 ### `cleanps` command
 
 Generate a trimmed permission-set file with:
@@ -658,63 +658,6 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
 
-> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
-> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
-> **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
-
-### Comando `task record` / `task play`
-
-Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático y diagnóstico:
-
-```bash
-sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header]
-```
-
-Cobertura soportada de `sf metadelta task play` (alcance y límites):
-
-* `task play` crea un archivo temporal parcheado (`tests/.metadelta.*`) para estabilizar diferencias recurrentes de UI en Salesforce.
-* El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
-
-Mitigaciones automáticas cubiertas actualmente:
-
-* Separación de frontdoor URL vs base origin para evitar navegación con URLs mal concatenadas.
-* Reintentos ante interrupciones transitorias de navegación tipo `net::ERR_ABORTED`.
-* Rebind/reapertura de popups cuando una pestaña/ventana grabada se cerró y luego se reutiliza.
-* Fallback de App Launcher (combobox/placeholder/reapertura).
-* Selectores dinámicos para Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
-* Esperas de Action Library + scroll antes de seleccionar acciones.
-* Validación de botón Finish habilitado antes del click.
-* Normalización de `vfFrameId_*` dinámicos y selectores frágiles relacionados.
-
-Límites conocidos (no garantizados solo por automatización):
-
-* Brechas de permisos/visibilidad funcional en la org destino (apps/acciones/registros/features).
-* Cambios fuertes de UX/DOM no contemplados aún por las reglas actuales.
-* Dependencias de datos de negocio inexistentes en la org destino.
-* Políticas externas de MFA/sesión que bloquean la reproducción desatendida.
-
-Confiabilidad esperada:
-
-* Alta en fallas recurrentes ya cubiertas por estabilizadores existentes.
-* Media en flujos nuevos con variaciones moderadas de UI.
-* Baja en orgs con divergencia funcional profunda (permisos/datos/features/layouts).
-
-Cómo medimos cobertura:
-
-* La métrica recomendada es por familias de falla recurrente, no por líneas de código.
-* **Cobertura de estabilización = (familias de falla recurrente con mitigación automática) / (familias de falla recurrente observadas) × 100**.
-* Estimación técnica actual: **~60%–70% de cobertura** sobre fallas recurrentes conocidas (no sobre todos los escenarios posibles de Salesforce).
-
-Diagnóstico + colaboración:
-
-1. Revisa `test-results/.../error-context.md`.
-2. Revisa `.metadelta/metadelta-task-orchestrator.json` para sugerencias/historial.
-3. Reejecuta con `--header` para evidencia visual.
-4. Abre **Issues → New issue → `task play bug report`** y completa todos los campos requeridos.
-
-> Para reportar errores usa el template **`task play bug report`** y así acelerar un triage público, segmentado e incremental.
-
 ### Uso
 
 Ejecuta el comando desde cualquier directorio después de vincularlo:
@@ -962,6 +905,63 @@ Qué crea el comando:
   - `package.xml` (versión Metadata API `66.0`)
 
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
+
+> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
+> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
+
+### Comando `task record` / `task play`
+
+Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático y diagnóstico:
+
+```bash
+sf metadelta task record --org <alias>
+sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header]
+```
+
+Cobertura soportada de `sf metadelta task play` (alcance y límites):
+
+* `task play` crea un archivo temporal parcheado (`tests/.metadelta.*`) para estabilizar diferencias recurrentes de UI en Salesforce.
+* El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
+
+Mitigaciones automáticas cubiertas actualmente:
+
+* Separación de frontdoor URL vs base origin para evitar navegación con URLs mal concatenadas.
+* Reintentos ante interrupciones transitorias de navegación tipo `net::ERR_ABORTED`.
+* Rebind/reapertura de popups cuando una pestaña/ventana grabada se cerró y luego se reutiliza.
+* Fallback de App Launcher (combobox/placeholder/reapertura).
+* Selectores dinámicos para Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
+* Esperas de Action Library + scroll antes de seleccionar acciones.
+* Validación de botón Finish habilitado antes del click.
+* Normalización de `vfFrameId_*` dinámicos y selectores frágiles relacionados.
+
+Límites conocidos (no garantizados solo por automatización):
+
+* Brechas de permisos/visibilidad funcional en la org destino (apps/acciones/registros/features).
+* Cambios fuertes de UX/DOM no contemplados aún por las reglas actuales.
+* Dependencias de datos de negocio inexistentes en la org destino.
+* Políticas externas de MFA/sesión que bloquean la reproducción desatendida.
+
+Confiabilidad esperada:
+
+* Alta en fallas recurrentes ya cubiertas por estabilizadores existentes.
+* Media en flujos nuevos con variaciones moderadas de UI.
+* Baja en orgs con divergencia funcional profunda (permisos/datos/features/layouts).
+
+Cómo medimos cobertura:
+
+* La métrica recomendada es por familias de falla recurrente, no por líneas de código.
+* **Cobertura de estabilización = (familias de falla recurrente con mitigación automática) / (familias de falla recurrente observadas) × 100**.
+* Estimación técnica actual: **~60%–70% de cobertura** sobre fallas recurrentes conocidas (no sobre todos los escenarios posibles de Salesforce).
+
+Diagnóstico + colaboración:
+
+1. Revisa `test-results/.../error-context.md`.
+2. Revisa `.metadelta/metadelta-task-orchestrator.json` para sugerencias/historial.
+3. Reejecuta con `--header` para evidencia visual.
+4. Abre **Issues → New issue → `task play bug report`** y completa todos los campos requeridos.
+
+> Para reportar errores usa el template **`task play bug report`** y así acelerar un triage público, segmentado e incremental.
 
 ### Comando `cleanps`
 
