@@ -37,6 +37,16 @@ const DEFAULT_SOLUTIONS = [
     description: 'La sesión de grabación de Playwright terminó con error.',
     solution: 'Reejecuta con consola visible y prueba manualmente: "npx playwright codegen <url> --target playwright-test --output tests/<archivo>.ts". Si falla por binarios, ejecuta "node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium".',
   },
+  {
+    pattern: 'El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll|No se pudo seleccionar checkbox de Action Library automáticamente',
+    description: 'La lista de Action Library tardó en cargar o no se pudo seleccionar una acción antes de Finish.',
+    solution: 'Reejecuta con "--header" para confirmar el elemento objetivo y verifica que el modal "Add from Asset Library" termine de cargar (sin spinner). Si el botón Finish sigue deshabilitado, valida permisos/visibilidad de acciones en la org destino.',
+  },
+  {
+    pattern: 'Search apps and items\.\.\.|App Launcher',
+    description: 'El buscador del App Launcher no estuvo disponible a tiempo en el flujo automático.',
+    solution: 'Reintenta la ejecución; el parcheador ya abre App Launcher y aplica fallback por placeholder. Si persiste, valida que la app objetivo sea visible para el usuario autenticado.',
+  },
 ];
 
 
@@ -81,6 +91,18 @@ export class TaskOrchestrator {
       const parsed = JSON.parse(raw);
       parsed.solutions ??= [];
       parsed.errors ??= [];
+
+      const existingPatterns = new Set(parsed.solutions.map((solution) => solution.pattern));
+      for (const defaultSolution of DEFAULT_SOLUTIONS) {
+        if (!existingPatterns.has(defaultSolution.pattern)) {
+          parsed.solutions.push({
+            ...defaultSolution,
+            addedAt: new Date().toISOString(),
+            lastUsedAt: null,
+          });
+        }
+      }
+
       return parsed;
     } catch (error) {
       fs.writeFileSync(this.filePath, JSON.stringify(initialData, null, 2));
