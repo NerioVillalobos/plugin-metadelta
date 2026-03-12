@@ -535,10 +535,38 @@ async function gotoWithRetry(page, destination, options = {}) {
   }
 }
 
+async function waitForActionLibraryReady(page, timeoutMs = 45000) {
+  const modalContainer = page.locator('section[role="dialog"], .slds-modal__content').first();
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const hasModal = (await modalContainer.count()) > 0;
+    const rows = hasModal ? modalContainer.locator('tbody tr') : page.locator('tbody tr');
+    const checkboxes = hasModal
+      ? modalContainer.locator('[id^="check-button-label-"], tbody tr .slds-checkbox_faux, tbody tr input[type="checkbox"]')
+      : page.locator('[id^="check-button-label-"], tbody tr .slds-checkbox_faux, tbody tr input[type="checkbox"]');
+
+    const rowCount = await rows.count();
+    const checkboxCount = await checkboxes.count();
+    const loadingSpinners = hasModal ? modalContainer.locator('.slds-spinner, [role="progressbar"]') : page.locator('.slds-spinner, [role="progressbar"]');
+    const spinnerCount = await loadingSpinners.count();
+
+    if ((rowCount > 0 || checkboxCount > 0) && spinnerCount === 0) {
+      return true;
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  return false;
+}
+
 async function selectActionLibraryCheckboxWithScroll(page, options = {}) {
   const {requireFinishEnabled = false} = options;
   const modalContainer = page.locator('section[role="dialog"], .slds-modal__content').first();
   const finishButton = page.getByRole('button', {name: 'Finish'}).first();
+
+  await waitForActionLibraryReady(page, 45000);
 
   async function isFinishReady() {
     return (await finishButton.count()) > 0 && (await finishButton.isEnabled());
@@ -588,22 +616,26 @@ async function selectActionLibraryCheckboxWithScroll(page, options = {}) {
     }, direction);
   }
 
-  for (let attempt = 0; attempt < 14; attempt += 1) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     if (!requireFinishEnabled && (await isFinishReady())) {
       return true;
     }
 
     const selected = await trySelectCheckbox();
     if (selected) {
-      await page.waitForTimeout(350);
+      await page.waitForTimeout(500);
       if (!requireFinishEnabled || (await isFinishReady())) {
         return true;
       }
     }
 
-    const direction = attempt < 10 ? 1 : -1;
+    if (attempt % 4 === 0) {
+      await waitForActionLibraryReady(page, 8000);
+    }
+
+    const direction = attempt < 14 ? 1 : -1;
     await scrollActionLibrary(direction);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(350);
   }
 
   if (!requireFinishEnabled) {
@@ -614,18 +646,18 @@ async function selectActionLibraryCheckboxWithScroll(page, options = {}) {
   throw new Error('El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll.');
 }
 
-
 async function clickFinishWhenEnabled(page) {
   const finishButton = page.getByRole('button', {name: 'Finish'}).first();
+  await waitForActionLibraryReady(page, 45000);
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     if ((await finishButton.count()) > 0 && (await finishButton.isEnabled())) {
       await finishButton.click({timeout: 15000});
       return;
     }
 
     await selectActionLibraryCheckboxWithScroll(page, {requireFinishEnabled: true});
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(350);
   }
 
   throw new Error('El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll.');
