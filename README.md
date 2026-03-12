@@ -109,7 +109,7 @@ How we measure coverage:
 
 * Recommended metric is by recurrent failure families, not code lines.
 * **Stabilization coverage = (recurrent failure families with automatic mitigation) / (recurrent failure families observed) × 100**.
-* Current technical estimate: **~70%–80% coverage** over known recurrent failure families (not all possible Salesforce scenarios).
+* Current technical estimate: **~60%–70% coverage** over known recurrent failure families (not all possible Salesforce scenarios).
 
 Diagnostics + collaboration:
 
@@ -704,7 +704,7 @@ Cómo medimos cobertura:
 
 * La métrica recomendada es por familias de falla recurrente, no por líneas de código.
 * **Cobertura de estabilización = (familias de falla recurrente con mitigación automática) / (familias de falla recurrente observadas) × 100**.
-* Estimación técnica actual: **~70%–80% de cobertura** sobre fallas recurrentes conocidas (no sobre todos los escenarios posibles de Salesforce).
+* Estimación técnica actual: **~60%–70% de cobertura** sobre fallas recurrentes conocidas (no sobre todos los escenarios posibles de Salesforce).
 
 Diagnóstico + colaboración:
 
