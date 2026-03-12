@@ -637,6 +637,69 @@
         "collect.js"
       ]
     },
+    "metadelta:security:users": {
+      "aliases": [],
+      "args": {},
+      "description": "Replica el flujo de “metadelta security users”: carga la matriz maestra y usuarios objetivo, resuelve IDs en la org, genera CSVs de cambios y opcionalmente ejecuta los bulk jobs.",
+      "flags": {
+        "master": {
+          "name": "master",
+          "required": true,
+          "summary": "CSV maestro con la matriz de seguridad.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-users": {
+          "name": "target-users",
+          "required": true,
+          "summary": "CSV con usuarios objetivo (Username, RoleName).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output-dir": {
+          "name": "output-dir",
+          "summary": "Directorio de salida para los CSV generados.",
+          "default": "out",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "apply": {
+          "name": "apply",
+          "summary": "Aplica los cambios mediante Bulk API.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:security:users",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "security",
+        "users.js"
+      ]
+    },
     "metadelta:task:play": {
       "aliases": [],
       "args": {},
@@ -654,15 +717,6 @@
           "name": "target-org",
           "required": false,
           "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
-    "metadelta:security:users": {
-      "aliases": [],
-      "args": {},
-      "description": "Replica el flujo de “metadelta security users”: carga la matriz maestra y usuarios objetivo, resuelve IDs en la org, genera CSVs de cambios y opcionalmente ejecuta los bulk jobs.",
-      "flags": {
-        "master": {
-          "name": "master",
-          "required": true,
-          "summary": "CSV maestro con la matriz de seguridad.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -671,10 +725,6 @@
           "name": "tstname",
           "required": true,
           "summary": "Nombre del archivo .ts generado por el comando record.",
-        "target-users": {
-          "name": "target-users",
-          "required": true,
-          "summary": "CSV con usuarios objetivo (Username, RoleName).",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -721,11 +771,6 @@
           "name": "org",
           "required": false,
           "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
-        "org": {
-          "char": "o",
-          "name": "org",
-          "required": true,
-          "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -737,31 +782,16 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
-        "output-dir": {
-          "name": "output-dir",
-          "summary": "Directorio de salida para los CSV generados.",
-          "default": "out",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "apply": {
-          "name": "apply",
-          "summary": "Aplica los cambios mediante Bulk API.",
-          "allowNo": false,
-          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:task:record",
-      "id": "metadelta:security:users",
       "pluginAlias": "@nervill/metadelta",
       "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
-      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
       "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
@@ -770,10 +800,8 @@
         "metadelta",
         "task",
         "record.js"
-        "security",
-        "users.js"
       ]
     }
   },
-  "version": "0.10.0"
+  "version": "0.10.1"
 }
