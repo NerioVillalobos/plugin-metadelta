@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.10.1
+> **Last update / Última actualización:** 2026-03-12 — `@nervill/metadelta` 0.10.1
 
 # Metadelta Salesforce CLI Plugin
 
