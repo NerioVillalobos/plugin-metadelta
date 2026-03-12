@@ -538,44 +538,82 @@ async function gotoWithRetry(page, destination, options = {}) {
 async function selectActionLibraryCheckboxWithScroll(page, options = {}) {
   const {requireFinishEnabled = false} = options;
   const modalContainer = page.locator('section[role="dialog"], .slds-modal__content').first();
-  const checkboxByDynamicId = modalContainer.locator('[id^="check-button-label-"] .slds-checkbox_faux');
-  const rowCheckboxes = modalContainer.locator('tbody tr .slds-checkbox_faux');
   const finishButton = page.getByRole('button', {name: 'Finish'}).first();
 
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    let clicked = false;
+  async function isFinishReady() {
+    return (await finishButton.count()) > 0 && (await finishButton.isEnabled());
+  }
 
-    if ((await checkboxByDynamicId.count()) > 0) {
-      const target = checkboxByDynamicId.first();
+  async function trySelectCheckbox() {
+    const selectorAttempts = [
+      {type: 'click', locator: modalContainer.locator('[id^="check-button-label-"] .slds-checkbox_faux')},
+      {type: 'click', locator: modalContainer.locator('[id^="check-button-label-"]')},
+      {type: 'click', locator: modalContainer.locator('tbody tr .slds-checkbox_faux')},
+      {type: 'click', locator: modalContainer.locator('tbody tr [role="checkbox"]')},
+      {type: 'check', locator: modalContainer.locator('tbody tr input[type="checkbox"]')},
+    ];
+
+    for (const attempt of selectorAttempts) {
+      const locator = attempt.locator;
+      if ((await locator.count()) === 0) {
+        continue;
+      }
+      const target = locator.first();
       await target.scrollIntoViewIfNeeded();
-      await target.click({timeout: 15000, force: true});
-      clicked = true;
-    } else if ((await rowCheckboxes.count()) > 0) {
-      const count = await rowCheckboxes.count();
-      const candidateIndex = Math.max(0, Math.min(count - 1, Math.floor(count / 2)));
-      const fallbackCheckbox = rowCheckboxes.nth(candidateIndex);
-      await fallbackCheckbox.scrollIntoViewIfNeeded();
-      await fallbackCheckbox.click({timeout: 15000, force: true});
-      clicked = true;
+      if (attempt.type === 'check') {
+        await target.check({timeout: 15000, force: true});
+      } else {
+        await target.click({timeout: 15000, force: true});
+      }
+      return true;
     }
 
-    if (clicked) {
+    return false;
+  }
+
+  async function scrollActionLibrary(direction = 1) {
+    const scrollHost = (await modalContainer.count()) > 0 ? modalContainer : page.locator('body');
+    await scrollHost.evaluate((node, dir) => {
+      const root = node;
+      const candidates = [root, ...root.querySelectorAll('*')];
+      for (const element of candidates) {
+        const style = window.getComputedStyle(element);
+        const canScroll =
+          (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto' || style.overflow === 'scroll') &&
+          element.scrollHeight > element.clientHeight;
+        if (canScroll) {
+          element.scrollBy(0, 320 * dir);
+        }
+      }
+    }, direction);
+  }
+
+  for (let attempt = 0; attempt < 14; attempt += 1) {
+    if (!requireFinishEnabled && (await isFinishReady())) {
+      return true;
+    }
+
+    const selected = await trySelectCheckbox();
+    if (selected) {
       await page.waitForTimeout(350);
-      if (!requireFinishEnabled || ((await finishButton.count()) > 0 && (await finishButton.isEnabled()))) {
+      if (!requireFinishEnabled || (await isFinishReady())) {
         return true;
       }
     }
 
-    const scrollTarget = (await modalContainer.count()) > 0 ? modalContainer : page.locator('body');
-    await scrollTarget.evaluate((node) => {
-      const element = node;
-      element.scrollBy(0, 320);
-    });
+    const direction = attempt < 10 ? 1 : -1;
+    await scrollActionLibrary(direction);
     await page.waitForTimeout(300);
   }
 
-  throw new Error('No se encontró una acción seleccionable en Action Library después de aplicar scroll.');
+  if (!requireFinishEnabled) {
+    console.log('⚠️ No se pudo seleccionar checkbox de Action Library automáticamente; se continuará con el flujo.');
+    return false;
+  }
+
+  throw new Error('El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll.');
 }
+
 
 async function clickFinishWhenEnabled(page) {
   const finishButton = page.getByRole('button', {name: 'Finish'}).first();
