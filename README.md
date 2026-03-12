@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2025-12-02 — `@nervill/metadelta` 0.9.5
+> **Last update / Última actualización:** 2026-03-06 — `@nervill/metadelta` 0.10.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -7,14 +7,18 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers six complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers ten complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
+* `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when deletions are detected. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
 * `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
+* `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
+* `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API.
+* `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -22,11 +26,15 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Installation](#installation)
 - [`sf metadelta find`](#usage)
+- [`sf metadelta finddelta`](#finddelta-command)
 - [`sf metadelta cleanps`](#cleanps-command)
 - [`sf metadelta findtest`](#findtest-command)
 - [`sf metadelta manual collect`](#manual-collect-command)
 - [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
+- [`sf metadelta access`](#access-command)
+- [`sf metadelta security users`](#security-users-command)
+- [`sf metadelta initspace`](#initspace-command)
 
 ### Installation
 
@@ -38,7 +46,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.0`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -51,7 +59,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.0 (link)`.
 
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
@@ -131,6 +139,41 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
 
+
+### `finddelta` command
+
+Generate delta manifests by comparing two branches:
+
+```bash
+sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+What it does:
+
+1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
+2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
+3. Creates destructive manifests automatically when deletions exist.
+4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+
+Core outputs:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (only when needed)
+
+Vlocity outputs:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (only when needed)
+
+Flags:
+
+| Flag | Description |
+|------|-------------|
+| `--from` | **Required.** Source branch (typically the PR branch). |
+| `--to` | **Required.** Base branch for comparison. |
+| `--xml` | Existing destination `package.xml` to update with missing Core components. |
+| `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
+
 ### `postvalidate` command
 
 Validates a deployment by re‑retrieving the manifests you used (XML for Salesforce Core and/or YAML for Vlocity) into a temporary folder, comparing the downloaded files against your local sources, and rendering a colorized `Component | Name | Diff` table with `✓` for matches and `✗` for differences.
@@ -171,6 +214,145 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
   ```
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
+
+### `access` command
+
+Metadelta Access is an **Org Access Replication Tool** with applied security controls. It automates a formerly manual process to export aliases, protect auth URLs, and restore org access across machines with MFA + passphrase encryption.
+
+Use Metadelta Access to transfer org login access securely between machines:
+
+```bash
+sf metadelta access --all --output docs
+```
+
+Core flow:
+
+1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
+   During this step, the command tries to print an ASCII QR in the terminal (when Python `qrcode` is available); it always prints Secret + URI as fallback.
+2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL (`sf org display --verbose`), encrypts it, and rewrites `accessbackup.dat` with encrypted payloads.
+3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores auth using `sfdx auth:sfdxurl:store -f <file> -a <alias>` (fallback: `sf org login sfdx-url` when available).
+
+> Important: `--addaccess` only works after `--capture` has encrypted the file. If `accessbackup.dat` still contains `alias;username` rows, run capture first.
+> Usage reminder: pass the folder as the value of the flag, for example `sf metadelta access --addaccess docs/FolderName` (do not duplicate the flag).
+
+The command is implemented in Node.js only (no Python runtime/dependencies), so it works the same on Windows, Linux, and WSL as long as Salesforce CLI is installed.
+
+#### Platform requirements (Windows / macOS / Linux / WSL)
+
+To run `sf metadelta access` reliably, ensure the following prerequisites are available:
+
+1. **Salesforce CLI**
+   - Required on all platforms.
+   - Verify with:
+     ```bash
+     sf --version
+     ```
+2. **Authenticated org session(s)**
+   - Export/capture depends on active org sessions in your local CLI auth store.
+   - Verify with:
+     ```bash
+     sf org list
+     ```
+3. **Node.js environment compatible with this plugin**
+   - The plugin requires Node.js 18+ (as declared in `package.json`).
+4. **Legacy `sfdx` binary (recommended for replication restore)**
+   - Primary restore command uses `sfdx auth:sfdxurl:store`.
+   - If unavailable, the command attempts `sf org login sfdx-url` fallback.
+5. **Optional ASCII QR rendering dependency**
+   - If Python + `qrcode` module exists, the command prints an ASCII QR in terminal during MFA creation.
+   - Without it, Secret + URI are still printed and can be entered manually in your authenticator app.
+
+Platform notes:
+
+- **Windows (PowerShell/CMD):** keep Salesforce CLI binaries available in `PATH` and prefer running from a regular user terminal with profile initialization enabled.
+- **macOS/Linux:** ensure `sf` (and optionally `sfdx`) resolve from the same shell session where you run the plugin.
+- **WSL:** if mixing Windows and WSL auth contexts, validate where your CLI auth store is located and run export/restore in the same environment when possible.
+
+#### Responsibility and security notice
+
+By using `metadelta access` and all other commands in this plugin, you acknowledge that:
+
+- You are responsible for complying with your organization’s security policies.
+- You are responsible for protecting MFA secrets, passphrases, backup files, and generated auth artifacts.
+- You should only run these commands in trusted environments and with authorized org access.
+- The maintainers/authors are not responsible for misuse, credential leakage, or operational impact caused by incorrect handling.
+
+Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
+
+### `security users` command
+
+Use this command to transform a security matrix into actionable Bulk API files for a target org:
+
+```bash
+sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
+```
+
+This workflow mirrors the original Python utility and is designed for controlled migrations of user access models.
+
+**What it does**
+
+1. Reads the master matrix (`--master`) and the target users file (`--target-users`).
+2. Resolves org IDs by querying `User`, `UserRole`, `PermissionSetGroup`, and `Group` via Salesforce CLI.
+3. Builds these output files under `--output-dir` (default `out`):
+   - `user_role_updates.csv`
+   - `permissionsetassignment_insert.csv`
+   - `groupmember_insert.csv`
+   - `validation_errors.csv`
+4. Runs as dry-run by default (only generates files).
+5. When `--apply` is present, executes the corresponding bulk operations:
+   - `sf data update bulk -s User`
+   - `sf data import bulk -s PermissionSetAssignment`
+   - `sf data import bulk -s GroupMember`
+
+**Input expectations**
+
+- `--master` must include columns like: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
+- `PermissionSetGroup`, `PublicGroupSegmento`, and `Queues` support multiple values separated by `|`.
+- `--target-users` should include at least: `Username`, `RoleName`.
+
+**Flags**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--master` | **Required.** Master security matrix CSV. | N/A |
+| `--target-users` | **Required.** CSV with users to process. | N/A |
+| `--org`, `-o` | **Required.** Alias/username of the target org. | N/A |
+| `--output-dir` | Output directory for generated CSV files. | `out` |
+| `--apply` | Applies generated operations through Bulk API. | `false` |
+
+**Examples**
+
+- Dry run (generate files only):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  ```
+- Apply mode (execute bulk operations):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  ```
+
+### `initspace` command
+
+Create the recommended workspace scaffold in your current directory:
+
+```bash
+sf metadelta initspace
+```
+
+What the command creates:
+
+- Folders:
+  - `force-app/main/default`
+  - `docs`
+  - `data`
+  - `manifest`
+  - `scripts`
+- Root files:
+  - `.gitignore` (Metadelta template)
+  - `sfdx-project.json` (`sourceApiVersion` `66.0`)
+  - `package.xml` (Metadata API version `66.0`)
+
+`initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
 ### `cleanps` command
 
@@ -221,9 +403,9 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 |----------|---------|
 | Show the Apex ↔︎ test mapping in the console | `sf metadelta findtest` |
 | Restrict the report to the Apex classes listed in a manifest (analysis only) | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validate a manifest against a specific org while keeping a dry-run deploy | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Execute the deployment helper without --dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -231,7 +413,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 
 #### Manual-step documentation detection
 
-When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/OSS-FSL-5044-PRE.md` for `manifest/OSSFSL-5044.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
+When you provide `--xml-name` (or `--deploy`), the command cross-checks the manifest name against files inside the project’s `docs/` directory. If it finds documentation that references the manifest identifier (for example `docs/Prefix-NumberStories-PRE.md` for `manifest/name-branch.xml`), the console shows a prominent warning so you can review and run those manual steps before or instead of the deployment.
 
 If the manifest file itself is missing but matching documentation exists under `docs/`, the command stops and reminds you to follow the documented manual procedure without using `--dry-run` or `--run-deploy`. When neither the manifest nor related documentation exist, it reports the missing XML file as an error.
 
@@ -270,7 +452,7 @@ Only test classes whose names match the Apex class directly (`MyClassTest`, `MyC
 
 ### `manual collect` command
 
-Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `OSS-FSL-<story>-<PRE|POST>.md` pattern—files that start with `OSSFSL` are normalized automatically. Run the command with:
+Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -331,15 +513,15 @@ When you add `--partial --sprint-branch <name> [--base-branch master]`, the comm
 
 #### Example
 
-To merge every manifest whose filename contains `OSSFSL` into `manifest/globalpackage.xml`:
+To merge every manifest whose filename contains `Prefix` into `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefix
 
 To restrict the merge to manifests that have not been merged back into `master` yet:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
 ```
 
@@ -371,14 +553,18 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece seis flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece diez flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
+* `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
 * `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
+* `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
+* `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios.
+* `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -386,10 +572,15 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
 - [Instalación](#instalación)
 - [`sf metadelta find`](#uso)
+- [`sf metadelta finddelta`](#comando-finddelta)
 - [`sf metadelta cleanps`](#comando-cleanps)
 - [`sf metadelta findtest`](#comando-findtest)
 - [`sf metadelta manual collect`](#comando-manual-collect)
 - [`sf metadelta merge`](#comando-merge)
+- [`sf metadelta postvalidate`](#comando-postvalidate)
+- [`sf metadelta access`](#comando-access)
+- [`sf metadelta security users`](#comando-security-users)
+- [`sf metadelta initspace`](#comando-initspace)
 
 ### Instalación
 
@@ -488,6 +679,180 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
 
+
+### Comando `finddelta`
+
+Genera manifiestos delta comparando dos ramas:
+
+```bash
+sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
+```
+
+Qué hace:
+
+1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
+2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
+3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones.
+4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+
+Salidas Core:
+
+- `manifest/<from>.xml`
+- `manifest/Destructive-<from>.xml` (solo cuando corresponde)
+
+Salidas Vlocity:
+
+- `manifest/<from>.yaml`
+- `manifest/Destructive-<from>.yaml` (solo cuando corresponde)
+
+Banderas:
+
+| Bandera | Descripción |
+|---------|-------------|
+| `--from` | **Requerida.** Rama fuente (normalmente la rama del PR). |
+| `--to` | **Requerida.** Rama base para la comparación. |
+| `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
+| `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
+
+### Comando `access`
+
+Metadelta Access es una **herramienta de replicación de accesos de orgs (Org Access Replication Tool)** con controles de seguridad aplicados. Automatiza un proceso que antes era manual para exportar aliases, proteger auth URLs y restaurar accesos entre equipos usando MFA + cifrado con passphrase.
+
+Metadelta Access permite mover accesos de orgs entre equipos de forma segura:
+
+```bash
+sf metadelta access --all --output docs
+```
+
+Flujo principal:
+
+1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
+   En este paso, el comando intenta mostrar un QR ASCII en terminal (si Python `qrcode` está disponible); siempre imprime Secret + URI como respaldo.
+2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL (`sf org display --verbose`), la cifra y reemplaza `accessbackup.dat` con datos cifrados.
+3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sfdx auth:sfdxurl:store -f <archivo> -a <alias>` (fallback: `sf org login sfdx-url` si está disponible).
+
+> Importante: `--addaccess` solo funciona después de ejecutar `--capture` para cifrar el archivo. Si `accessbackup.dat` aún tiene filas `alias;usuario`, primero ejecuta capture.
+> Recordatorio de uso: pasa la carpeta como valor de la bandera, por ejemplo `sf metadelta access --addaccess docs/FolderName` (sin duplicar la bandera).
+
+El comando está implementado solo con Node.js (sin dependencias de Python), por lo que funciona igual en Windows, Linux y WSL siempre que Salesforce CLI esté instalado.
+
+#### Requisitos por plataforma (Windows / macOS / Linux / WSL)
+
+Para ejecutar `sf metadelta access` de forma confiable, verifica estos prerrequisitos:
+
+1. **Salesforce CLI**
+   - Requerido en todas las plataformas.
+   - Validar con:
+     ```bash
+     sf --version
+     ```
+2. **Sesiones autenticadas de org**
+   - La exportación/captura depende de sesiones activas en el almacén local de autenticación del CLI.
+   - Validar con:
+     ```bash
+     sf org list
+     ```
+3. **Entorno Node.js compatible con el plugin**
+   - El plugin requiere Node.js 18+ (declarado en `package.json`).
+4. **Binario legacy `sfdx` (recomendado para la restauración)**
+   - El comando principal de restauración usa `sfdx auth:sfdxurl:store`.
+   - Si no está disponible, el comando intenta `sf org login sfdx-url` como fallback.
+5. **Dependencia opcional para QR ASCII**
+   - Si existe Python + módulo `qrcode`, se imprime un QR ASCII en terminal al crear el MFA.
+   - Si no existe, igual se imprime Secret + URI para registro manual en la app autenticadora.
+
+Notas por plataforma:
+
+- **Windows (PowerShell/CMD):** asegúrate de que los binarios de Salesforce CLI estén en `PATH` y ejecuta desde una terminal de usuario con inicialización de perfil activa.
+- **macOS/Linux:** confirma que `sf` (y opcionalmente `sfdx`) se resuelvan en la misma sesión de shell donde ejecutas el plugin.
+- **WSL:** si mezclas contextos de autenticación entre Windows y WSL, valida dónde se guarda la autenticación y procura ejecutar exportación/restauración en el mismo entorno.
+
+#### Aviso de responsabilidad y seguridad
+
+Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
+
+- Eres responsable de cumplir las políticas de seguridad de tu organización.
+- Eres responsable de proteger secretos MFA, passphrases, backups y archivos de autenticación generados.
+- Debes ejecutar estos comandos únicamente en entornos confiables y con acceso autorizado a las orgs.
+- Los autores/mantenedores no se responsabilizan por mal uso, fuga de credenciales o impactos operativos por manejo incorrecto.
+
+Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
+
+### Comando `security users`
+
+Usa este comando para convertir una matriz de seguridad en archivos ejecutables por Bulk API para una org destino:
+
+```bash
+sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
+```
+
+Este flujo replica la utilidad original en Python y está orientado a migraciones controladas del modelo de accesos de usuarios.
+
+**Qué realiza**
+
+1. Lee la matriz maestra (`--master`) y el archivo de usuarios objetivo (`--target-users`).
+2. Resuelve IDs en la org consultando `User`, `UserRole`, `PermissionSetGroup` y `Group` con Salesforce CLI.
+3. Genera estos archivos de salida en `--output-dir` (por defecto `out`):
+   - `user_role_updates.csv`
+   - `permissionsetassignment_insert.csv`
+   - `groupmember_insert.csv`
+   - `validation_errors.csv`
+4. Por defecto corre en dry-run (solo genera archivos).
+5. Si agregas `--apply`, ejecuta las operaciones bulk correspondientes:
+   - `sf data update bulk -s User`
+   - `sf data import bulk -s PermissionSetAssignment`
+   - `sf data import bulk -s GroupMember`
+
+**Formato esperado de entrada**
+
+- `--master` debe incluir columnas como: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
+- `PermissionSetGroup`, `PublicGroupSegmento` y `Queues` aceptan múltiples valores separados por `|`.
+- `--target-users` debe incluir al menos: `Username`, `RoleName`.
+
+**Banderas**
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--master` | **Requerida.** CSV maestro de matriz de seguridad. | N/A |
+| `--target-users` | **Requerida.** CSV con los usuarios a procesar. | N/A |
+| `--org`, `-o` | **Requerida.** Alias/usuario de la org destino. | N/A |
+| `--output-dir` | Directorio donde se generan los CSV de salida. | `out` |
+| `--apply` | Aplica las operaciones generadas vía Bulk API. | `false` |
+
+**Ejemplos**
+
+- Dry run (solo generación de archivos):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  ```
+- Modo apply (ejecuta operaciones bulk):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  ```
+
+### Comando `initspace`
+
+Crea la estructura recomendada del workspace en el directorio actual:
+
+```bash
+sf metadelta initspace
+```
+
+Qué crea el comando:
+
+- Carpetas:
+  - `force-app/main/default`
+  - `docs`
+  - `data`
+  - `manifest`
+  - `scripts`
+- Archivos en la raíz:
+  - `.gitignore` (plantilla Metadelta)
+  - `sfdx-project.json` (`sourceApiVersion` `66.0`)
+  - `package.xml` (versión Metadata API `66.0`)
+
+`initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
+
 ### Comando `cleanps`
 
 Genera una versión depurada de un permission set con:
@@ -537,9 +902,9 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 |-----------|---------|
 | Mostrar el mapeo Apex ↔︎ prueba en consola | `sf metadelta findtest` |
 | Limitar el reporte a las clases Apex listadas en un manifiesto | `sf metadelta findtest --xml-name manifest/package.xml` |
-| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss` |
-| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy` |
-| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg-devoss --run-deploy-prod` |
+| Validar un manifiesto contra una org específica manteniendo el dry-run | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg` |
+| Ejecutar el asistente de despliegue sin agregar `--dry-run` | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy` |
+| Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
 
@@ -576,7 +941,7 @@ Solo se consideran confiables las clases de prueba cuyo nombre coincide directam
 
 ### Comando `manual collect`
 
-Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `OSS-FSL-<historia>-<PRE|POST>.md` (las variantes con `OSSFSL` se normalizan automáticamente). Ejecuta el comando así:
+Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -637,15 +1002,15 @@ Si agregas `--partial --sprint-branch <nombre> [--base-branch master]`, el coman
 
 #### Ejemplo
 
-Para unir todos los manifiestos cuyo nombre contenga `OSSFSL` en `manifest/globalpackage.xml`:
+Para unir todos los manifiestos cuyo nombre contenga `Prefijo` en `manifest/globalpackage.xml`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL
+sf metadelta merge --xml-name Prefijo
 
 Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 
 ```bash
-sf metadelta merge --xml-name OSSFSL --partial --sprint-branch SP1/main --base-branch master
+sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
 ```
 
@@ -674,4 +1039,3 @@ sf plugins unlink @nervill/metadelta
 ### Licencia
 
 Este proyecto se publica bajo la [licencia ISC](LICENSE).
-

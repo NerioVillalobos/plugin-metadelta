@@ -1,5 +1,73 @@
 {
   "commands": {
+    "metadelta:access": {
+      "aliases": [],
+      "args": {},
+      "description": "Exporta aliases conectados, captura SFDX Auth URLs cifradas y restaura accesos en otro equipo (Windows/Linux/WSL) usando únicamente Node.js + Salesforce CLI.",
+      "flags": {
+        "all": {
+          "name": "all",
+          "summary": "Exporta todos los aliases conectados a una carpeta \"All\".",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "prefix": {
+          "name": "prefix",
+          "summary": "Exporta solo aliases que inicien con este prefijo (también será el nombre de carpeta).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "name": "output",
+          "summary": "Directorio base de salida",
+          "default": "docs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "capture": {
+          "name": "capture",
+          "summary": "Carpeta que contiene accessbackup.dat para capturar y cifrar auth URLs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "addaccess": {
+          "aliases": [
+            "adaccess"
+          ],
+          "name": "addaccess",
+          "summary": "Carpeta que contiene accessbackup.dat para restaurar accesos en el equipo actual",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "passphrase": {
+          "name": "passphrase",
+          "summary": "Passphrase para cifrar/descifrar (si no se envía, se solicita por consola).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:access",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Gestiona respaldos cifrados de accesos de orgs con MFA (Metadelta Access).",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "access.js"
+      ]
+    },
     "metadelta:cleanps": {
       "aliases": [],
       "args": {},
@@ -137,6 +205,59 @@
         "find.js"
       ]
     },
+    "metadelta:finddelta": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara dos ramas con git diff y genera package.xml/yaml de diferencias, incluyendo destructivos para eliminaciones.",
+      "flags": {
+        "from": {
+          "name": "from",
+          "required": true,
+          "summary": "Rama origen para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "to": {
+          "name": "to",
+          "required": true,
+          "summary": "Rama destino para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Archivo package.xml destino para incorporar componentes detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Archivo package.yaml destino para incorporar datapacks detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:finddelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera manifiestos delta (Core y Vlocity) comparando dos ramas.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "finddelta.js"
+      ]
+    },
     "metadelta:findtest": {
       "aliases": [],
       "args": {},
@@ -243,6 +364,28 @@
         "commands",
         "metadelta",
         "findtest.js"
+      ]
+    },
+    "metadelta:initspace": {
+      "aliases": [],
+      "args": {},
+      "description": "Creates the standard Metadelta folder structure and base files (.gitignore, sfdx-project.json, package.xml) in the current directory.",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:initspace",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Initialize a Salesforce project workspace scaffold in the current directory.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "initspace.js"
       ]
     },
     "metadelta:merge": {
@@ -511,6 +654,15 @@
           "name": "target-org",
           "required": false,
           "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+    "metadelta:security:users": {
+      "aliases": [],
+      "args": {},
+      "description": "Replica el flujo de “metadelta security users”: carga la matriz maestra y usuarios objetivo, resuelve IDs en la org, genera CSVs de cambios y opcionalmente ejecuta los bulk jobs.",
+      "flags": {
+        "master": {
+          "name": "master",
+          "required": true,
+          "summary": "CSV maestro con la matriz de seguridad.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -519,6 +671,10 @@
           "name": "tstname",
           "required": true,
           "summary": "Nombre del archivo .ts generado por el comando record.",
+        "target-users": {
+          "name": "target-users",
+          "required": true,
+          "summary": "CSV con usuarios objetivo (Username, RoleName).",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -565,6 +721,11 @@
           "name": "org",
           "required": false,
           "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -576,16 +737,31 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
+        "output-dir": {
+          "name": "output-dir",
+          "summary": "Directorio de salida para los CSV generados.",
+          "default": "out",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "apply": {
+          "name": "apply",
+          "summary": "Aplica los cambios mediante Bulk API.",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "metadelta:task:record",
+      "id": "metadelta:security:users",
       "pluginAlias": "@nervill/metadelta",
       "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
       "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
       "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
@@ -594,8 +770,10 @@
         "metadelta",
         "task",
         "record.js"
+        "security",
+        "users.js"
       ]
     }
   },
-  "version": "0.9.5"
+  "version": "0.10.0"
 }

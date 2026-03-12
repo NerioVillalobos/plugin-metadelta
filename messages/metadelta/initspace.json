@@ -1,0 +1,7 @@
+{
+  "summary": "Initialize a Metadelta workspace structure in the current directory.",
+  "description": "Creates Salesforce project folders (force-app/main/default, docs, data, manifest, scripts) and seeds .gitignore, sfdx-project.json, and package.xml in the execution root.",
+  "examples": [
+    "sf metadelta initspace"
+  ]
+}
