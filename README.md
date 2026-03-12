@@ -54,6 +54,8 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.9.5 (link)`.
 
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
+> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
 ### Usage
 
@@ -409,6 +411,8 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
 
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
+> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
 ### Uso
 
