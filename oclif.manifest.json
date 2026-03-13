@@ -652,7 +652,6 @@
         },
         "target-users": {
           "name": "target-users",
-          "required": true,
           "summary": "CSV con usuarios objetivo (Username, RoleName).",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -669,7 +668,7 @@
         },
         "output-dir": {
           "name": "output-dir",
-          "summary": "Directorio de salida para los CSV generados.",
+          "summary": "Directorio de salida para los CSV generados. En --validate/--compare, si se indica un valor distinto de out, se crea la carpeta out dentro de esa ruta.",
           "default": "out",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -680,6 +679,22 @@
           "summary": "Aplica los cambios mediante Bulk API.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "validate": {
+          "name": "validate",
+          "summary": "Genera un archivo estilo matrix con las asignaciones actuales por usuario.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "compare": {
+          "name": "compare",
+          "summary": "Compara localmente validation_current_matrix.csv contra la matrix y exporta solo usuarios con diferencias.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "file-validation": {
+          "name": "file-validation",
+          "summary": "Ruta del archivo validation_current_matrix.csv a comparar (requerido con --compare).",
         }
       },
       "hasDynamicHelp": false,
@@ -746,11 +761,13 @@
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
+      "id": "metadelta:security:users",
       "id": "metadelta:task:play",
       "pluginAlias": "@nervill/metadelta",
       "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
       "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
       "enableJsonFlag": false,
       "isESM": true,
@@ -803,5 +820,5 @@
       ]
     }
   },
-  "version": "0.10.1"
+  "version": "0.10.2"
 }

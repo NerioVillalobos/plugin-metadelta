@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-12 — `@nervill/metadelta` 0.10.1
+> **Last update / Última actualización:** 2026-03-13 — `@nervill/metadelta` 0.10.2
 
 # Metadelta Salesforce CLI Plugin
 
@@ -17,7 +17,7 @@ Metadelta is a custom Salesforce CLI plugin that offers eleven complementary wor
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
-* `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API.
+* `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
 * `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with orchestrated diagnostics and runtime stabilizers.
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.1`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.1 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2 (link)`.
 
 ### Usage
 
@@ -301,6 +301,8 @@ This workflow mirrors the original Python utility and is designed for controlled
    - `sf data update bulk -s User`
    - `sf data import bulk -s PermissionSetAssignment`
    - `sf data import bulk -s GroupMember`
+6. When `--validate` is present, the command does not apply changes and instead generates `validation_current_matrix.csv` with one row per target user and current values for `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, and `Queues`.
+7. When `--compare` is present, no org connection is required: the command compares `--file-validation` against `--master` locally and outputs only users with differences in `comparison_mismatches.csv` using compact annotations: `<value>` means missing in user (present in master), and `=value=` means extra in user (not present in master).
 
 **Input expectations**
 
@@ -315,18 +317,29 @@ This workflow mirrors the original Python utility and is designed for controlled
 | `--master` | **Required.** Master security matrix CSV. | N/A |
 | `--target-users` | **Required.** CSV with users to process. | N/A |
 | `--org`, `-o` | **Required.** Alias/username of the target org. | N/A |
-| `--output-dir` | Output directory for generated CSV files. | `out` |
-| `--apply` | Applies generated operations through Bulk API. | `false` |
+| `--output-dir` | Output directory for generated CSV files. In `--validate`/`--compare`, if you pass a value different from `out`, the command creates/uses `<output-dir>/out`. | `out` |
+| `--apply` | Applies generated operations through Bulk API. Cannot be combined with `--validate`. | `false` |
+| `--validate` | Generates `validation_current_matrix.csv` (current values per target user) without applying changes. | `false` |
+| `--compare` | Compares `--file-validation` vs `--master` locally and exports only users with differences to `comparison_mismatches.csv` in compact format (`<value>` missing, `=value=` extra). Cannot be combined with `--apply` or `--validate`. | `false` |
+| `--file-validation` | Path to `validation_current_matrix.csv` used by `--compare`. | None |
 
 **Examples**
 
 - Dry run (generate files only):
   ```bash
-  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org
   ```
 - Apply mode (execute bulk operations):
   ```bash
-  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org --apply
+  ```
+- Validate mode (export current assignments in matrix format):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org --validate --output-dir ./reports
+  ```
+- Compare mode (local comparison without org connection):
+  ```bash
+  sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
 ### `initspace` command
@@ -618,7 +631,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece once flujos co
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
-* `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios.
+* `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
 * `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, más diagnósticos orquestados y estabilizadores en ejecución.
 
@@ -855,6 +868,8 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
    - `sf data update bulk -s User`
    - `sf data import bulk -s PermissionSetAssignment`
    - `sf data import bulk -s GroupMember`
+6. Si agregas `--validate`, el comando no aplica cambios y genera `validation_current_matrix.csv` con una fila por usuario objetivo y los valores actuales de `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento` y `Queues`.
+7. Si agregas `--compare`, no se conecta a ninguna org: compara localmente `--file-validation` contra `--master` y exporta solo usuarios con diferencias en `comparison_mismatches.csv` usando anotaciones compactas: `<valor>` significa faltante en usuario (sí está en master) y `=valor=` significa extra en usuario (no está en master).
 
 **Formato esperado de entrada**
 
@@ -869,18 +884,29 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
 | `--master` | **Requerida.** CSV maestro de matriz de seguridad. | N/A |
 | `--target-users` | **Requerida.** CSV con los usuarios a procesar. | N/A |
 | `--org`, `-o` | **Requerida.** Alias/usuario de la org destino. | N/A |
-| `--output-dir` | Directorio donde se generan los CSV de salida. | `out` |
-| `--apply` | Aplica las operaciones generadas vía Bulk API. | `false` |
+| `--output-dir` | Directorio donde se generan los CSV de salida. En `--validate`/`--compare`, si envías un valor distinto de `out`, el comando crea/usa `<output-dir>/out`. | `out` |
+| `--apply` | Aplica las operaciones generadas vía Bulk API. No se puede combinar con `--validate`. | `false` |
+| `--validate` | Genera `validation_current_matrix.csv` (valores actuales por usuario objetivo) sin aplicar cambios. | `false` |
+| `--compare` | Compara localmente `--file-validation` vs `--master` y exporta solo usuarios con diferencias a `comparison_mismatches.csv` en formato compacto (`<valor>` faltante, `=valor=` extra). No se puede combinar con `--apply` ni `--validate`. | `false` |
+| `--file-validation` | Ruta al `validation_current_matrix.csv` usado por `--compare`. | Ninguno |
 
 **Ejemplos**
 
 - Dry run (solo generación de archivos):
   ```bash
-  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org
   ```
 - Modo apply (ejecuta operaciones bulk):
   ```bash
-  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org SFOrg-UAT --apply
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org --apply
+  ```
+- Modo validate (exporta asignaciones actuales en formato matrix):
+  ```bash
+  sf metadelta security users --master ./data/master.csv --target-users ./data/users.csv --org my-org --validate --output-dir ./reports
+  ```
+- Modo compare (comparación local sin conexión a org):
+  ```bash
+  sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
 ### Comando `initspace`
