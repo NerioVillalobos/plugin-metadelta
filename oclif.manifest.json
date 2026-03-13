@@ -205,6 +205,59 @@
         "find.js"
       ]
     },
+    "metadelta:finddelta": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara dos ramas con git diff y genera package.xml/yaml de diferencias, incluyendo destructivos para eliminaciones.",
+      "flags": {
+        "from": {
+          "name": "from",
+          "required": true,
+          "summary": "Rama origen para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "to": {
+          "name": "to",
+          "required": true,
+          "summary": "Rama destino para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Archivo package.xml destino para incorporar componentes detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Archivo package.yaml destino para incorporar datapacks detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:finddelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera manifiestos delta (Core y Vlocity) comparando dos ramas.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "finddelta.js"
+      ]
+    },
     "metadelta:findtest": {
       "aliases": [],
       "args": {},
@@ -607,6 +660,7 @@
         "org": {
           "char": "o",
           "name": "org",
+          "required": true,
           "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -641,9 +695,6 @@
         "file-validation": {
           "name": "file-validation",
           "summary": "Ruta del archivo validation_current_matrix.csv a comparar (requerido con --compare).",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
         }
       },
       "hasDynamicHelp": false,
@@ -662,6 +713,110 @@
         "metadelta",
         "security",
         "users.js"
+      ]
+    },
+    "metadelta:task:play": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se ejecutará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "tstname": {
+          "name": "tstname",
+          "required": true,
+          "summary": "Nombre del archivo .ts generado por el comando record.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "header": {
+          "name": "header",
+          "summary": "Muestra el navegador durante la ejecución.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "vlocity-job-time": {
+          "name": "vlocity-job-time",
+          "summary": "Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.",
+          "default": 180,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:security:users",
+      "id": "metadelta:task:play",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
+      "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "play.js"
+      ]
+    },
+    "metadelta:task:record": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:task:record",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "record.js"
       ]
     }
   },
