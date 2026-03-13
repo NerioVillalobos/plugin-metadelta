@@ -583,7 +583,87 @@
         "manual",
         "collect.js"
       ]
+    },
+    "metadelta:security:users": {
+      "aliases": [],
+      "args": {},
+      "description": "Replica el flujo de “metadelta security users”: carga la matriz maestra y usuarios objetivo, resuelve IDs en la org, genera CSVs de cambios y opcionalmente ejecuta los bulk jobs.",
+      "flags": {
+        "master": {
+          "name": "master",
+          "required": true,
+          "summary": "CSV maestro con la matriz de seguridad.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-users": {
+          "name": "target-users",
+          "summary": "CSV con usuarios objetivo (Username, RoleName).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output-dir": {
+          "name": "output-dir",
+          "summary": "Directorio de salida para los CSV generados. En --validate/--compare, si se indica un valor distinto de out, se crea la carpeta out dentro de esa ruta.",
+          "default": "out",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "apply": {
+          "name": "apply",
+          "summary": "Aplica los cambios mediante Bulk API.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "validate": {
+          "name": "validate",
+          "summary": "Genera un archivo estilo matrix con las asignaciones actuales por usuario.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "compare": {
+          "name": "compare",
+          "summary": "Compara localmente validation_current_matrix.csv contra la matrix y exporta solo usuarios con diferencias.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "file-validation": {
+          "name": "file-validation",
+          "summary": "Ruta del archivo validation_current_matrix.csv a comparar (requerido con --compare).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:security:users",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "security",
+        "users.js"
+      ]
     }
   },
-  "version": "0.9.7"
+  "version": "0.10.0"
 }
