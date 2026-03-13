@@ -1,0 +1,69 @@
+name: "task play bug report"
+description: "Reporta un fallo al ejecutar sf metadelta task play"
+title: "[task-play] "
+labels:
+  - bug
+  - task-play
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar este error. Para poder reproducirlo, por favor completa toda la información.
+
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Versión del plugin / Plugin version
+      description: Salida de `sf plugins` para `@nervill/metadelta`
+      placeholder: "@nervill/metadelta 0.9.5 (link)"
+    validations:
+      required: true
+
+  - type: input
+    id: sf_version
+    attributes:
+      label: Versión de Salesforce CLI
+      placeholder: "sf --version"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Comando ejecutado
+      description: Incluye exactamente el comando (con flags)
+      placeholder: "sf metadelta task play --org <alias> --tstname tests/<file>.ts --header"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_output
+    attributes:
+      label: Texto completo del error
+      description: Pega la salida completa de la terminal (stack trace incluido)
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot con --header
+      description: Adjunta o pega aquí una captura de pantalla donde se vea el estado de la UI al fallar
+    validations:
+      required: true
+
+  - type: textarea
+    id: patched_snippet
+    attributes:
+      label: Fragmento del `.metadelta.*` donde falla
+      description: Pega el bloque de líneas alrededor del paso fallido (sanitiza datos sensibles)
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra_context
+    attributes:
+      label: Contexto adicional
+      description: Diferencias del ambiente, permisos, data setup, etc.
