@@ -489,10 +489,17 @@ class TaskPlay extends Command {
       await saveButton.first().click({timeout: 15000});
     } else {
       console.log('⚠️ Se omite Save porque no existe botón Save visible en el contexto actual.');
-    }
-  }`
+      }
+    }`
     );
-    const normalizedClickLogs = normalizedSetupSaveClicks.replace(
+    const normalizedVisualforceComboboxSelections = normalizedSetupSaveClicks.replace(
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('combobox', \{ name: '([^']+)' \}\)\.click\(\);\s*((?:\s*await \1\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByText\('([^']+)'\)\.click\(\);\s*)+)/g,
+      (match, pageRef, comboboxName, optionBlock) => {
+        const options = [...optionBlock.matchAll(/getByText\('([^']+)'\)\.click\(\);/g)].map((entry) => entry[1]);
+        return `await selectVisualforceComboboxOptions(${pageRef}, ${JSON.stringify(comboboxName)}, ${JSON.stringify(options)});`;
+      }
+    );
+    const normalizedClickLogs = normalizedVisualforceComboboxSelections.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
       `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
@@ -700,6 +707,7 @@ function installOrgDomainGuard(page) {
 }
 
 let setupSectionReady = false;
+let lastVisualforceComboboxName = null;
 
 function markSetupSectionReady() {
   setupSectionReady = true;
@@ -778,6 +786,127 @@ async function clickModalStartIfPresent(page) {
   if ((await footerStart.count()) > 0) {
     await footerStart.click({force: true});
     await footerStart.evaluate((el) => el.click());
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[|\\\\{}()[\]^$+*?.]/g, '\\\\$&');
+}
+
+async function getVisualforceFrame(page) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: 15000});
+  return frameLocator.contentFrame();
+}
+
+async function locateVisualforceCombobox(vf, name) {
+  const escapedName = escapeRegExp(name);
+  const candidates = [
+    vf.getByRole('combobox', {name}).first(),
+    vf.getByLabel(name).first(),
+    vf.locator('[role="combobox"]').filter({hasText: new RegExp(escapedName, 'i')}).first(),
+    vf.getByText(name, {exact: true}).first(),
+  ];
+
+  for (const candidate of candidates) {
+    if ((await candidate.count()) > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+async function waitForVisualforceDropdown(vf, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const listbox = vf.locator('[role="listbox"], .slds-listbox, .slds-dropdown, ul[role="presentation"]').first();
+    const option = vf.locator('[role="option"], .slds-listbox__option, li[role="presentation"]').first();
+    if ((await listbox.count()) > 0 || (await option.count()) > 0) {
+      return true;
+    }
+    await vf.page().waitForTimeout(250);
+  }
+
+  return false;
+}
+
+async function openVisualforceCombobox(page, name) {
+  lastVisualforceComboboxName = name;
+  const vf = await getVisualforceFrame(page);
+  if (!vf) {
+    throw new Error('No se pudo obtener el iframe Visualforce para el combobox "' + name + '".');
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const combobox = await locateVisualforceCombobox(vf, name);
+    if (!combobox) {
+      await vf.page().waitForTimeout(500);
+      continue;
+    }
+
+    await combobox.scrollIntoViewIfNeeded();
+    await combobox.click({timeout: 15000, force: true});
+
+    if (await waitForVisualforceDropdown(vf, 3000)) {
+      return vf;
+    }
+
+    await vf.page().waitForTimeout(350);
+  }
+
+  throw new Error('No se pudo abrir el combobox "' + name + '" dentro del iframe Visualforce.');
+}
+
+async function selectVisualforceDropdownOption(page, optionLabel, comboboxName = lastVisualforceComboboxName) {
+  const vf = await getVisualforceFrame(page);
+  if (!vf) {
+    throw new Error('No se pudo obtener el iframe Visualforce para la opción "' + optionLabel + '".');
+  }
+
+  const escapedOption = escapeRegExp(optionLabel);
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if (attempt > 0 && comboboxName) {
+      await openVisualforceCombobox(page, comboboxName);
+    }
+
+    const candidates = [
+      vf.getByRole('option', {name: optionLabel}).first(),
+      vf.getByText(optionLabel, {exact: true}).first(),
+      vf.locator('.slds-listbox__option, [role="option"], li, span').filter({
+        hasText: new RegExp('^\\\\s*' + escapedOption + '\\\\s*$', 'i'),
+      }).first(),
+    ];
+
+    for (const option of candidates) {
+      if ((await option.count()) === 0) {
+        continue;
+      }
+
+      await option.scrollIntoViewIfNeeded();
+      await option.click({timeout: 15000, force: true});
+      await vf.page().waitForTimeout(300);
+      return;
+    }
+
+    if (!comboboxName) {
+      await vf.page().waitForTimeout(400);
+    }
+  }
+
+  throw new Error(
+    'No se pudo seleccionar la opción "' +
+      optionLabel +
+      '" del combobox "' +
+      (comboboxName ?? 'desconocido') +
+      '".'
+  );
+}
+
+async function selectVisualforceComboboxOptions(page, comboboxName, optionLabels = []) {
+  await openVisualforceCombobox(page, comboboxName);
+  for (const optionLabel of optionLabels) {
+    await selectVisualforceDropdownOption(page, optionLabel, comboboxName);
   }
 }
 

@@ -660,7 +660,6 @@
         "org": {
           "char": "o",
           "name": "org",
-          "required": true,
           "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -695,6 +694,9 @@
         "file-validation": {
           "name": "file-validation",
           "summary": "Ruta del archivo validation_current_matrix.csv a comparar (requerido con --compare).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
         }
       },
       "hasDynamicHelp": false,
@@ -761,13 +763,11 @@
       },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
-      "id": "metadelta:security:users",
       "id": "metadelta:task:play",
       "pluginAlias": "@nervill/metadelta",
       "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
       "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
       "enableJsonFlag": false,
       "isESM": true,
