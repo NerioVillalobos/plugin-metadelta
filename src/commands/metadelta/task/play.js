@@ -129,6 +129,22 @@ class TaskPlay extends Command {
     return configPath;
   }
 
+  normalizeVisualforceComboboxSelections(source) {
+    const sequenceRegex =
+      /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('combobox', \{ name: '([^']+)' \}\)\.click\(\);\s*((?:await \1\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByText\('([^']+)'\)\.click\(\);\s*){1,8})/g;
+
+    return source.replace(sequenceRegex, (match, pageVar, comboboxLabel, optionBlock) => {
+      const optionLabels = [...optionBlock.matchAll(/getByText\('([^']+)'\)\.click\(\);/g)].map(
+        (entry) => entry[1]
+      );
+      if (optionLabels.length === 0) {
+        return match;
+      }
+
+      return `await selectVisualforceComboboxOptions(${pageVar}, ${JSON.stringify(comboboxLabel)}, ${JSON.stringify(optionLabels)});`;
+    });
+  }
+
   applyStructuralStabilizers(source) {
     let stabilized = source;
     stabilized = this.fixSelfReferencingBaseUrl(stabilized);
@@ -460,7 +476,8 @@ class TaskPlay extends Command {
       /await (\w+)\.goto\(([^;]+)\);/g,
       `await gotoWithRetry($1, $2);`
     );
-    const normalizedActionLibraryCheckboxes = normalizedGotoCalls.replace(
+    const normalizedComboboxSelections = this.normalizeVisualforceComboboxSelections(normalizedGotoCalls);
+    const normalizedActionLibraryCheckboxes = normalizedComboboxSelections.replace(
       /await (\w+)\.locator\('#check-button-label-[^']+ > \.slds-checkbox_faux'\)\.click\(\);/g,
       `await selectActionLibraryCheckboxWithScroll($1);`
     );
@@ -661,6 +678,128 @@ async function clickFinishWhenEnabled(page) {
   }
 
   throw new Error('El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll.');
+}
+
+async function getVisualforceFrame(page, timeoutMs = 20000) {
+  const frameLocator = page.locator('iframe[name^="vfFrameId_"]').first();
+  await frameLocator.waitFor({timeout: timeoutMs});
+  const vf = await frameLocator.contentFrame();
+  if (!vf) {
+    throw new Error('No se pudo acceder al iframe dinámico de Visualforce.');
+  }
+
+  return {frameLocator, vf};
+}
+
+async function waitForVisualforceCombobox(page, label, timeoutMs = 45000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const {vf} = await getVisualforceFrame(page, 15000);
+      const combobox = vf.getByRole('combobox', {name: label}).first();
+      if ((await combobox.count()) > 0) {
+        await combobox.scrollIntoViewIfNeeded();
+        return {vf, combobox};
+      }
+
+      const fallback = vf.getByText(label, {exact: true}).first();
+      if ((await fallback.count()) > 0) {
+        await fallback.scrollIntoViewIfNeeded();
+        return {vf, combobox: fallback};
+      }
+    } catch (error) {
+      // noop: seguimos esperando a que la UI termine de renderizar.
+    }
+
+    await page.waitForTimeout(750);
+  }
+
+  throw new Error(
+    'No se encontró el combobox "' +
+      label +
+      '" dentro del iframe de Visualforce después de esperar a que terminara de renderizar.'
+  );
+}
+
+async function openVisualforceCombobox(page, label) {
+  const {vf, combobox} = await waitForVisualforceCombobox(page, label);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await combobox.click({timeout: 15000, force: true});
+      await page.waitForTimeout(400);
+    } catch (error) {
+      await page.waitForTimeout(400);
+    }
+
+    const expanded =
+      (await combobox.getAttribute('aria-expanded').catch(() => null)) === 'true';
+    const frameListbox = vf.locator('[role="listbox"], .slds-dropdown, .slds-listbox').first();
+    const pageListbox = page.locator('[role="listbox"], .slds-dropdown, .slds-listbox').first();
+    if (expanded || (await frameListbox.count()) > 0 || (await pageListbox.count()) > 0) {
+      return vf;
+    }
+  }
+
+  return vf;
+}
+
+async function clickComboboxOptionInContext(context, optionLabel) {
+  const exactText = context.getByText(optionLabel, {exact: true}).first();
+  if ((await exactText.count()) > 0) {
+    await exactText.scrollIntoViewIfNeeded().catch(() => {});
+    await exactText.click({timeout: 15000, force: true});
+    return true;
+  }
+
+  const optionByRole = context.getByRole('option', {name: optionLabel}).first();
+  if ((await optionByRole.count()) > 0) {
+    await optionByRole.scrollIntoViewIfNeeded().catch(() => {});
+    await optionByRole.click({timeout: 15000, force: true});
+    return true;
+  }
+
+  const ariaOption = context.locator('[role="option"], .slds-listbox__item, li').filter({
+    hasText: optionLabel,
+  });
+  if ((await ariaOption.count()) > 0) {
+    const target = ariaOption.first();
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    await target.click({timeout: 15000, force: true});
+    return true;
+  }
+
+  return false;
+}
+
+async function selectVisualforceComboboxOptions(page, label, optionLabels) {
+  for (const optionLabel of optionLabels) {
+    const vf = await openVisualforceCombobox(page, label);
+    let selected = false;
+
+    for (let attempt = 0; attempt < 4 && !selected; attempt += 1) {
+      selected = await clickComboboxOptionInContext(vf, optionLabel);
+      if (!selected) {
+        selected = await clickComboboxOptionInContext(page, optionLabel);
+      }
+      if (!selected) {
+        await page.waitForTimeout(500);
+        await openVisualforceCombobox(page, label);
+      }
+    }
+
+    if (!selected) {
+      throw new Error(
+        'No se pudo seleccionar la opción "' +
+          optionLabel +
+          '" del combobox "' +
+          label +
+          '" en Visualforce.'
+      );
+    }
+
+    await page.waitForTimeout(500);
+  }
 }
 
 
