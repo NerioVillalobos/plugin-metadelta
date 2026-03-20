@@ -1,0 +1,953 @@
+{
+  "solutions": [
+    {
+      "pattern": "No authorization information found",
+      "description": "No se encontró autenticación válida para el alias solicitado.",
+      "solution": "Ejecuta \"sf org login web -a <alias>\" o \"sf org login web --set-default -a <alias>\" antes de grabar/reproducir.",
+      "addedAt": "2026-01-30T15:58:40.310Z",
+      "lastUsedAt": "2026-02-10T20:03:46.792Z"
+    },
+    {
+      "pattern": "browserType\\.launch: Executable doesn\\'t exist",
+      "description": "Playwright no tiene instalados los navegadores.",
+      "solution": "Ejecuta \"npx playwright install --with-deps\" para descargar los binarios.",
+      "addedAt": "2026-01-30T15:58:40.310Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Target page, context or browser has been closed",
+      "description": "El navegador se cerró antes de completar el flujo.",
+      "solution": "Reintenta la ejecución y valida que el login o MFA no cierre la ventana; usa --header para inspeccionar.",
+      "addedAt": "2026-01-30T15:58:40.310Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "net::ERR_NAME_NOT_RESOLVED",
+      "description": "No se pudo resolver el host de la org.",
+      "solution": "Valida la conectividad de red y que el alias resuelva a un org válido.",
+      "addedAt": "2026-01-30T15:58:40.310Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Error al obtener URL de la org|No se pudo consultar la org|No pudo encontrar ninguna org|No authorized orgs",
+      "description": "No fue posible obtener la URL de login de la org con el alias indicado.",
+      "solution": "Ejecuta \"sf org display --target-org <alias> --verbose\" para validar sesión activa y, si falla, vuelve a autenticar con \"sf org login web -a <alias>\".",
+      "addedAt": "2026-03-12T14:20:00.485Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Playwright codegen finalizó con errores",
+      "description": "La sesión de grabación de Playwright terminó con error.",
+      "solution": "Reejecuta con consola visible y prueba manualmente: \"npx playwright codegen <url> --target playwright-test --output tests/<archivo>.ts\". Si falla por binarios, ejecuta \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "addedAt": "2026-03-12T14:20:00.485Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll|No se pudo seleccionar checkbox de Action Library automáticamente",
+      "description": "La lista de Action Library tardó en cargar o no se pudo seleccionar una acción antes de Finish.",
+      "solution": "Reejecuta con \"--header\" para confirmar el elemento objetivo y verifica que el modal \"Add from Asset Library\" termine de cargar (sin spinner). Si el botón Finish sigue deshabilitado, valida permisos/visibilidad de acciones en la org destino.",
+      "addedAt": "2026-03-12T14:20:00.485Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Search apps and items...|App Launcher",
+      "description": "El buscador del App Launcher no estuvo disponible a tiempo en el flujo automático.",
+      "solution": "Reintenta la ejecución; el parcheador ya abre App Launcher y aplica fallback por placeholder. Si persiste, valida que la app objetivo sea visible para el usuario autenticado.",
+      "addedAt": "2026-03-12T14:20:00.485Z",
+      "lastUsedAt": null
+    }
+  ],
+  "errors": [
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:52:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42.ts"
+      },
+      "occurredAt": "2026-01-30T18:00:12.478Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:52:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42.ts"
+      },
+      "occurredAt": "2026-01-30T18:22:22.256Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:52:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-02T16:04:53.863Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:52:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-02T16:10:16.344Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-02T16:19:24.712Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-12-37.ts"
+      },
+      "occurredAt": "2026-02-02T16:44:24.726Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-02T16:49:47.232Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T16:58:08.253Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T16:58:56.664Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T17:04:32.734Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T17:16:55.020Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T17:28:16.033Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T17:33:57.481Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T20:05:19.314Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T20:36:45.581Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T20:44:27.616Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T21:02:15.874Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T21:10:41.221Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-02022026-13-53.ts"
+      },
+      "occurredAt": "2026-02-02T21:21:31.463Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-04022026-14-36-userinterface02.ts"
+      },
+      "occurredAt": "2026-02-04T17:44:28.054Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-04022026-17-26-userinterface03.ts"
+      },
+      "occurredAt": "2026-02-04T20:42:02.150Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-04022026-17-26-userinterface03.ts"
+      },
+      "occurredAt": "2026-02-04T20:47:26.502Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42-deliverability.ts"
+      },
+      "occurredAt": "2026-02-04T21:12:25.861Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42-deliverability.ts"
+      },
+      "occurredAt": "2026-02-04T21:15:42.285Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42-deliverability.ts"
+      },
+      "occurredAt": "2026-02-04T21:20:54.607Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42-deliverability.ts"
+      },
+      "occurredAt": "2026-02-05T15:19:33.596Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-30012026-12-42-deliverability.ts"
+      },
+      "occurredAt": "2026-02-05T15:30:29.248Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-09T12:36:50.186Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-09T12:37:55.076Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "{\n  \"name\": \"NamedOrgNotFoundError\",\n  \"message\": \"Parsing --target-org \\n\\tNo authorization information found for Telecom-demo01.\\nSee more help with --help\",\n  \"exitCode\": 2,\n  \"actions\": [\n    \"It looks like you mistyped the username or alias. Did you mean \\\"Telecom-Demo02\\\"?\"\n  ],\n  \"context\": \"OrgDisplayCommand\",\n  \"stack\": \"NamedOrgNotFoundError: Parsing --target-org \\n\\tNo authorization information found for Telecom-demo01.\\nSee more help with --help\\n    at SfCommandError.from (file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@salesforce/sf-plugins-core/lib/SfCommandError.js:48:16)\\n    at OrgDisplayCommand.catch (file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@salesforce/sf-plugins-core/lib/sfCommand.js:332:47)\\n    at OrgDisplayCommand._run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/command.js:186:29)\\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1\",\n  \"cause\": \"undefined\",\n  \"warnings\": [],\n  \"code\": \"NamedOrgNotFoundError\",\n  \"status\": 2,\n  \"commandName\": \"OrgDisplayCommand\"\n}",
+      "stack": "Error: {\n  \"name\": \"NamedOrgNotFoundError\",\n  \"message\": \"Parsing --target-org \\n\\tNo authorization information found for Telecom-demo01.\\nSee more help with --help\",\n  \"exitCode\": 2,\n  \"actions\": [\n    \"It looks like you mistyped the username or alias. Did you mean \\\"Telecom-Demo02\\\"?\"\n  ],\n  \"context\": \"OrgDisplayCommand\",\n  \"stack\": \"NamedOrgNotFoundError: Parsing --target-org \\n\\tNo authorization information found for Telecom-demo01.\\nSee more help with --help\\n    at SfCommandError.from (file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@salesforce/sf-plugins-core/lib/SfCommandError.js:48:16)\\n    at OrgDisplayCommand.catch (file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@salesforce/sf-plugins-core/lib/sfCommand.js:332:47)\\n    at OrgDisplayCommand._run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/command.js:186:29)\\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1\",\n  \"cause\": \"undefined\",\n  \"warnings\": [],\n  \"code\": \"NamedOrgNotFoundError\",\n  \"status\": 2,\n  \"commandName\": \"OrgDisplayCommand\"\n}\n    at TaskRecord.fetchOrgFrontdoorUrl (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:55:19)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:21:30)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecom-demo01"
+      },
+      "occurredAt": "2026-02-10T20:03:46.791Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-12T20:08:42.927Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores.",
+      "stack": "Error: La ejecución de Playwright finalizó con errores.\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:57:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-28012026-12-16.ts"
+      },
+      "occurredAt": "2026-02-23T14:39:37.361Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:294:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T14:43:37.754Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:294:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T14:44:51.436Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:294:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T14:46:04.516Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:294:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T14:46:59.794Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:294:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:47:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T14:51:04.956Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente. Ejecuta \"npx playwright install chromium\" y reintenta.\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:304:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:48:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:21:07.977Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:48:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:28:31.856Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T16:29:22.258Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T16:30:30.698Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T16:31:28.993Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:48:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:31:41.819Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:48:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:33:43.379Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:48:13)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:34:31.792Z"
+    },
+    {
+      "command": "metadelta task record",
+      "message": "No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "stack": "Error: No se pudieron instalar o validar los navegadores de Playwright automáticamente (código=0). Ejecuta \"npm install --prefix tests/.metadelta-playwright @playwright/test\" y luego \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".\n    at ensurePlaywrightReady (file:///home/nervill/DevOps/plugin-metadelta/lib/utils/task/orchestrator.js:315:15)\n    at TaskRecord.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/record.js:29:13)\n    at async TaskRecord._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer"
+      },
+      "occurredAt": "2026-02-25T16:35:15.579Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:46:41.943Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T16:48:27.785Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nervill-Developer-25022026-13-49.ts"
+      },
+      "occurredAt": "2026-02-25T16:56:14.138Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nervill-Developer-25022026-13-49.ts"
+      },
+      "occurredAt": "2026-02-25T17:03:40.653Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T17:04:30.202Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nervill-Developer-25022026-17-29.ts"
+      },
+      "occurredAt": "2026-02-25T20:33:41.278Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nervill-Developer-25022026-17-50.ts"
+      },
+      "occurredAt": "2026-02-25T20:55:04.971Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-02-25T21:04:06.444Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nervill-Developer-25022026-18-08.ts"
+      },
+      "occurredAt": "2026-02-25T21:13:14.389Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "No se encontró el archivo de prueba: tests/Telecentro-demo01-04022026-14-36-userinterface03.ts",
+      "stack": "Error: No se encontró el archivo de prueba: tests/Telecentro-demo01-04022026-14-36-userinterface03.ts\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:45:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-04022026-14-36-userinterface03.ts"
+      },
+      "occurredAt": "2026-02-25T21:19:10.318Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 130",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 130\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T13:00:18.508Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 130",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 130\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T13:05:14.660Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T13:51:07.519Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-04022026-14-36-userinterface02.ts"
+      },
+      "occurredAt": "2026-02-26T14:01:40.627Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T14:16:57.394Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Telecentro-demo01-04022026-14-36-userinterface02.ts"
+      },
+      "occurredAt": "2026-02-26T14:26:50.061Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T14:28:55.830Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Nervill-Developer",
+        "testFile": "tests/Nervill-Developer-26022026-09-53.ts"
+      },
+      "occurredAt": "2026-02-26T15:12:38.513Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 130",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 130\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "PuntosColombia-Demo",
+        "testFile": "tests/PuntosColombia-Dev02-27022026-16-08.ts"
+      },
+      "occurredAt": "2026-02-27T19:21:56.726Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "PuntosColombia-Demo",
+        "testFile": "tests/PuntosColombia-Dev02-27022026-16-08.ts"
+      },
+      "occurredAt": "2026-02-27T19:22:52.451Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:74:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-06T12:41:24.492Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-11T03:46:53.234Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-11T03:47:51.762Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-11T03:56:54.312Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-12T14:20:35.507Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-12T18:54:22.846Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-12T18:56:32.763Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:456:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-12T18:57:08.480Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "PuntosColombia-Demo",
+        "testFile": "tests/Telecentro-demo01-19032026-16-08.ts"
+      },
+      "occurredAt": "2026-03-19T19:19:14.879Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "PuntosColombia-Demo",
+        "testFile": "tests/Telecentro-demo01-19032026-16-08.ts"
+      },
+      "occurredAt": "2026-03-19T19:20:37.792Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "PuntosColombia-Demo",
+        "testFile": "tests/Telecentro-demo01-19032026-16-08.ts"
+      },
+      "occurredAt": "2026-03-19T19:23:37.606Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T19:26:41.255Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T19:29:03.523Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T20:12:11.196Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T20:15:19.888Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T20:33:51.042Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T21:05:06.597Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T21:55:19.880Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/DevOps/plugin-metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/DevOps/plugin-metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-19T21:58:11.327Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-20T11:57:19.923Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-20T16:15:51.786Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 130",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 130\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Telecentro-demo01-10022026-17-04-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-20T17:21:02.128Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 130",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 130\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-20T17:55:32.282Z"
+    },
+    {
+      "command": "metadelta task play",
+      "message": "La ejecución de Playwright finalizó con errores. Código de salida: 1",
+      "stack": "Error: La ejecución de Playwright finalizó con errores. Código de salida: 1\n    at Object.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/errors/error.js:44:15)\n    at TaskPlay.error (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:216:23)\n    at TaskPlay.run (file:///home/nervill/.local/share/sf/node_modules/@nervill/metadelta/lib/commands/metadelta/task/play.js:76:22)\n    at async TaskPlay._run (/home/nervill/.local/share/sf/node_modules/@nervill/metadelta/node_modules/@oclif/core/lib/command.js:182:22)\n    at async Config.runCommand (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/config/config.js:458:25)\n    at async run (/home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/node_modules/@oclif/core/lib/main.js:97:16)\n    at async file:///home/nervill/.nvm/versions/node/v24.12.0/lib/node_modules/@salesforce/cli/bin/run.js:15:1",
+      "context": {
+        "org": "Telecentro-demo01",
+        "testFile": "tests/Nuevo-Vlocity-Mantenimiento.ts"
+      },
+      "occurredAt": "2026-03-20T19:16:51.330Z"
+    }
+  ]
+}
