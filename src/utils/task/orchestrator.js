@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {spawnSync} from 'node:child_process';
+import {spawn, spawnSync} from 'node:child_process';
 
 const DEFAULT_ORCHESTRATOR_FILENAME = 'metadelta-task-orchestrator.json';
 const DEFAULT_METADELTA_DIRNAME = '.metadelta';
@@ -46,6 +46,26 @@ const DEFAULT_SOLUTIONS = [
     pattern: 'Search apps and items\.\.\.|App Launcher',
     description: 'El buscador del App Launcher no estuvo disponible a tiempo en el flujo automático.',
     solution: 'Reintenta la ejecución; el parcheador ya abre App Launcher y aplica fallback por placeholder. Si persiste, valida que la app objetivo sea visible para el usuario autenticado.',
+  },
+  {
+    pattern: 'page\\.waitForEvent: Timeout .*event "popup"|Setup Opens in a new tab Setup for current app|locator\\.click: Timeout .*menuitem',
+    description: 'La apertura inicial de Setup en una nueva pestaña no ocurrió como esperaba el flujo grabado.',
+    solution: 'Reintenta con "--header" para validar si el botón Setup despliega el menú. El parcheador temporal ya intenta reabrir Setup y resolver el menuitem por fallback; si persiste, confirma el texto visible del item y si una navegación intermedia cerró el menú antes del popup.',
+  },
+  {
+    pattern: 'strict mode violation: locator\\(\'\\.slds-checkbox_faux\'\\)|locator\\.click: Error: strict mode violation: locator\\(\'\\.slds-checkbox_faux\'\\)',
+    description: 'Un selector genérico de checkbox en Salesforce coincidió con múltiples toggles visibles.',
+    solution: 'Reintenta con "--header". El parcheador temporal ahora intenta resolver `.slds-checkbox_faux` usando el primer checkbox visible del contexto actual; si sigue fallando, registra el texto/cabecera del bloque correcto para agregar un selector más específico al orquestador.',
+  },
+  {
+    pattern: 'Agentforce Agents|No se pudo ubicar Agentforce Agents|getByText\\(\'Agentforce Agents\'',
+    description: 'La opción Agentforce Agents tardó en aparecer después de habilitar Einstein Setup.',
+    solution: 'Reintenta con "--header". El parcheador temporal ahora espera, fuerza un refresh completo de la pestaña de Setup, cierra/reabre Setup y también intenta la ruta directa de Agentforce Agents antes de fallar; si persiste, valida que Einstein Setup haya terminado de habilitar la característica y que el usuario tenga acceso a esa sección.',
+  },
+  {
+    pattern: 'PriceList Selected|B2B ARS|B2B USD',
+    description: 'El selector de PriceList en EPC Jobs no estuvo disponible a tiempo o no expuso los valores esperados.',
+    solution: 'Reintenta con "--header" y valida que el paso previo de Start realmente abra el selector de listas de precio dentro del iframe/popup. Si el control cambió de tipo o etiqueta, registra el texto exacto visto en pantalla para agregar un nuevo fallback al orquestador.',
   },
 ];
 
@@ -144,6 +164,120 @@ export class TaskOrchestrator {
   }
 }
 
+function stripAnsi(value) {
+  return String(value ?? '').replace(/\u001b\[[0-9;]*m/g, '');
+}
+
+function buildPlaywrightOutputExcerpt(output, maxLines = 80, maxChars = 6000) {
+  const normalized = stripAnsi(output)
+    .replace(/\r/g, '')
+    .trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const lines = normalized.split('\n');
+  const tail = lines.slice(-maxLines).join('\n').trim();
+  if (tail.length <= maxChars) {
+    return tail;
+  }
+
+  return tail.slice(-maxChars).trim();
+}
+
+export function extractPlaywrightFailureDetails(output, fallback = 'La ejecución de Playwright finalizó con errores.') {
+  const excerpt = buildPlaywrightOutputExcerpt(output);
+  if (!excerpt) {
+    return {
+      summary: fallback,
+      matcherText: fallback,
+      outputExcerpt: '',
+    };
+  }
+
+  const lines = excerpt.split('\n');
+  const summaryPatterns = [
+    /(TimeoutError:[^\n]+)/i,
+    /(Test timeout of [^\n]+)/i,
+    /(Error:\s*[^\n]+)/i,
+    /(waiting for [^\n]+)/i,
+    /(locator\.[^\n]+)/i,
+  ];
+
+  let summary = '';
+  for (const pattern of summaryPatterns) {
+    const match = excerpt.match(pattern);
+    if (match?.[1]) {
+      summary = match[1].trim();
+      break;
+    }
+  }
+
+  if (!summary) {
+    const tailLine = [...lines].reverse().find((line) => line.trim());
+    summary = tailLine?.trim() || fallback;
+  }
+
+  return {
+    summary,
+    matcherText: excerpt,
+    outputExcerpt: excerpt,
+  };
+}
+
+export async function executeCommandLive(command, args, options = {}) {
+  const {
+    cwd = process.cwd(),
+    env = process.env,
+    stdout = process.stdout,
+    stderr = process.stderr,
+    stdin = 'inherit',
+    shell = false,
+  } = options;
+
+  return await new Promise((resolve) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      shell,
+      stdio: [stdin, 'pipe', 'pipe'],
+    });
+
+    const stdoutChunks = [];
+    const stderrChunks = [];
+
+    child.stdout?.on('data', (chunk) => {
+      stdoutChunks.push(chunk);
+      stdout?.write?.(chunk);
+    });
+
+    child.stderr?.on('data', (chunk) => {
+      stderrChunks.push(chunk);
+      stderr?.write?.(chunk);
+    });
+
+    child.on('error', (error) => {
+      resolve({
+        status: 1,
+        signal: null,
+        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+        stderr: Buffer.concat(stderrChunks).toString('utf8'),
+        error,
+      });
+    });
+
+    child.on('close', (status, signal) => {
+      resolve({
+        status: status ?? (signal ? 1 : 0),
+        signal,
+        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+        stderr: Buffer.concat(stderrChunks).toString('utf8'),
+        error: null,
+      });
+    });
+  });
+}
+
 
 export function getMetaDeltaDataDirectory(baseDir = process.cwd()) {
   const dataDir = path.resolve(baseDir, DEFAULT_METADELTA_DIRNAME);
@@ -191,6 +325,24 @@ export function executeNpxCommand(args, options = {}) {
 
   for (const command of candidates) {
     const result = spawnSync(command, args, {
+      shell: process.platform === 'win32',
+      ...options,
+    });
+    lastResult = result;
+    if (!result.error) {
+      return result;
+    }
+  }
+
+  return lastResult ?? {status: 1, stdout: '', stderr: '', error: new Error('No se pudo ejecutar npx.')};
+}
+
+export async function executeNpxCommandLive(args, options = {}) {
+  const candidates = getNpxCommandCandidates();
+  let lastResult = null;
+
+  for (const command of candidates) {
+    const result = await executeCommandLive(command, args, {
       shell: process.platform === 'win32',
       ...options,
     });
@@ -496,4 +648,3 @@ function hasPlaywrightBrowsers(cacheDir) {
 
   return false;
 }
-

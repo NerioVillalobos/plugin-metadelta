@@ -9,7 +9,8 @@ import {
   formatTimestampForFilename,
   injectBaseUrlInTest,
   sanitizeAlias,
-  executeNpxCommand,
+  executeNpxCommandLive,
+  extractPlaywrightFailureDetails,
 } from '../../../utils/task/orchestrator.js';
 
 class TaskRecord extends Command {
@@ -50,21 +51,30 @@ class TaskRecord extends Command {
 
       this.log(`Iniciando grabación en ${targetOrg}. Archivo: ${outputPath}`);
 
-      const result = executeNpxCommand(
+      const result = await executeNpxCommandLive(
         ['--yes', 'playwright', 'codegen', url, '--target', 'playwright-test', '--output', outputPath],
-        {stdio: 'inherit'}
+        {}
       );
 
       if (result.status !== 0) {
-        const details = [
+        const genericMessage = [
+          'Playwright codegen finalizó con errores.',
           result.error?.message ? `Detalle: ${result.error.message}` : null,
           typeof result.status === 'number' ? `Código de salida: ${result.status}` : null,
           result.signal ? `Señal: ${result.signal}` : null,
           'Revisa el output mostrado por Playwright arriba para identificar el paso exacto del fallo.',
         ]
           .filter(Boolean)
-          .join(' | ');
-        this.error(`Playwright codegen finalizó con errores. ${details}`);
+          .join(' ');
+        const failure = extractPlaywrightFailureDetails(
+          [result.stdout, result.stderr].filter(Boolean).join('\n'),
+          genericMessage
+        );
+        const detailedError = new Error(failure.summary || genericMessage);
+        detailedError.stack = failure.outputExcerpt || detailedError.stack;
+        detailedError.playwrightMatcherText = failure.matcherText;
+        detailedError.playwrightSummary = failure.summary;
+        throw detailedError;
       }
 
       if (!fs.existsSync(outputPath)) {
@@ -74,16 +84,20 @@ class TaskRecord extends Command {
       injectBaseUrlInTest({filePath: outputPath, baseUrl: url});
       this.log(`Grabación completada. Archivo generado en ${outputPath}`);
     } catch (error) {
+      const diagnosticMessage = error.playwrightMatcherText || error.message;
       orchestrator.recordError({
-        message: error.message,
+        message: diagnosticMessage,
         stack: error.stack,
-        context: {org: targetOrg},
+        context: {
+          org: targetOrg,
+          playwrightSummary: error.playwrightSummary || error.message,
+        },
       });
-      const solution = orchestrator.findSolution(error.message);
+      const solution = orchestrator.findSolution(diagnosticMessage);
       if (solution) {
-        this.error(`${error.message}\nSugerencia: ${solution.solution}`);
+        this.error(`${error.playwrightSummary || error.message}\nSugerencia: ${solution.solution}`);
       }
-      this.error(error.message);
+      this.error(error.playwrightSummary || error.message);
     }
   }
 

@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-13 — `@nervill/metadelta` 0.10.2
+> **Last update / Última actualización:** 2026-03-23 — `@nervill/metadelta` 0.12.3
 
 # Metadelta Salesforce CLI Plugin
 
@@ -19,7 +19,7 @@ Metadelta is a custom Salesforce CLI plugin that offers eleven complementary wor
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 * `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
-* `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with orchestrated diagnostics and runtime stabilizers.
+* `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with automatic recovery stabilizers, patched `.metadelta.*` playback, and orchestrated diagnostics.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.12.3`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.12.3 (link)`.
 
 ### Usage
 
@@ -366,12 +366,13 @@ What the command creates:
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
-> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
 ### `task record` / `task play` command
 
-Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching and diagnostics:
+Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching, recovery stabilizers, and orchestrated diagnostics:
 
 ```bash
 sf metadelta task record --org <alias>
@@ -387,6 +388,9 @@ Automatic mitigations currently covered:
 
 * frontdoor URL vs base origin separation to avoid malformed navigation URLs.
 * Retry flow for transient `net::ERR_ABORTED` style navigation interruptions.
+* Initial Setup popup recovery when Salesforce delays or redraws the “Setup Opens in a new tab…” menu item before opening the setup tab.
+* Visible-first fallback for ambiguous `.slds-checkbox_faux` clicks that would otherwise fail in Playwright strict mode.
+* Agentforce Agents recovery with full-page refresh, Setup reopen retries, broader Quick Find terms, and direct Setup-route fallback after enabling Einstein Setup.
 * Popup rebind/reopen handling when a recorded tab/window is closed and reused later.
 * App Launcher fallback path (combobox/placeholder/reopen launcher).
 * Dynamic selectors for Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
@@ -633,7 +637,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece once flujos co
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 * `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
-* `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, más diagnósticos orquestados y estabilizadores en ejecución.
+* `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, estabilizadores automáticos de recuperación, reproducción sobre `.metadelta.*` y diagnósticos orquestados.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -933,12 +937,13 @@ Qué crea el comando:
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
-> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
 ### Comando `task record` / `task play`
 
-Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático y diagnóstico:
+Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático, estabilizadores de recuperación y diagnóstico orquestado:
 
 ```bash
 sf metadelta task record --org <alias>
@@ -954,6 +959,9 @@ Mitigaciones automáticas cubiertas actualmente:
 
 * Separación de frontdoor URL vs base origin para evitar navegación con URLs mal concatenadas.
 * Reintentos ante interrupciones transitorias de navegación tipo `net::ERR_ABORTED`.
+* Recuperación del popup inicial de Setup cuando Salesforce demora o redibuja el item “Setup Opens in a new tab…” antes de abrir la pestaña de configuración.
+* Fallback al primer `.slds-checkbox_faux` visible cuando Playwright entra en strict mode por múltiples toggles equivalentes.
+* Recuperación de Agentforce Agents con refresh completo, reapertura de Setup, búsqueda Quick Find más amplia y fallback por ruta directa después de habilitar Einstein Setup.
 * Rebind/reapertura de popups cuando una pestaña/ventana grabada se cerró y luego se reutiliza.
 * Fallback de App Launcher (combobox/placeholder/reapertura).
 * Selectores dinámicos para Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
