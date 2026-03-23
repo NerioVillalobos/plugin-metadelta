@@ -389,6 +389,7 @@ Automatic mitigations currently covered:
 * frontdoor URL vs base origin separation to avoid malformed navigation URLs.
 * Retry flow for transient `net::ERR_ABORTED` style navigation interruptions.
 * Initial Setup popup recovery when Salesforce delays or redraws the “Setup Opens in a new tab…” menu item before opening the setup tab.
+* Visible-first fallback for ambiguous `.slds-checkbox_faux` clicks that would otherwise fail in Playwright strict mode.
 * Popup rebind/reopen handling when a recorded tab/window is closed and reused later.
 * App Launcher fallback path (combobox/placeholder/reopen launcher).
 * Dynamic selectors for Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
@@ -958,6 +959,7 @@ Mitigaciones automáticas cubiertas actualmente:
 * Separación de frontdoor URL vs base origin para evitar navegación con URLs mal concatenadas.
 * Reintentos ante interrupciones transitorias de navegación tipo `net::ERR_ABORTED`.
 * Recuperación del popup inicial de Setup cuando Salesforce demora o redibuja el item “Setup Opens in a new tab…” antes de abrir la pestaña de configuración.
+* Fallback al primer `.slds-checkbox_faux` visible cuando Playwright entra en strict mode por múltiples toggles equivalentes.
 * Rebind/reapertura de popups cuando una pestaña/ventana grabada se cerró y luego se reutiliza.
 * Fallback de App Launcher (combobox/placeholder/reapertura).
 * Selectores dinámicos para Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).

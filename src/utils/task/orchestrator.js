@@ -53,6 +53,11 @@ const DEFAULT_SOLUTIONS = [
     solution: 'Reintenta con "--header" para validar si el botón Setup despliega el menú. El parcheador temporal ya intenta reabrir Setup y resolver el menuitem por fallback; si persiste, confirma el texto visible del item y si una navegación intermedia cerró el menú antes del popup.',
   },
   {
+    pattern: 'strict mode violation: locator\\(\'\\.slds-checkbox_faux\'\\)|locator\\.click: Error: strict mode violation: locator\\(\'\\.slds-checkbox_faux\'\\)',
+    description: 'Un selector genérico de checkbox en Salesforce coincidió con múltiples toggles visibles.',
+    solution: 'Reintenta con "--header". El parcheador temporal ahora intenta resolver `.slds-checkbox_faux` usando el primer checkbox visible del contexto actual; si sigue fallando, registra el texto/cabecera del bloque correcto para agregar un selector más específico al orquestador.',
+  },
+  {
     pattern: 'PriceList Selected|B2B ARS|B2B USD',
     description: 'El selector de PriceList en EPC Jobs no estuvo disponible a tiempo o no expuso los valores esperados.',
     solution: 'Reintenta con "--header" y valida que el paso previo de Start realmente abra el selector de listas de precio dentro del iframe/popup. Si el control cambió de tipo o etiqueta, registra el texto exacto visto en pantalla para agregar un nuevo fallback al orquestador.',
