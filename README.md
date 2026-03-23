@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-13 — `@nervill/metadelta` 0.10.2
+> **Last update / Última actualización:** 2026-03-23 — `@nervill/metadelta` 0.12.3
 
 # Metadelta Salesforce CLI Plugin
 
@@ -19,7 +19,7 @@ Metadelta is a custom Salesforce CLI plugin that offers eleven complementary wor
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 * `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
-* `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with orchestrated diagnostics and runtime stabilizers.
+* `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with automatic recovery stabilizers, patched `.metadelta.*` playback, and orchestrated diagnostics.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.12.3`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.10.2 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.12.3 (link)`.
 
 ### Usage
 
@@ -372,7 +372,7 @@ What the command creates:
 
 ### `task record` / `task play` command
 
-Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching and diagnostics:
+Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching, recovery stabilizers, and orchestrated diagnostics:
 
 ```bash
 sf metadelta task record --org <alias>
@@ -637,7 +637,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece once flujos co
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 * `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
-* `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, más diagnósticos orquestados y estabilizadores en ejecución.
+* `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, estabilizadores automáticos de recuperación, reproducción sobre `.metadelta.*` y diagnósticos orquestados.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
@@ -943,7 +943,7 @@ Qué crea el comando:
 
 ### Comando `task record` / `task play`
 
-Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático y diagnóstico:
+Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático, estabilizadores de recuperación y diagnóstico orquestado:
 
 ```bash
 sf metadelta task record --org <alias>

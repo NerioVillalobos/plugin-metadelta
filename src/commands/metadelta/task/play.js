@@ -13,7 +13,7 @@ import {
 } from '../../../utils/task/orchestrator.js';
 
 class TaskPlay extends Command {
-  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce.';
+  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce con hardening y diagnóstico orquestado.';
 
   static flags = {
     org: Flags.string({
