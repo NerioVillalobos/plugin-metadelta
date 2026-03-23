@@ -48,6 +48,11 @@ const DEFAULT_SOLUTIONS = [
     solution: 'Reintenta la ejecución; el parcheador ya abre App Launcher y aplica fallback por placeholder. Si persiste, valida que la app objetivo sea visible para el usuario autenticado.',
   },
   {
+    pattern: 'page\\.waitForEvent: Timeout .*event "popup"|Setup Opens in a new tab Setup for current app|locator\\.click: Timeout .*menuitem',
+    description: 'La apertura inicial de Setup en una nueva pestaña no ocurrió como esperaba el flujo grabado.',
+    solution: 'Reintenta con "--header" para validar si el botón Setup despliega el menú. El parcheador temporal ya intenta reabrir Setup y resolver el menuitem por fallback; si persiste, confirma el texto visible del item y si una navegación intermedia cerró el menú antes del popup.',
+  },
+  {
     pattern: 'PriceList Selected|B2B ARS|B2B USD',
     description: 'El selector de PriceList en EPC Jobs no estuvo disponible a tiempo o no expuso los valores esperados.',
     solution: 'Reintenta con "--header" y valida que el paso previo de Start realmente abra el selector de listas de precio dentro del iframe/popup. Si el control cambió de tipo o etiqueta, registra el texto exacto visto en pantalla para agregar un nuevo fallback al orquestador.',

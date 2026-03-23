@@ -366,7 +366,7 @@ What the command creates:
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
-> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -388,6 +388,7 @@ Automatic mitigations currently covered:
 
 * frontdoor URL vs base origin separation to avoid malformed navigation URLs.
 * Retry flow for transient `net::ERR_ABORTED` style navigation interruptions.
+* Initial Setup popup recovery when Salesforce delays or redraws the “Setup Opens in a new tab…” menu item before opening the setup tab.
 * Popup rebind/reopen handling when a recorded tab/window is closed and reused later.
 * App Launcher fallback path (combobox/placeholder/reopen launcher).
 * Dynamic selectors for Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
@@ -934,7 +935,7 @@ Qué crea el comando:
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
-> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
@@ -956,6 +957,7 @@ Mitigaciones automáticas cubiertas actualmente:
 
 * Separación de frontdoor URL vs base origin para evitar navegación con URLs mal concatenadas.
 * Reintentos ante interrupciones transitorias de navegación tipo `net::ERR_ABORTED`.
+* Recuperación del popup inicial de Setup cuando Salesforce demora o redibuja el item “Setup Opens in a new tab…” antes de abrir la pestaña de configuración.
 * Rebind/reapertura de popups cuando una pestaña/ventana grabada se cerró y luego se reutiliza.
 * Fallback de App Launcher (combobox/placeholder/reapertura).
 * Selectores dinámicos para Permission Set Assignments (`[0]`, `[2]`, `[5]`, etc.).
