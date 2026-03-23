@@ -775,7 +775,10 @@ async function ensureOpenSetupPage(pageRef, rootPage, options = {}) {
       return false;
     }
   });
-  const liveSetup = livePages.find((pageItem) => /\/lightning\/setup\//i.test(pageItem.url()) || /salesforce-setup\.com/i.test(pageItem.url()));
+  const liveSetup = livePages.find((pageItem) => {
+    const currentUrl = pageItem.url();
+    return currentUrl.includes('/lightning/setup/') || /salesforce-setup\.com/i.test(currentUrl);
+  });
   if (liveSetup) {
     if (waitForReady) {
       await liveSetup.waitForLoadState('domcontentloaded', {timeout: timeoutMs}).catch(() => {});
