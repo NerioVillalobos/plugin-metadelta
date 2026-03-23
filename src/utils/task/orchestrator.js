@@ -60,7 +60,7 @@ const DEFAULT_SOLUTIONS = [
   {
     pattern: 'Agentforce Agents|No se pudo ubicar Agentforce Agents|getByText\\(\'Agentforce Agents\'',
     description: 'La opción Agentforce Agents tardó en aparecer después de habilitar Einstein Setup.',
-    solution: 'Reintenta con "--header". El parcheador temporal ahora espera, fuerza un refresh completo de la pestaña de Setup y, si hace falta, cierra/reabre Setup antes de reintentar Quick Find para abrir Agentforce Agents; si persiste, valida que Einstein Setup haya terminado de habilitar la característica y que el usuario tenga acceso a esa sección.',
+    solution: 'Reintenta con "--header". El parcheador temporal ahora espera, fuerza un refresh completo de la pestaña de Setup, cierra/reabre Setup y también intenta la ruta directa de Agentforce Agents antes de fallar; si persiste, valida que Einstein Setup haya terminado de habilitar la característica y que el usuario tenga acceso a esa sección.',
   },
   {
     pattern: 'PriceList Selected|B2B ARS|B2B USD',
