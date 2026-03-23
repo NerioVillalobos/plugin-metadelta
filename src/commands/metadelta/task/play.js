@@ -633,15 +633,18 @@ async function clickCheckboxFaux(scope, options = {}) {
 
 async function clickAgentforceAgentsLink(page, options = {}) {
   const {attempts = 4, reloadDelayMs = 5000} = options;
-  const quickFind = page.getByRole('searchbox', {name: 'Quick Find'}).first();
-  const candidateFactories = [
-    () => page.getByRole('link', {name: 'Agentforce Agents'}).first(),
-    () => page.getByText('Agentforce Agents', {exact: true}).first(),
-    () => page.getByText(/Agentforce Agents/i).first(),
-  ];
+  const rootPage = page.context().pages()[0] ?? page;
+  let currentPage = page;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await page.waitForLoadState('domcontentloaded');
+    await currentPage.waitForLoadState('domcontentloaded');
+
+    const quickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
+    const candidateFactories = [
+      () => currentPage.getByRole('link', {name: 'Agentforce Agents'}).first(),
+      () => currentPage.getByText('Agentforce Agents', {exact: true}).first(),
+      () => currentPage.getByText(/Agentforce Agents/i).first(),
+    ];
 
     if ((await quickFind.count()) > 0) {
       await quickFind.fill('Agentforce Agents');
@@ -658,13 +661,32 @@ async function clickAgentforceAgentsLink(page, options = {}) {
 
     if (attempt < attempts - 1) {
       const waitMs = reloadDelayMs + attempt * 2000;
-      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se refrescará Setup.');
-      await page.waitForTimeout(waitMs);
-      await page.reload({waitUntil: 'domcontentloaded'});
+      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se intentará refrescar por completo Setup.');
+      await currentPage.waitForTimeout(waitMs);
+
+      if (attempt === 0) {
+        const reloadShortcut = process.platform === 'darwin' ? 'Meta+R' : 'Control+R';
+        try {
+          await currentPage.keyboard.press(reloadShortcut);
+          await currentPage.waitForLoadState('domcontentloaded', {timeout: 20000});
+        } catch (error) {
+          await currentPage.reload({waitUntil: 'domcontentloaded'});
+        }
+        continue;
+      }
+
+      if (currentPage !== rootPage) {
+        await currentPage.close().catch(() => {});
+        await rootPage.bringToFront().catch(() => {});
+        currentPage = await openSetupPopup(rootPage);
+        continue;
+      }
+
+      await currentPage.reload({waitUntil: 'domcontentloaded'});
     }
   }
 
-  throw new Error('No se pudo ubicar Agentforce Agents después de esperar y refrescar Setup.');
+  throw new Error('No se pudo ubicar Agentforce Agents después de esperar, refrescar y reabrir Setup.');
 }
 
 async function waitForActionLibraryReady(page, timeoutMs = 45000) {
