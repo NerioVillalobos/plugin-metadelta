@@ -58,6 +58,11 @@ const DEFAULT_SOLUTIONS = [
     solution: 'Reintenta con "--header". El parcheador temporal ahora intenta resolver `.slds-checkbox_faux` usando el primer checkbox visible del contexto actual; si sigue fallando, registra el texto/cabecera del bloque correcto para agregar un selector más específico al orquestador.',
   },
   {
+    pattern: 'Agentforce Agents|No se pudo ubicar Agentforce Agents|getByText\\(\'Agentforce Agents\'',
+    description: 'La opción Agentforce Agents tardó en aparecer después de habilitar Einstein Setup.',
+    solution: 'Reintenta con "--header". El parcheador temporal ahora espera, refresca la página de Setup y reintenta Quick Find antes de abrir Agentforce Agents; si persiste, valida que Einstein Setup haya terminado de habilitar la característica y que el usuario tenga acceso a esa sección.',
+  },
+  {
     pattern: 'PriceList Selected|B2B ARS|B2B USD',
     description: 'El selector de PriceList en EPC Jobs no estuvo disponible a tiempo o no expuso los valores esperados.',
     solution: 'Reintenta con "--header" y valida que el paso previo de Start realmente abra el selector de listas de precio dentro del iframe/popup. Si el control cambió de tipo o etiqueta, registra el texto exacto visto en pantalla para agregar un nuevo fallback al orquestador.',

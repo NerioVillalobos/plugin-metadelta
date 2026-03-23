@@ -416,21 +416,7 @@ class TaskPlay extends Command {
     );
     const normalizedAgentforceLink = normalizedQuickFind.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
-      `{
-    const agentforceLink = $1.getByRole('link', {name: 'Agentforce Agents'}).first();
-    if ((await agentforceLink.count()) === 0) {
-      await $1.waitForLoadState('domcontentloaded');
-      await $1.waitForTimeout(3000);
-      await $1.reload({waitUntil: 'domcontentloaded'});
-      await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('Agentforce Agents');
-      await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');
-    }
-    if ((await agentforceLink.count()) > 0) {
-      await agentforceLink.click({timeout: 15000});
-    } else {
-      await $1.getByText('Agentforce Agents', {exact: true}).first().click({timeout: 15000, force: true});
-    }
-  }`
+      `await clickAgentforceAgentsLink($1);`
     );
     const normalizedPermissionSetAssignmentsLink = normalizedAgentforceLink.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('link', \{ name: 'Permission Set Assignments\[\d+\]' \}\)\.click\(\);/g,
@@ -643,6 +629,42 @@ async function clickCheckboxFaux(scope, options = {}) {
   }
 
   throw new Error('No se encontró un checkbox visible compatible para el selector .slds-checkbox_faux.');
+}
+
+async function clickAgentforceAgentsLink(page, options = {}) {
+  const {attempts = 4, reloadDelayMs = 5000} = options;
+  const quickFind = page.getByRole('searchbox', {name: 'Quick Find'}).first();
+  const candidateFactories = [
+    () => page.getByRole('link', {name: 'Agentforce Agents'}).first(),
+    () => page.getByText('Agentforce Agents', {exact: true}).first(),
+    () => page.getByText(/Agentforce Agents/i).first(),
+  ];
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await page.waitForLoadState('domcontentloaded');
+
+    if ((await quickFind.count()) > 0) {
+      await quickFind.fill('Agentforce Agents');
+      await quickFind.press('Enter');
+    }
+
+    for (const buildCandidate of candidateFactories) {
+      const candidate = buildCandidate();
+      if ((await candidate.count()) > 0) {
+        await candidate.click({timeout: 15000, force: true});
+        return;
+      }
+    }
+
+    if (attempt < attempts - 1) {
+      const waitMs = reloadDelayMs + attempt * 2000;
+      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se refrescará Setup.');
+      await page.waitForTimeout(waitMs);
+      await page.reload({waitUntil: 'domcontentloaded'});
+    }
+  }
+
+  throw new Error('No se pudo ubicar Agentforce Agents después de esperar y refrescar Setup.');
 }
 
 async function waitForActionLibraryReady(page, timeoutMs = 45000) {
