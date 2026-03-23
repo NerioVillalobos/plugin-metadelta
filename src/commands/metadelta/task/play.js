@@ -439,10 +439,13 @@ class TaskPlay extends Command {
     }
   }`
     );
-    const normalizedQuickFind = normalizedUserInterfaceClick.replace(
+    const normalizedQuickFindSequence = normalizedUserInterfaceClick.replace(
+      /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);\s*await \1\.getByRole\('searchbox', \{name: 'Quick Find'\}\)\.fill\('([^']+)'\);\s*await \1\.getByRole\('searchbox', \{name: 'Quick Find'\}\)\.press\('Enter'\);/g,
+      `await searchInQuickFind($1, page, '$2');`
+    );
+    const normalizedQuickFind = normalizedQuickFindSequence.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
-      `await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');
-  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
+      `await searchInQuickFind($1, page, '$2');`
     );
     const normalizedAgentforceLink = normalizedQuickFind.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
@@ -707,14 +710,133 @@ async function clickCheckboxFaux(scope, options = {}) {
   throw new Error('No se encontró un checkbox visible compatible para el selector .slds-checkbox_faux.');
 }
 
+function isRecoverableClosedPageError(error) {
+  const message = String(error?.message ?? '');
+  return /Target page, context or browser has been closed/i.test(message);
+}
+
+function resolveLiveContextPage(referencePage, rootPage) {
+  const candidates = [referencePage, rootPage];
+  for (const candidate of candidates) {
+    try {
+      if (candidate && !candidate.isClosed()) {
+        return candidate;
+      }
+    } catch (error) {
+      // noop
+    }
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const contextPages = candidate?.context?.().pages?.() ?? [];
+      const livePage = contextPages.find((pageItem) => {
+        try {
+          return pageItem && !pageItem.isClosed();
+        } catch (error) {
+          return false;
+        }
+      });
+      if (livePage) {
+        return livePage;
+      }
+    } catch (error) {
+      // noop
+    }
+  }
+
+  return null;
+}
+
+async function ensureOpenSetupPage(pageRef, rootPage, options = {}) {
+  const {waitForReady = true, timeoutMs = 15000} = options;
+  if (pageRef) {
+    try {
+      if (!pageRef.isClosed()) {
+        if (waitForReady) {
+          await pageRef.waitForLoadState('domcontentloaded', {timeout: timeoutMs}).catch(() => {});
+        }
+        return pageRef;
+      }
+    } catch (error) {
+      // continue with recovery
+    }
+  }
+
+  const liveRoot = resolveLiveContextPage(pageRef, rootPage);
+  if (!liveRoot) {
+    throw new Error('Target page, context or browser has been closed y no se encontró una pestaña viva para reabrir Setup.');
+  }
+
+  const livePages = liveRoot.context().pages().filter((pageItem) => {
+    try {
+      return pageItem && !pageItem.isClosed();
+    } catch (error) {
+      return false;
+    }
+  });
+  const liveSetup = livePages.find((pageItem) => /\/lightning\/setup\//i.test(pageItem.url()) || /salesforce-setup\.com/i.test(pageItem.url()));
+  if (liveSetup) {
+    if (waitForReady) {
+      await liveSetup.waitForLoadState('domcontentloaded', {timeout: timeoutMs}).catch(() => {});
+    }
+    return liveSetup;
+  }
+
+  await liveRoot.bringToFront().catch(() => {});
+  const reopenedSetup = await openSetupPopup(liveRoot);
+  if (waitForReady) {
+    await reopenedSetup.waitForLoadState('domcontentloaded', {timeout: timeoutMs}).catch(() => {});
+  }
+  return reopenedSetup;
+}
+
+async function withRecoveredSetupPage(pageRef, rootPage, action, options = {}) {
+  const {attempts = 3, retryDelayMs = 1200} = options;
+  let currentPage = pageRef;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    currentPage = await ensureOpenSetupPage(currentPage, rootPage, options);
+    try {
+      return await action(currentPage);
+    } catch (error) {
+      if (!isRecoverableClosedPageError(error) || attempt === attempts - 1) {
+        throw error;
+      }
+      lastError = error;
+      await currentPage.waitForTimeout(retryDelayMs).catch(() => {});
+      currentPage = null;
+    }
+  }
+
+  throw lastError ?? new Error('No se pudo recuperar la pestaña de Setup para continuar el flujo.');
+}
+
+async function searchInQuickFind(pageRef, rootPage, searchTerm, options = {}) {
+  return await withRecoveredSetupPage(
+    pageRef,
+    rootPage,
+    async (activePage) => {
+      const quickFind = activePage.getByRole('searchbox', {name: 'Quick Find'}).first();
+      await quickFind.waitFor({timeout: options.timeoutMs ?? 15000});
+      await quickFind.click({timeout: options.timeoutMs ?? 15000});
+      await quickFind.fill(searchTerm, {timeout: options.timeoutMs ?? 15000});
+      await quickFind.press('Enter');
+      return activePage;
+    },
+    options
+  );
+}
+
 async function clickAgentforceAgentsLink(page, options = {}) {
   const {attempts = 4, reloadDelayMs = 5000} = options;
-  const rootPage = page.context().pages()[0] ?? page;
+  const rootPage = resolveLiveContextPage(page, page.context().pages()[0] ?? page) ?? page;
   let currentPage = page;
   const directSetupPaths = ['/lightning/setup/EinsteinCopilot/home'];
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await currentPage.waitForLoadState('domcontentloaded');
+    currentPage = await ensureOpenSetupPage(currentPage, rootPage);
 
     const quickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
     const candidateFactories = [
