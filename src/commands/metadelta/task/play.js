@@ -13,7 +13,7 @@ import {
 } from '../../../utils/task/orchestrator.js';
 
 class TaskPlay extends Command {
-  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce.';
+  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce con hardening y diagnóstico orquestado.';
 
   static flags = {
     org: Flags.string({
@@ -150,6 +150,8 @@ class TaskPlay extends Command {
   applyStructuralStabilizers(source) {
     let stabilized = source;
     stabilized = this.fixSelfReferencingBaseUrl(stabilized);
+    stabilized = this.normalizeSetupPopupSequence(stabilized);
+    stabilized = this.normalizeEinsteinSetupRefreshSequence(stabilized);
     stabilized = this.fixDuplicatePopupPromises(stabilized);
     stabilized = this.rebindClosedPopupPageHandles(stabilized);
     stabilized = this.removeOrphanPopupPromises(stabilized);
@@ -174,6 +176,45 @@ class TaskPlay extends Command {
       const renamed = `${name}_${count}`;
       return `const ${renamed} = ${pageRef}.waitForEvent('popup');`;
     });
+  }
+
+  normalizeSetupPopupSequence(source) {
+    return source.replace(
+      /(\s*)await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);\n((?:\s*(?:await page\.(?:goto|waitForTimeout)\([^\n]+\);|\/\/[^\n]*)\n)*)\s*const (page\d*Promise) = page\.waitForEvent\('popup'\);\n\s*await page\.getByRole\('menuitem', \{ name: 'Setup Opens in a new tab Setup for current app' \}\)\.click\(\);\n\s*const (page\d+) = await \3;/g,
+      (match, indent, intermediateSteps = '', _promiseVar, pageVar) => {
+        const normalizedSteps = intermediateSteps ? intermediateSteps.replace(/\s+$/, '\n') : '';
+        return `${indent}${normalizedSteps}${indent}const ${pageVar} = await openSetupPopup(page);\n`;
+      }
+    );
+  }
+
+  normalizeEinsteinSetupRefreshSequence(source) {
+    const toggleRegex = /await\s+(page\d*)\.getByRole\('link', \{ name: 'Einstein Setup' \}\)\.click\(\);\n\s*await\s+\1\.locator\('\.slds-checkbox_faux'\)\.first\(\)\.click\(\);/g;
+    let updated = source;
+    const matches = [...source.matchAll(toggleRegex)];
+
+    for (const match of matches) {
+      const pageVar = match[1];
+      const endIndex = (match.index ?? -1) + match[0].length;
+      if (endIndex < 0) {
+        continue;
+      }
+
+      const afterToggle = updated.slice(endIndex);
+      if (!new RegExp(`\\b${pageVar}\\.`).test(afterToggle)) {
+        continue;
+      }
+
+      const refreshedVar = `${pageVar}EinsteinRefreshed`;
+      const refreshSnippet = `\n  const ${refreshedVar} = await reopenSetupAfterEinsteinToggle(${pageVar}, page);\n`;
+      updated = `${updated.slice(0, endIndex)}${refreshSnippet}${updated.slice(endIndex)}`;
+
+      const injectedAt = endIndex + refreshSnippet.length;
+      const tail = updated.slice(injectedAt).replace(new RegExp(`\\b${pageVar}\\.`, 'g'), `${refreshedVar}.`);
+      updated = `${updated.slice(0, injectedAt)}${tail}`;
+    }
+
+    return updated;
   }
 
 
@@ -204,19 +245,9 @@ class TaskPlay extends Command {
         continue;
       }
 
-      const suffix = pageVar.replace('page', '') || '1';
       const reopenedVar = `${pageVar}Reopened`;
-      const promiseVar = `page${suffix}PromiseReopened`;
       const reopenSnippet = `
-  const ${promiseVar} = page.waitForEvent('popup');
-  const setupButton = page.getByRole('button', {name: 'Setup'}).first();
-  if (await setupButton.count()) {
-    await setupButton.click({timeout: 15000});
-  }
-  const setupMenuItem = page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).first();
-  await setupMenuItem.waitFor({timeout: 15000});
-  await setupMenuItem.click({timeout: 15000});
-  const ${reopenedVar} = await ${promiseVar};
+  const ${reopenedVar} = await openSetupPopup(page);
 `;
 
       updated = `${updated.slice(0, closeIndex + closeStatement.length)}${reopenSnippet}${updated.slice(closeIndex + closeStatement.length)}`;
@@ -415,21 +446,7 @@ class TaskPlay extends Command {
     );
     const normalizedAgentforceLink = normalizedQuickFind.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
-      `{
-    const agentforceLink = $1.getByRole('link', {name: 'Agentforce Agents'}).first();
-    if ((await agentforceLink.count()) === 0) {
-      await $1.waitForLoadState('domcontentloaded');
-      await $1.waitForTimeout(3000);
-      await $1.reload({waitUntil: 'domcontentloaded'});
-      await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('Agentforce Agents');
-      await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');
-    }
-    if ((await agentforceLink.count()) > 0) {
-      await agentforceLink.click({timeout: 15000});
-    } else {
-      await $1.getByText('Agentforce Agents', {exact: true}).first().click({timeout: 15000, force: true});
-    }
-  }`
+      `await clickAgentforceAgentsLink($1);`
     );
     const normalizedPermissionSetAssignmentsLink = normalizedAgentforceLink.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('link', \{ name: 'Permission Set Assignments\[\d+\]' \}\)\.click\(\);/g,
@@ -482,7 +499,11 @@ class TaskPlay extends Command {
       /await (\w+)\.locator\('#check-button-label-[^']+ > \.slds-checkbox_faux'\)\.click\(\);/g,
       `await selectActionLibraryCheckboxWithScroll($1);`
     );
-    const normalizedCheckboxes = normalizedActionLibraryCheckboxes.replace(
+    const normalizedGenericCheckboxFauxClicks = normalizedActionLibraryCheckboxes.replace(
+      /await (\w+)\.locator\('\.slds-checkbox_faux'\)\.click\(\);/g,
+      `await clickCheckboxFaux($1);`
+    );
+    const normalizedCheckboxes = normalizedGenericCheckboxFauxClicks.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -551,6 +572,207 @@ async function gotoWithRetry(page, destination, options = {}) {
     await page.waitForTimeout(1200);
     await page.goto(destination, defaultOptions);
   }
+}
+
+async function openSetupPopup(page, options = {}) {
+  const {timeoutMs = 20000, popupTimeoutMs = 60000} = options;
+  const setupButton = page.getByRole('button', {name: 'Setup'}).first();
+  const setupMenuCandidates = [
+    page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).first(),
+    page.getByRole('menuitem', {name: /Setup Opens in a new tab/i}).first(),
+    page.getByText(/Setup Opens in a new tab/i).first(),
+  ];
+
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await setupButton.waitFor({timeout: timeoutMs});
+      await setupButton.click({timeout: timeoutMs});
+
+      let setupMenuItem = null;
+      for (const candidate of setupMenuCandidates) {
+        if ((await candidate.count()) > 0) {
+          setupMenuItem = candidate;
+          break;
+        }
+      }
+
+      if (!setupMenuItem) {
+        for (const candidate of setupMenuCandidates) {
+          try {
+            await candidate.waitFor({timeout: Math.max(4000, Math.floor(timeoutMs / 2))});
+            setupMenuItem = candidate;
+            break;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+      }
+
+      if (!setupMenuItem) {
+        throw lastError ?? new Error('No se encontró el menuitem de Setup para abrir la nueva pestaña.');
+      }
+
+      const popupPromise = page.waitForEvent('popup', {timeout: popupTimeoutMs});
+      await setupMenuItem.click({timeout: timeoutMs, force: true});
+      const popup = await popupPromise;
+      await popup.waitForLoadState('domcontentloaded', {timeout: 15000}).catch(() => {});
+      return popup;
+    } catch (error) {
+      lastError = error;
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(800);
+    }
+  }
+
+  throw new Error('No se pudo abrir Setup en una nueva pestaña. ' + (lastError?.message ?? 'El menú o popup no estuvo disponible.'));
+}
+
+async function forceFullPageRefresh(page, options = {}) {
+  const {timeoutMs = 20000} = options;
+  const reloadShortcut = process.platform === 'darwin' ? 'Meta+R' : 'Control+R';
+  const currentUrl = page.url();
+  const strategies = [
+    async () => {
+      await page.evaluate(() => window.location.reload());
+      await page.waitForLoadState('domcontentloaded', {timeout: timeoutMs});
+    },
+    async () => {
+      await page.keyboard.press(reloadShortcut);
+      await page.waitForLoadState('domcontentloaded', {timeout: timeoutMs});
+    },
+    async () => {
+      await page.reload({waitUntil: 'domcontentloaded', timeout: timeoutMs});
+    },
+    async () => {
+      if (!currentUrl) {
+        throw new Error('No hay URL disponible para forzar el refresh completo.');
+      }
+      await page.goto(currentUrl, {waitUntil: 'domcontentloaded', timeout: timeoutMs});
+    },
+  ];
+
+  let lastError = null;
+  for (const strategy of strategies) {
+    try {
+      await strategy();
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error('No se pudo forzar el refresh completo de Setup. ' + (lastError?.message ?? 'Sin detalle adicional.'));
+}
+
+async function reopenSetupAfterEinsteinToggle(setupPage, rootPage, options = {}) {
+  const {waitMs = 20000} = options;
+  await setupPage.waitForTimeout(waitMs);
+  await forceFullPageRefresh(setupPage);
+  await setupPage.close().catch(() => {});
+  await rootPage.bringToFront().catch(() => {});
+  return await openSetupPopup(rootPage);
+}
+
+async function clickCheckboxFaux(scope, options = {}) {
+  const {timeoutMs = 15000} = options;
+  const checkboxCandidates = [
+    {type: 'click', locator: scope.locator('.slds-checkbox_faux:visible')},
+    {type: 'click', locator: scope.locator('[role="checkbox"]:visible')},
+    {type: 'check', locator: scope.locator('input[type="checkbox"]:visible')},
+  ];
+
+  for (const candidate of checkboxCandidates) {
+    const locator = candidate.locator;
+    const count = await locator.count();
+    if (count === 0) {
+      continue;
+    }
+
+    const target = locator.first();
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    if (count > 1) {
+      console.log('⚠️ .slds-checkbox_faux devolvió ' + count + ' elementos; se usará el primero visible.');
+    }
+
+    if (candidate.type === 'check') {
+      await target.check({timeout: timeoutMs, force: true});
+    } else {
+      await target.click({timeout: timeoutMs, force: true});
+    }
+    return;
+  }
+
+  throw new Error('No se encontró un checkbox visible compatible para el selector .slds-checkbox_faux.');
+}
+
+async function clickAgentforceAgentsLink(page, options = {}) {
+  const {attempts = 4, reloadDelayMs = 5000} = options;
+  const rootPage = page.context().pages()[0] ?? page;
+  let currentPage = page;
+  const directSetupPaths = ['/lightning/setup/EinsteinCopilot/home'];
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await currentPage.waitForLoadState('domcontentloaded');
+
+    const quickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
+    const candidateFactories = [
+      () => currentPage.getByRole('link', {name: 'Agentforce Agents'}).first(),
+      () => currentPage.getByText('Agentforce Agents', {exact: true}).first(),
+      () => currentPage.getByText(/Agentforce Agents/i).first(),
+    ];
+
+    if ((await quickFind.count()) > 0) {
+      for (const searchTerm of ['Agentforce Agents', 'Agentforce']) {
+        await quickFind.fill(searchTerm);
+        await quickFind.press('Enter');
+
+        for (const buildCandidate of candidateFactories) {
+          const candidate = buildCandidate();
+          if ((await candidate.count()) > 0) {
+            await candidate.click({timeout: 15000, force: true});
+            return;
+          }
+        }
+      }
+    }
+
+    for (const setupPath of directSetupPaths) {
+      try {
+        const currentOrigin = new URL(process.env.METADELTA_BASE_URL ?? currentPage.url()).origin;
+        await gotoWithRetry(currentPage, currentOrigin + setupPath);
+        const newAgentButton = currentPage.getByRole('button', {name: 'New Agent'}).first();
+        if ((await newAgentButton.count()) > 0) {
+          return;
+        }
+      } catch (error) {
+        // continue with other recovery strategies
+      }
+    }
+
+    if (attempt < attempts - 1) {
+      const waitMs = reloadDelayMs + attempt * 2000;
+      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se intentará refrescar por completo Setup.');
+      await currentPage.waitForTimeout(waitMs);
+
+      if (attempt === 0) {
+        await forceFullPageRefresh(currentPage);
+        continue;
+      }
+
+      if (currentPage !== rootPage) {
+        await currentPage.close().catch(() => {});
+        await rootPage.bringToFront().catch(() => {});
+        currentPage = await openSetupPopup(rootPage);
+        continue;
+      }
+
+      await currentPage.reload({waitUntil: 'domcontentloaded'});
+    }
+  }
+
+  throw new Error('No se pudo ubicar Agentforce Agents después de esperar, refrescar y reabrir Setup.');
 }
 
 async function waitForActionLibraryReady(page, timeoutMs = 45000) {
