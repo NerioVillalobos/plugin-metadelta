@@ -154,6 +154,7 @@ class TaskPlay extends Command {
     stabilized = this.normalizeEinsteinSetupRefreshSequence(stabilized);
     stabilized = this.fixDuplicatePopupPromises(stabilized);
     stabilized = this.rebindClosedPopupPageHandles(stabilized);
+    stabilized = this.removePostReopenSetupClicks(stabilized);
     stabilized = this.removeOrphanPopupPromises(stabilized);
     return stabilized;
   }
@@ -221,6 +222,14 @@ class TaskPlay extends Command {
     return updated;
   }
 
+
+
+  removePostReopenSetupClicks(source) {
+    return source.replace(
+      /(const\s+(page\d*Reopened)\s*=\s*await\s+openSetupPopup\(page\);[\s\S]*?)\n\s*await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);(?=\n\s*(?:\/\/[^\n]*\n\s*)*await \2\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);)/g,
+      '$1'
+    );
+  }
 
   removeOrphanPopupPromises(source) {
     const declarationRegex = /const\s+(page\d*Promise(?:_\d+)?)\s*=\s*[\w$.]+\.waitForEvent\('popup'\);\n?/g;
@@ -719,7 +728,11 @@ async function clickAgentforceAgentsLink(page, options = {}) {
   const {attempts = 4, reloadDelayMs = 5000} = options;
   const rootPage = page.context().pages()[0] ?? page;
   let currentPage = page;
-  const directSetupPaths = ['/lightning/setup/EinsteinCopilot/home'];
+  const directSetupPaths = [
+    '/lightning/setup/EinsteinCopilot/home',
+    '/lightning/setup/AgentforceAgents/home',
+    '/lightning/setup/EinsteinGPTSetup/home',
+  ];
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await currentPage.waitForLoadState('domcontentloaded');
@@ -751,7 +764,8 @@ async function clickAgentforceAgentsLink(page, options = {}) {
         const currentOrigin = new URL(process.env.METADELTA_BASE_URL ?? currentPage.url()).origin;
         await gotoWithRetry(currentPage, currentOrigin + setupPath);
         const newAgentButton = currentPage.getByRole('button', {name: 'New Agent'}).first();
-        if ((await newAgentButton.count()) > 0) {
+        const agentforceHeading = currentPage.getByText(/Agentforce Agents/i).first();
+        if ((await newAgentButton.count()) > 0 || (await agentforceHeading.count()) > 0) {
           return;
         }
       } catch (error) {
