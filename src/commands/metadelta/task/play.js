@@ -204,6 +204,10 @@ class TaskPlay extends Command {
       if (!new RegExp(`\\b${pageVar}\\.`).test(afterToggle)) {
         continue;
       }
+      const hasExplicitClose = new RegExp(`await\\s+${pageVar}\\.close\\(\\);`).test(afterToggle);
+      if (hasExplicitClose) {
+        continue;
+      }
 
       const refreshedVar = `${pageVar}EinsteinRefreshed`;
       const refreshSnippet = `\n  const ${refreshedVar} = await reopenSetupAfterEinsteinToggle(${pageVar}, page);\n`;
