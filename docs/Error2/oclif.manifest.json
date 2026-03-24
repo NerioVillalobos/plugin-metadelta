@@ -1,0 +1,807 @@
+{
+  "commands": {
+    "metadelta:access": {
+      "aliases": [],
+      "args": {},
+      "description": "Exporta aliases conectados, captura SFDX Auth URLs cifradas y restaura accesos en otro equipo (Windows/Linux/WSL) usando únicamente Node.js + Salesforce CLI.",
+      "flags": {
+        "all": {
+          "name": "all",
+          "summary": "Exporta todos los aliases conectados a una carpeta \"All\".",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "prefix": {
+          "name": "prefix",
+          "summary": "Exporta solo aliases que inicien con este prefijo (también será el nombre de carpeta).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "name": "output",
+          "summary": "Directorio base de salida",
+          "default": "docs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "capture": {
+          "name": "capture",
+          "summary": "Carpeta que contiene accessbackup.dat para capturar y cifrar auth URLs",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "addaccess": {
+          "aliases": [
+            "adaccess"
+          ],
+          "name": "addaccess",
+          "summary": "Carpeta que contiene accessbackup.dat para restaurar accesos en el equipo actual",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "passphrase": {
+          "name": "passphrase",
+          "summary": "Passphrase para cifrar/descifrar (si no se envía, se solicita por consola).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:access",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Gestiona respaldos cifrados de accesos de orgs con MFA (Metadelta Access).",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "access.js"
+      ]
+    },
+    "metadelta:cleanps": {
+      "aliases": [],
+      "args": {},
+      "description": "Lee un Permission Set desde la carpeta permissionsets del proyecto y crea una versión filtrada en la carpeta cleanps del proyecto.",
+      "flags": {
+        "prefix": {
+          "char": "f",
+          "name": "prefix",
+          "required": true,
+          "summary": "Fragmento que deben contener los miembros para conservarse.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "permissionset": {
+          "char": "p",
+          "name": "permissionset",
+          "required": true,
+          "summary": "Nombre del Permission Set a filtrar (sin extensión o nombre de archivo).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "exclude": {
+          "char": "e",
+          "name": "exclude",
+          "summary": "Ruta al archivo con nombres exactos a conservar (uno por línea).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Nombre del archivo XML de salida que se creará dentro de la carpeta cleanps.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "project-dir": {
+          "name": "project-dir",
+          "summary": "Ruta al directorio raíz del proyecto (contiene sfdx-project.json).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:cleanps",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera una versión depurada de un Permission Set filtrando por coincidencias y una lista opcional.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "cleanps.js"
+      ]
+    },
+    "metadelta:find": {
+      "aliases": [],
+      "args": {},
+      "description": "Find metadata changes made by a user in a Salesforce org",
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "metafile": {
+          "name": "metafile",
+          "summary": "Path to a JSON file listing the metadata types to inspect",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "name": "days",
+          "summary": "Number of days to check for changes",
+          "default": 3,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "namespace": {
+          "name": "namespace",
+          "summary": "Vlocity namespace for datapacks",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Generate a package.xml with the found components",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Generate a Vlocity package.yaml with the found components",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "audit": {
+          "name": "audit",
+          "summary": "Full name of the user to audit",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:find",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Find metadata changes made by a user in a Salesforce org",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "find.js"
+      ]
+    },
+    "metadelta:finddelta": {
+      "aliases": [],
+      "args": {},
+      "description": "Compara dos ramas con git diff y genera package.xml/yaml de diferencias, incluyendo destructivos para eliminaciones.",
+      "flags": {
+        "from": {
+          "name": "from",
+          "required": true,
+          "summary": "Rama origen para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "to": {
+          "name": "to",
+          "required": true,
+          "summary": "Rama destino para el diff",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Archivo package.xml destino para incorporar componentes detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Archivo package.yaml destino para incorporar datapacks detectados",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:finddelta",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera manifiestos delta (Core y Vlocity) comparando dos ramas.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "finddelta.js"
+      ]
+    },
+    "metadelta:findtest": {
+      "aliases": [],
+      "args": {},
+      "description": "Busca clases Apex y determina sus clases de prueba asociadas, con opciones de despliegue.",
+      "flags": {
+        "project-dir": {
+          "name": "project-dir",
+          "summary": "Ruta al directorio raíz del proyecto Salesforce (contiene sfdx-project.json).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "source-dir": {
+          "name": "source-dir",
+          "summary": "Ruta relativa o absoluta al directorio que contiene las clases Apex.",
+          "default": "force-app/main/default/classes",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml-name": {
+          "name": "xml-name",
+          "summary": "Ruta al package.xml existente que se usará para el análisis o despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "deploy": {
+          "name": "deploy",
+          "summary": "Ruta al package.xml existente que se utilizará para el despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias o usuario de la org destino (usa la predeterminada si se omite).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "summary": "Alias o usuario de la org destino para la ejecución de despliegue.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "run-deploy": {
+          "name": "run-deploy",
+          "summary": "Ejecuta el despliegue sin agregar la bandera --dry-run.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "run-deploy-prod": {
+          "name": "run-deploy-prod",
+          "summary": "Ejecuta el despliegue sin --dry-run y evita NoTestRun cuando no hay clases de prueba (producción).",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "only-local": {
+          "name": "only-local",
+          "summary": "Ignora el manifest y analiza únicamente las clases Apex presentes en el repositorio local.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ignore-managed": {
+          "name": "ignore-managed",
+          "summary": "Omite miembros de paquetes gestionados (namespace__Clase).",
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "ignore-communities": {
+          "name": "ignore-communities",
+          "summary": "Omite controladores estándar de Communities.",
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "verbose": {
+          "name": "verbose",
+          "summary": "Muestra avisos detallados de clases omitidas por filtros o ausencia local.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "json": {
+          "name": "json",
+          "summary": "Emite un resumen en formato JSON con métricas de filtrado.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:findtest",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "findtest.js"
+      ]
+    },
+    "metadelta:initspace": {
+      "aliases": [],
+      "args": {},
+      "description": "Creates the standard Metadelta folder structure and base files (.gitignore, sfdx-project.json, package.xml) in the current directory.",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:initspace",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Initialize a Salesforce project workspace scaffold in the current directory.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "initspace.js"
+      ]
+    },
+    "metadelta:merge": {
+      "aliases": [],
+      "args": {},
+      "description": "Busca archivos XML dentro del directorio manifest cuyo nombre contenga el valor proporcionado y genera un globalpackage.xml con la unión de sus metadatos.",
+      "flags": {
+        "xml-name": {
+          "char": "x",
+          "name": "xml-name",
+          "required": true,
+          "summary": "Cadena que deben contener los archivos XML a combinar",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "directory": {
+          "char": "d",
+          "name": "directory",
+          "summary": "Directorio donde se encuentran los archivos manifest",
+          "default": "manifest",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "summary": "Nombre del archivo XML resultante",
+          "default": "globalpackage.xml",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "partial": {
+          "name": "partial",
+          "summary": "Combina únicamente los manifests pendientes de merge entre la rama base y la rama del sprint.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "sprint-branch": {
+          "name": "sprint-branch",
+          "summary": "Rama del sprint que contiene los manifests recientes (requerida junto con --partial).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-branch": {
+          "name": "base-branch",
+          "summary": "Rama base que ya llegó a producción.",
+          "default": "master",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:merge",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Combina archivos de manifiesto en un paquete global sin duplicados.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "merge.js"
+      ]
+    },
+    "metadelta:orgApiVersion": {
+      "aliases": [],
+      "args": {},
+      "description": "Ejecuta sf org display --json para recuperar la versión de API de la organización indicada.",
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias o nombre de usuario de la organización objetivo.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:orgApiVersion",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Obtiene la versión de API de una organización objetivo.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "orgApiVersion.js"
+      ]
+    },
+    "metadelta:postvalidate": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Ejecuta un retrieve temporal usando los manifests proporcionados (Salesforce Core y/o Vlocity) y\n  compara los archivos obtenidos contra el proyecto local, ignorando espacios en blanco, saltos de\n  línea y comentarios. Al finalizar muestra una tabla con los componentes que difieren y elimina el\n  directorio temporal utilizado.\n  ",
+      "examples": [
+        "sf metadelta:postvalidate --xml manifest/package.xml --org my-core-org",
+        "sf metadelta:postvalidate --yaml manifest/vlocity.yaml --org my-vlocity-org --vlocity-dir Vlocity",
+        "sf metadelta:postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias o username del ambiente (Salesforce Core o Vlocity)",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "xml": {
+          "name": "xml",
+          "summary": "Ruta al manifest XML (package.xml) usado en el despliegue",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "yaml": {
+          "name": "yaml",
+          "summary": "Ruta al manifest YAML usado en el despliegue Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "vlocity-dir": {
+          "name": "vlocity-dir",
+          "summary": "Directorio base donde se encuentran los componentes Vlocity locales",
+          "default": "Vlocity",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:postvalidate",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Compara componentes desplegados contra el código fuente local usando manifests XML/YAML.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "postvalidate.js"
+      ]
+    },
+    "metadelta:manual:collect": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "docs": {
+          "char": "d",
+          "name": "docs",
+          "required": true,
+          "summary": "Directorio que contiene los archivos markdown de pasos manuales.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output": {
+          "char": "o",
+          "name": "output",
+          "required": true,
+          "summary": "Ruta del archivo markdown generado.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "partial": {
+          "name": "partial",
+          "summary": "Procesa solo los archivos tocados en un sprint específico.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "all": {
+          "name": "all",
+          "summary": "Procesa todos los archivos del directorio.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "sprint-branch": {
+          "name": "sprint-branch",
+          "summary": "Rama del sprint a analizar (requerida para --partial).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "sprint-name": {
+          "name": "sprint-name",
+          "summary": "Nombre del sprint para mostrar en el markdown.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "base-branch": {
+          "name": "base-branch",
+          "summary": "Rama base desde la cual se creó el sprint.",
+          "default": "master",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "order-by": {
+          "name": "order-by",
+          "summary": "Origen de la fecha usada para ordenar (mtime o git).",
+          "default": "mtime",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "mtime",
+            "git"
+          ],
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:manual:collect",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera un consolidado de pasos manuales en formato markdown.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "manual",
+        "collect.js"
+      ]
+    },
+    "metadelta:security:users": {
+      "aliases": [],
+      "args": {},
+      "description": "Replica el flujo de “metadelta security users”: carga la matriz maestra y usuarios objetivo, resuelve IDs en la org, genera CSVs de cambios y opcionalmente ejecuta los bulk jobs.",
+      "flags": {
+        "master": {
+          "name": "master",
+          "required": true,
+          "summary": "CSV maestro con la matriz de seguridad.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-users": {
+          "name": "target-users",
+          "required": true,
+          "summary": "CSV con usuarios objetivo (Username, RoleName).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "output-dir": {
+          "name": "output-dir",
+          "summary": "Directorio de salida para los CSV generados.",
+          "default": "out",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "apply": {
+          "name": "apply",
+          "summary": "Aplica los cambios mediante Bulk API.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:security:users",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Genera y aplica cambios de roles, PSGs y grupos para usuarios objetivo según una matriz maestra.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "security",
+        "users.js"
+      ]
+    },
+    "metadelta:task:play": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se ejecutará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "tstname": {
+          "name": "tstname",
+          "required": true,
+          "summary": "Nombre del archivo .ts generado por el comando record.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "header": {
+          "name": "header",
+          "summary": "Muestra el navegador durante la ejecución.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "vlocity-job-time": {
+          "name": "vlocity-job-time",
+          "summary": "Tiempo de espera (en segundos) después de confirmar Maintenance Jobs.",
+          "default": 180,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:task:play",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "play.js"
+      ]
+    },
+    "metadelta:task:record": {
+      "aliases": [],
+      "args": {},
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": false,
+          "summary": "Alias de sf-cli para la org en la que se grabará la tarea.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "target-org": {
+          "name": "target-org",
+          "required": false,
+          "summary": "Alias alternativo compatible con la convención de Salesforce CLI.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:task:record",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Graba un procedimiento manual en Salesforce usando Playwright.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "task",
+        "record.js"
+      ]
+    }
+  },
+  "version": "0.10.1"
+}
