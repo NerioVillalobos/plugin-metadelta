@@ -673,8 +673,12 @@ async function forceFullPageRefresh(page, options = {}) {
 async function reopenSetupAfterEinsteinToggle(setupPage, rootPage, options = {}) {
   const {waitMs = 20000} = options;
   await setupPage.waitForTimeout(waitMs);
-  await forceFullPageRefresh(setupPage);
-  await setupPage.close().catch(() => {});
+
+  if (!setupPage.isClosed()) {
+    await forceFullPageRefresh(setupPage);
+    return setupPage;
+  }
+
   await rootPage.bringToFront().catch(() => {});
   return await openSetupPopup(rootPage);
 }
@@ -757,22 +761,16 @@ async function clickAgentforceAgentsLink(page, options = {}) {
 
     if (attempt < attempts - 1) {
       const waitMs = reloadDelayMs + attempt * 2000;
-      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se intentará refrescar por completo Setup.');
+      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se intentará refrescar Setup sin cambiar de pestaña.');
       await currentPage.waitForTimeout(waitMs);
 
-      if (attempt === 0) {
+      if (!currentPage.isClosed()) {
         await forceFullPageRefresh(currentPage);
         continue;
       }
 
-      if (currentPage !== rootPage) {
-        await currentPage.close().catch(() => {});
-        await rootPage.bringToFront().catch(() => {});
-        currentPage = await openSetupPopup(rootPage);
-        continue;
-      }
-
-      await currentPage.reload({waitUntil: 'domcontentloaded'});
+      await rootPage.bringToFront().catch(() => {});
+      currentPage = await openSetupPopup(rootPage);
     }
   }
 
