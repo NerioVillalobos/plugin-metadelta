@@ -314,6 +314,10 @@ class TaskPlay extends Command {
             "contentFrame().getByRole('button', { name: /Start/i }).first()).toBeVisible()"
           )
       : normalizedButtons;
+
+    // -------------------------------------------------------------------------
+    // REGLAS GENÉRICAS DE NORMALIZACIÓN (reutilizables entre múltiples flujos)
+    // -------------------------------------------------------------------------
     const normalizedAppLauncherSearchClick = normalizedStartRole.replace(
       /await page\.getByRole\('combobox', \{ name: 'Search apps and items\.\.\.' \}\)\.click\(\);/g,
       `{
@@ -436,6 +440,14 @@ class TaskPlay extends Command {
     .click();
   await waitForMaintenanceJob();`
     );
+
+    // -------------------------------------------------------------------------
+    // REGLAS ESPECÍFICAS DE FLUJO (Salesforce Setup por dominio funcional)
+    // Candidatas a futura extracción por módulo:
+    // - Deliverability / User Interface
+    // - Agentforce
+    // - Permission Set Assignments
+    // -------------------------------------------------------------------------
     const normalizedDeliverabilityClick = normalizedMaintenanceWaits.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Deliverability', exact: true \}\)\.click\(\);/g,
       `{
@@ -582,6 +594,7 @@ class TaskPlay extends Command {
     );
     const helper = `
 // METADELTA_HELPERS_BEGIN
+// METADELTA_TECHNICAL_HELPERS_BEGIN
 async function gotoWithRetry(page, destination, options = {}) {
   const defaultOptions = {waitUntil: 'domcontentloaded', ...options};
   try {
@@ -733,6 +746,8 @@ async function clickCheckboxFaux(scope, options = {}) {
   throw new Error('No se encontró un checkbox visible compatible para el selector .slds-checkbox_faux.');
 }
 
+// METADELTA_TECHNICAL_HELPERS_END
+// METADELTA_FLOW_SPECIFIC_HELPERS_BEGIN
 async function clickAgentforceAgentsLink(page, options = {}) {
   const {attempts = 4, reloadDelayMs = 5000} = options;
   const rootPage = page.context().pages()[0] ?? page;
@@ -1145,6 +1160,7 @@ async function ensureStartTriggered(page) {
     // noop: si no se puede validar, dejamos que el flujo continúe.
   }
 }
+// METADELTA_FLOW_SPECIFIC_HELPERS_END
 // METADELTA_HELPERS_END
 `;
     let withHelper = injected;
