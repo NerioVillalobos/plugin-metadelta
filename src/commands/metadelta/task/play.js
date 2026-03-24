@@ -839,7 +839,23 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     }
   }
 
-  throw new Error('No se pudo ubicar Agentforce Agents después de esperar, refrescar y reabrir Setup.');
+  // Último intento compatible con el comportamiento histórico:
+  // buscar de nuevo en Quick Find y esperar de forma explícita el texto exacto.
+  try {
+    const finalQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
+    if ((await finalQuickFind.count()) > 0) {
+      await finalQuickFind.fill('Agentforce Agents');
+      await finalQuickFind.press('Enter');
+    }
+
+    await currentPage
+      .getByText('Agentforce Agents', {exact: true})
+      .first()
+      .click({timeout: 30000, force: true});
+    return;
+  } catch (error) {
+    throw new Error('No se pudo ubicar Agentforce Agents después de esperar, refrescar y reabrir Setup.');
+  }
 }
 
 async function waitForActionLibraryReady(page, timeoutMs = 45000) {
