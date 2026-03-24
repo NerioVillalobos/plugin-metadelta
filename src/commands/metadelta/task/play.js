@@ -581,6 +581,7 @@ class TaskPlay extends Command {
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await gotoWithRetry(page, process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
     const helper = `
+// METADELTA_HELPERS_BEGIN
 async function gotoWithRetry(page, destination, options = {}) {
   const defaultOptions = {waitUntil: 'domcontentloaded', ...options};
   try {
@@ -1144,10 +1145,11 @@ async function ensureStartTriggered(page) {
     // noop: si no se puede validar, dejamos que el flujo continúe.
   }
 }
+// METADELTA_HELPERS_END
 `;
     let withHelper = injected;
-    const hasHelper = /async function ensureStartTriggered\(/.test(withHelper);
-    if (!hasHelper) {
+    const hasHelperMarkers = /\/\/\s*METADELTA_HELPERS_BEGIN[\s\S]*\/\/\s*METADELTA_HELPERS_END/m.test(withHelper);
+    if (!hasHelperMarkers) {
       withHelper = `${helper}\n${withHelper}`;
     }
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
