@@ -792,10 +792,18 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     const quickFind = scope.getByRole('searchbox', {name: 'Quick Find'}).first();
     const agentforceLink = scope.getByRole('link', {name: 'Agentforce Agents'}).first();
     const agentforceText = scope.getByText('Agentforce Agents', {exact: true}).first();
+    let quickFindReady = false;
 
-    if ((await quickFind.count()) > 0) {
+    await scope.waitForLoadState('domcontentloaded').catch(() => {});
+    try {
+      await quickFind.waitFor({state: 'visible', timeout: 15000});
+      await quickFind.click({timeout: 15000});
       await quickFind.fill('Agentforce Agents');
       await quickFind.press('Enter');
+      await scope.waitForTimeout(1200);
+      quickFindReady = true;
+    } catch (error) {
+      // seguimos con otras estrategias legacy si Quick Find aún no está listo
     }
 
     if ((await agentforceLink.count()) > 0) {
@@ -803,12 +811,15 @@ async function clickAgentforceAgentsLink(page, options = {}) {
       return true;
     }
 
-    if ((await quickFind.count()) > 0) {
+    if (quickFindReady) {
       await scope.waitForLoadState('domcontentloaded');
       await scope.waitForTimeout(3000);
       await forceFullPageRefresh(scope);
+      await quickFind.waitFor({state: 'visible', timeout: 15000});
+      await quickFind.click({timeout: 15000});
       await quickFind.fill('Agentforce Agents');
       await quickFind.press('Enter');
+      await scope.waitForTimeout(1200);
     }
 
     if ((await agentforceLink.count()) > 0) {
@@ -830,6 +841,7 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     }
     await rootPage.bringToFront().catch(() => {});
     currentPage = await openSetupPopup(rootPage);
+    await currentPage.waitForLoadState('domcontentloaded').catch(() => {});
     return await legacyQuickFindAttempt(currentPage);
   };
 
@@ -913,9 +925,14 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     }
 
     const reopenedQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
-    if ((await reopenedQuickFind.count()) > 0) {
+    try {
+      await reopenedQuickFind.waitFor({state: 'visible', timeout: 15000});
+      await reopenedQuickFind.click({timeout: 15000});
       await reopenedQuickFind.fill('Agentforce Agents');
       await reopenedQuickFind.press('Enter');
+      await currentPage.waitForTimeout(1200);
+    } catch (quickFindError) {
+      // mantenemos el intento de click final por texto exacto como último recurso
     }
 
     try {
