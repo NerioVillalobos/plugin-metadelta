@@ -14,6 +14,7 @@
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
     "build": "npm run clean && tsc",
+    "test": "node --test",
     "postbuild": "node scripts/generate-manifest.mjs",
     "prepare": "npm run build",
     "manifest": "node scripts/generate-manifest.mjs",
