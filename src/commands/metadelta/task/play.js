@@ -606,7 +606,7 @@ class TaskPlay extends Command {
     }
 
     let withHelper = injected;
-    const hasHelperMarkers = /\/\/\s*METADELTA_HELPERS_BEGIN[\s\S]*\/\/\s*METADELTA_HELPERS_END/m.test(withHelper);
+    const hasHelperMarkers = this.hasInjectedHelperBlock(withHelper);
     if (!hasHelperMarkers) {
       withHelper = `${helper}\n${withHelper}`;
     }
@@ -1277,6 +1277,10 @@ async function ensureStartTriggered(page) {
     }
 
     return null;
+  }
+
+  hasInjectedHelperBlock(contents) {
+    return /\/\/\s*METADELTA_HELPERS_BEGIN[\s\S]*\/\/\s*METADELTA_HELPERS_END/m.test(contents);
   }
 
   shouldNormalizeVisualforceFrames() {
