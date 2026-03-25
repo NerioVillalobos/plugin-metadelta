@@ -592,8 +592,6 @@ class TaskPlay extends Command {
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await gotoWithRetry(page, process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
-    const helper = this.getPatchedTestHelpersBlock();
-
     const legacyOrPartialHelperIssue = this.detectLegacyOrPartialHelperIssue(injected);
     if (legacyOrPartialHelperIssue) {
       throw new Error(
@@ -605,11 +603,7 @@ class TaskPlay extends Command {
       );
     }
 
-    let withHelper = injected;
-    const hasHelperMarkers = this.hasInjectedHelperBlock(withHelper);
-    if (!hasHelperMarkers) {
-      withHelper = `${helper}\n${withHelper}`;
-    }
+    const withHelper = this.injectHelperBlockIfNeeded(injected);
     this.validatePatchedTestStructure(withHelper, patchedPath);
     fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
@@ -1281,6 +1275,14 @@ async function ensureStartTriggered(page) {
 
   hasInjectedHelperBlock(contents) {
     return /\/\/\s*METADELTA_HELPERS_BEGIN[\s\S]*\/\/\s*METADELTA_HELPERS_END/m.test(contents);
+  }
+
+  injectHelperBlockIfNeeded(contents) {
+    if (this.hasInjectedHelperBlock(contents)) {
+      return contents;
+    }
+    const helper = this.getPatchedTestHelpersBlock();
+    return `${helper}\n${contents}`;
   }
 
   shouldNormalizeVisualforceFrames() {
