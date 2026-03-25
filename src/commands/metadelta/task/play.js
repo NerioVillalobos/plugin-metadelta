@@ -287,6 +287,24 @@ class TaskPlay extends Command {
     const original = fs.readFileSync(testFile, 'utf8');
     const stabilizedOriginal = this.applyStructuralStabilizers(original);
     this.ensureRoutesFile();
+    const injected = this.applyPatchedTestNormalizations(stabilizedOriginal, vlocityJobTime);
+
+    const legacyOrPartialHelperIssue = this.detectLegacyOrPartialHelperIssue(injected);
+    if (legacyOrPartialHelperIssue) {
+      throw new Error(
+        [
+          `El archivo de prueba parece contener helper legacy o contaminación parcial y no se puede inyectar automáticamente (${patchedPath}).`,
+          `Detalle: ${legacyOrPartialHelperIssue}`,
+          'Acción sugerida: elimina los helpers legacy/parciales del archivo fuente o deja únicamente el bloque helper completo con markers METADELTA_HELPERS_BEGIN/END antes de reintentar.',
+        ].join('\n')
+      );
+    }
+
+    const withHelper = this.injectHelperBlockIfNeeded(injected);
+    return this.writeValidatedPatchedTestFile(patchedPath, withHelper);
+  }
+
+  applyPatchedTestNormalizations(stabilizedOriginal, vlocityJobTime) {
     const normalizedFrames = this.shouldNormalizeVisualforceFrames()
       ? stabilizedOriginal
           .replace(/vfFrameId_\d+/g, 'vfFrameId_')
@@ -592,19 +610,7 @@ class TaskPlay extends Command {
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await gotoWithRetry(page, process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
-    const legacyOrPartialHelperIssue = this.detectLegacyOrPartialHelperIssue(injected);
-    if (legacyOrPartialHelperIssue) {
-      throw new Error(
-        [
-          `El archivo de prueba parece contener helper legacy o contaminación parcial y no se puede inyectar automáticamente (${patchedPath}).`,
-          `Detalle: ${legacyOrPartialHelperIssue}`,
-          'Acción sugerida: elimina los helpers legacy/parciales del archivo fuente o deja únicamente el bloque helper completo con markers METADELTA_HELPERS_BEGIN/END antes de reintentar.',
-        ].join('\n')
-      );
-    }
-
-    const withHelper = this.injectHelperBlockIfNeeded(injected);
-    return this.writeValidatedPatchedTestFile(patchedPath, withHelper);
+    return injected;
   }
 
   getPatchedTestHelpersBlock() {
