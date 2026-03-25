@@ -226,7 +226,7 @@ class TaskPlay extends Command {
   normalizeSetupRefreshCloseReopenSequence(source) {
     return source.replace(
       /await\s+(page\d+)\.keyboard\.press\('Control\+R'\);\n\s*await\s+\1\.close\(\);\n\s*const\s+(page\d+Reopened)\s*=\s*await\s+openSetupPopup\(page\);/g,
-      `await forceFullPageRefresh($1);\n  const $2 = $1;`
+      `await forceFullPageRefresh($1);\n  await $1.close();\n  const $2 = await openSetupPopup(page);`
     );
   }
 
@@ -724,12 +724,17 @@ async function forceFullPageRefresh(page, options = {}) {
 }
 
 async function reopenSetupAfterEinsteinToggle(setupPage, rootPage, options = {}) {
-  const {waitMs = 20000} = options;
+  const {waitMs = 20000, forceReopenAfterRefresh = true} = options;
   await setupPage.waitForTimeout(waitMs);
+
+  if (!setupPage.isClosed() && !forceReopenAfterRefresh) {
+    await forceFullPageRefresh(setupPage);
+    return setupPage;
+  }
 
   if (!setupPage.isClosed()) {
     await forceFullPageRefresh(setupPage);
-    return setupPage;
+    await setupPage.close().catch(() => {});
   }
 
   await rootPage.bringToFront().catch(() => {});
