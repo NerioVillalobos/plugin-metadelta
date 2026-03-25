@@ -1,6 +1,6 @@
 {
   "name": "@nervill/metadelta",
-  "version": "0.12.3",
+  "version": "0.11.0",
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
