@@ -550,10 +550,12 @@ class TaskPlay extends Command {
       /await (\w+)\.locator\('#check-button-label-[^']+ > \.slds-checkbox_faux'\)\.click\(\);/g,
       `await selectActionLibraryCheckboxWithScroll($1);`
     );
-    const normalizedGenericCheckboxFauxClicks = normalizedActionLibraryCheckboxes.replace(
-      /await (\w+)\.locator\('\.slds-checkbox_faux'\)\.click\(\);/g,
-      `await clickCheckboxFaux($1);`
-    );
+    const normalizedGenericCheckboxFauxClicks = this.shouldPreserveLegacyCriticalFlowSelectors(normalizedActionLibraryCheckboxes)
+      ? normalizedActionLibraryCheckboxes
+      : normalizedActionLibraryCheckboxes.replace(
+          /await (\w+)\.locator\('\.slds-checkbox_faux'\)\.click\(\);/g,
+          `await clickCheckboxFaux($1);`
+        );
     const normalizedCheckboxes = normalizedGenericCheckboxFauxClicks.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
@@ -785,7 +787,7 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     '/lightning/setup/EinsteinGPTSetup/home',
   ];
 
-  // Estrategia histórica que funcionaba en versiones previas.
+  // Estrategia legacy exacta (prioritaria para Agentforce crítico).
   const legacyQuickFindAttempt = async (scope) => {
     const quickFind = scope.getByRole('searchbox', {name: 'Quick Find'}).first();
     const agentforceLink = scope.getByRole('link', {name: 'Agentforce Agents'}).first();
@@ -820,6 +822,15 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     }
 
     return false;
+  };
+
+  const legacyCloseReopenAndRetry = async () => {
+    if (!currentPage.isClosed() && currentPage !== rootPage) {
+      await currentPage.close().catch(() => {});
+    }
+    await rootPage.bringToFront().catch(() => {});
+    currentPage = await openSetupPopup(rootPage);
+    return await legacyQuickFindAttempt(currentPage);
   };
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -895,12 +906,11 @@ async function clickAgentforceAgentsLink(page, options = {}) {
     return;
   } catch (error) {
     console.log('⚠️ Agentforce Agents no apareció; se intentará reabrir Setup en nueva pestaña.');
-    if (!currentPage.isClosed() && currentPage !== rootPage) {
-      await currentPage.close().catch(() => {});
-    }
-    await rootPage.bringToFront().catch(() => {});
-    currentPage = await openSetupPopup(rootPage);
+    const reopenedFound = await legacyCloseReopenAndRetry();
     console.log('🔁 Setup reabierto, reintentando búsqueda de Agentforce Agents.');
+    if (reopenedFound) {
+      return;
+    }
 
     const reopenedQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
     if ((await reopenedQuickFind.count()) > 0) {
@@ -1320,6 +1330,10 @@ async function ensureStartTriggered(page) {
     this.validatePatchedTestStructure(contents, patchedPath);
     fs.writeFileSync(patchedPath, contents, 'utf8');
     return patchedPath;
+  }
+
+  shouldPreserveLegacyCriticalFlowSelectors(contents) {
+    return /Agentforce Agents|Vlocity CMT Administration|Einstein Setup/.test(contents);
   }
 
   shouldNormalizeVisualforceFrames() {
