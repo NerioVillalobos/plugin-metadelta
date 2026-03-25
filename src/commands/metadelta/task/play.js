@@ -889,7 +889,29 @@ async function clickAgentforceAgentsLink(page, options = {}) {
       .click({timeout: 30000, force: true});
     return;
   } catch (error) {
-    throw new Error('No se pudo ubicar Agentforce Agents después de agotar las estrategias acumulativas.');
+    console.log('⚠️ Agentforce Agents no apareció; se intentará reabrir Setup en nueva pestaña.');
+    if (!currentPage.isClosed() && currentPage !== rootPage) {
+      await currentPage.close().catch(() => {});
+    }
+    await rootPage.bringToFront().catch(() => {});
+    currentPage = await openSetupPopup(rootPage);
+    console.log('🔁 Setup reabierto, reintentando búsqueda de Agentforce Agents.');
+
+    const reopenedQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
+    if ((await reopenedQuickFind.count()) > 0) {
+      await reopenedQuickFind.fill('Agentforce Agents');
+      await reopenedQuickFind.press('Enter');
+    }
+
+    try {
+      await currentPage
+        .getByText('Agentforce Agents', {exact: true})
+        .first()
+        .click({timeout: 30000, force: true});
+      return;
+    } catch (reopenError) {
+      throw new Error('No se pudo ubicar Agentforce Agents después de agotar las estrategias acumulativas.');
+    }
   }
 }
 
