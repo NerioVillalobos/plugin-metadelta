@@ -604,9 +604,7 @@ class TaskPlay extends Command {
     }
 
     const withHelper = this.injectHelperBlockIfNeeded(injected);
-    this.validatePatchedTestStructure(withHelper, patchedPath);
-    fs.writeFileSync(patchedPath, withHelper, 'utf8');
-    return patchedPath;
+    return this.writeValidatedPatchedTestFile(patchedPath, withHelper);
   }
 
   getPatchedTestHelpersBlock() {
@@ -1283,6 +1281,12 @@ async function ensureStartTriggered(page) {
     }
     const helper = this.getPatchedTestHelpersBlock();
     return `${helper}\n${contents}`;
+  }
+
+  writeValidatedPatchedTestFile(patchedPath, contents) {
+    this.validatePatchedTestStructure(contents, patchedPath);
+    fs.writeFileSync(patchedPath, contents, 'utf8');
+    return patchedPath;
   }
 
   shouldNormalizeVisualforceFrames() {
