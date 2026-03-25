@@ -652,6 +652,7 @@
         },
         "target-users": {
           "name": "target-users",
+          "required": true,
           "summary": "CSV con usuarios objetivo (Username, RoleName).",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -660,6 +661,7 @@
         "org": {
           "char": "o",
           "name": "org",
+          "required": true,
           "summary": "Alias/username de la org donde se resuelven IDs y se aplican cambios.",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -667,7 +669,7 @@
         },
         "output-dir": {
           "name": "output-dir",
-          "summary": "Directorio de salida para los CSV generados. En --validate/--compare, si se indica un valor distinto de out, se crea la carpeta out dentro de esa ruta.",
+          "summary": "Directorio de salida para los CSV generados.",
           "default": "out",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -678,25 +680,6 @@
           "summary": "Aplica los cambios mediante Bulk API.",
           "allowNo": false,
           "type": "boolean"
-        },
-        "validate": {
-          "name": "validate",
-          "summary": "Genera un archivo estilo matrix con las asignaciones actuales por usuario.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "compare": {
-          "name": "compare",
-          "summary": "Compara localmente validation_current_matrix.csv contra la matrix y exporta solo usuarios con diferencias.",
-          "allowNo": false,
-          "type": "boolean"
-        },
-        "file-validation": {
-          "name": "file-validation",
-          "summary": "Ruta del archivo validation_current_matrix.csv a comparar (requerido con --compare).",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
         }
       },
       "hasDynamicHelp": false,
@@ -768,7 +751,7 @@
       "pluginName": "@nervill/metadelta",
       "pluginType": "core",
       "strict": true,
-      "summary": "Reproduce una grabación de Playwright en una org de Salesforce con hardening y diagnóstico orquestado.",
+      "summary": "Reproduce una grabación de Playwright en una org de Salesforce.",
       "enableJsonFlag": false,
       "isESM": true,
       "relativePath": [
@@ -820,5 +803,5 @@
       ]
     }
   },
-  "version": "0.11.0"
+  "version": "0.10.1"
 }

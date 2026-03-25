@@ -1,4 +1,5 @@
 import {Command, Flags} from '@oclif/core';
+import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -7,13 +8,11 @@ import {
   ensurePlaywrightReady,
   buildFrontdoorUrlFromOrgDisplay,
   ensurePlaywrightTestDependency,
-  executeCommandLive,
-  extractPlaywrightFailureDetails,
   resolveTestFilePath,
 } from '../../../utils/task/orchestrator.js';
 
 class TaskPlay extends Command {
-  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce con hardening y diagnóstico orquestado.';
+  static summary = 'Reproduce una grabación de Playwright en una org de Salesforce.';
 
   static flags = {
     org: Flags.string({
@@ -71,7 +70,8 @@ class TaskPlay extends Command {
 
       this.log(`Ejecutando prueba en ${targetOrg} con archivo ${testFile}`);
 
-      const result = await executeCommandLive(process.execPath, args, {
+      const result = spawnSync(process.execPath, args, {
+        stdio: 'inherit',
         env: {
           ...process.env,
           METADELTA_BASE_URL: baseOrigin,
@@ -82,47 +82,29 @@ class TaskPlay extends Command {
       });
 
       if (result.status !== 0) {
-        const genericMessage = [
-          'La ejecución de Playwright finalizó con errores.',
+        const details = [
           result.error?.message ? `Detalle: ${result.error.message}` : null,
           typeof result.status === 'number' ? `Código de salida: ${result.status}` : null,
           result.signal ? `Señal: ${result.signal}` : null,
         ]
           .filter(Boolean)
-          .join(' ');
-        const failure = extractPlaywrightFailureDetails(
-          [result.stdout, result.stderr].filter(Boolean).join('\n'),
-          genericMessage
-        );
-        const detailedError = new Error(failure.summary || genericMessage);
-        detailedError.stack = failure.outputExcerpt || detailedError.stack;
-        detailedError.playwrightMatcherText = failure.matcherText;
-        detailedError.playwrightSummary = failure.summary;
-        detailedError.playwrightExitCode = result.status;
-        detailedError.playwrightSignal = result.signal;
-        throw detailedError;
+          .join(' | ');
+        this.error(`La ejecución de Playwright finalizó con errores.${details ? ` ${details}` : ''}`);
       }
 
       fs.rmSync(configPath, {force: true});
       fs.rmSync(patchedTestFile, {force: true});
     } catch (error) {
-      const diagnosticMessage = error.playwrightMatcherText || error.message;
       orchestrator.recordError({
-        message: diagnosticMessage,
+        message: error.message,
         stack: error.stack,
-        context: {
-          org: targetOrg,
-          testFile: flags.tstname,
-          playwrightSummary: error.playwrightSummary || error.message,
-          playwrightExitCode: error.playwrightExitCode ?? null,
-          playwrightSignal: error.playwrightSignal ?? null,
-        },
+        context: {org: targetOrg, testFile: flags.tstname},
       });
-      const solution = orchestrator.findSolution(diagnosticMessage);
+      const solution = orchestrator.findSolution(error.message);
       if (solution) {
-        this.error(`${error.playwrightSummary || error.message}\nSugerencia: ${solution.solution}`);
+        this.error(`${error.message}\nSugerencia: ${solution.solution}`);
       }
-      this.error(error.playwrightSummary || error.message);
+      this.error(error.message);
     }
   }
 
@@ -150,12 +132,8 @@ class TaskPlay extends Command {
   applyStructuralStabilizers(source) {
     let stabilized = source;
     stabilized = this.fixSelfReferencingBaseUrl(stabilized);
-    stabilized = this.normalizeSetupPopupSequence(stabilized);
-    stabilized = this.normalizeEinsteinSetupRefreshSequence(stabilized);
-    stabilized = this.normalizeSetupRefreshCloseReopenSequence(stabilized);
     stabilized = this.fixDuplicatePopupPromises(stabilized);
     stabilized = this.rebindClosedPopupPageHandles(stabilized);
-    stabilized = this.removePostReopenSetupClicks(stabilized);
     stabilized = this.removeOrphanPopupPromises(stabilized);
     return stabilized;
   }
@@ -180,64 +158,6 @@ class TaskPlay extends Command {
     });
   }
 
-  normalizeSetupPopupSequence(source) {
-    return source.replace(
-      /(\s*)await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);\n((?:\s*(?:await page\.(?:goto|waitForTimeout)\([^\n]+\);|\/\/[^\n]*)\n)*)\s*const (page\d*Promise) = page\.waitForEvent\('popup'\);\n\s*await page\.getByRole\('menuitem', \{ name: 'Setup Opens in a new tab Setup for current app' \}\)\.click\(\);\n\s*const (page\d+) = await \3;/g,
-      (match, indent, intermediateSteps = '', _promiseVar, pageVar) => {
-        const normalizedSteps = intermediateSteps ? intermediateSteps.replace(/\s+$/, '\n') : '';
-        return `${indent}${normalizedSteps}${indent}const ${pageVar} = await openSetupPopup(page);\n`;
-      }
-    );
-  }
-
-  normalizeEinsteinSetupRefreshSequence(source) {
-    const toggleRegex = /await\s+(page\d*)\.getByRole\('link', \{ name: 'Einstein Setup' \}\)\.click\(\);\n\s*await\s+\1\.locator\('\.slds-checkbox_faux'\)\.first\(\)\.click\(\);/g;
-    let updated = source;
-    const matches = [...source.matchAll(toggleRegex)];
-
-    for (const match of matches) {
-      const pageVar = match[1];
-      const endIndex = (match.index ?? -1) + match[0].length;
-      if (endIndex < 0) {
-        continue;
-      }
-
-      const afterToggle = updated.slice(endIndex);
-      if (!new RegExp(`\\b${pageVar}\\.`).test(afterToggle)) {
-        continue;
-      }
-      const hasExplicitClose = new RegExp(`await\\s+${pageVar}\\.close\\(\\);`).test(afterToggle);
-      if (hasExplicitClose) {
-        continue;
-      }
-
-      const refreshedVar = `${pageVar}EinsteinRefreshed`;
-      const refreshSnippet = `\n  const ${refreshedVar} = await reopenSetupAfterEinsteinToggle(${pageVar}, page);\n`;
-      updated = `${updated.slice(0, endIndex)}${refreshSnippet}${updated.slice(endIndex)}`;
-
-      const injectedAt = endIndex + refreshSnippet.length;
-      const tail = updated.slice(injectedAt).replace(new RegExp(`\\b${pageVar}\\.`, 'g'), `${refreshedVar}.`);
-      updated = `${updated.slice(0, injectedAt)}${tail}`;
-    }
-
-    return updated;
-  }
-
-  normalizeSetupRefreshCloseReopenSequence(source) {
-    return source.replace(
-      /await\s+(page\d+)\.keyboard\.press\('Control\+R'\);\n\s*await\s+\1\.close\(\);\n\s*const\s+(page\d+Reopened)\s*=\s*await\s+openSetupPopup\(page\);/g,
-      `await forceFullPageRefresh($1);\n  await $1.close();\n  const $2 = await openSetupPopup(page);`
-    );
-  }
-
-
-
-  removePostReopenSetupClicks(source) {
-    return source.replace(
-      /\n\s*await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);(?=\n\s*(?:(?:\/\/[^\n]*|console\.log\([^\n]*\));\n\s*)*await page\d*Reopened\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);)/g,
-      ''
-    );
-  }
 
   removeOrphanPopupPromises(source) {
     const declarationRegex = /const\s+(page\d*Promise(?:_\d+)?)\s*=\s*[\w$.]+\.waitForEvent\('popup'\);\n?/g;
@@ -266,9 +186,19 @@ class TaskPlay extends Command {
         continue;
       }
 
+      const suffix = pageVar.replace('page', '') || '1';
       const reopenedVar = `${pageVar}Reopened`;
+      const promiseVar = `page${suffix}PromiseReopened`;
       const reopenSnippet = `
-  const ${reopenedVar} = await openSetupPopup(page);
+  const ${promiseVar} = page.waitForEvent('popup');
+  const setupButton = page.getByRole('button', {name: 'Setup'}).first();
+  if (await setupButton.count()) {
+    await setupButton.click({timeout: 15000});
+  }
+  const setupMenuItem = page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).first();
+  await setupMenuItem.waitFor({timeout: 15000});
+  await setupMenuItem.click({timeout: 15000});
+  const ${reopenedVar} = await ${promiseVar};
 `;
 
       updated = `${updated.slice(0, closeIndex + closeStatement.length)}${reopenSnippet}${updated.slice(closeIndex + closeStatement.length)}`;
@@ -287,24 +217,6 @@ class TaskPlay extends Command {
     const original = fs.readFileSync(testFile, 'utf8');
     const stabilizedOriginal = this.applyStructuralStabilizers(original);
     this.ensureRoutesFile();
-    const injected = this.applyPatchedTestNormalizations(stabilizedOriginal, vlocityJobTime);
-
-    const legacyOrPartialHelperIssue = this.detectLegacyOrPartialHelperIssue(injected);
-    if (legacyOrPartialHelperIssue) {
-      throw new Error(
-        [
-          `El archivo de prueba parece contener helper legacy o contaminación parcial y no se puede inyectar automáticamente (${patchedPath}).`,
-          `Detalle: ${legacyOrPartialHelperIssue}`,
-          'Acción sugerida: elimina los helpers legacy/parciales del archivo fuente o deja únicamente el bloque helper completo con markers METADELTA_HELPERS_BEGIN/END antes de reintentar.',
-        ].join('\n')
-      );
-    }
-
-    const withHelper = this.injectHelperBlockIfNeeded(injected);
-    return this.writeValidatedPatchedTestFile(patchedPath, withHelper);
-  }
-
-  applyPatchedTestNormalizations(stabilizedOriginal, vlocityJobTime) {
     const normalizedFrames = this.shouldNormalizeVisualforceFrames()
       ? stabilizedOriginal
           .replace(/vfFrameId_\d+/g, 'vfFrameId_')
@@ -332,10 +244,6 @@ class TaskPlay extends Command {
             "contentFrame().getByRole('button', { name: /Start/i }).first()).toBeVisible()"
           )
       : normalizedButtons;
-
-    // -------------------------------------------------------------------------
-    // REGLAS GENÉRICAS DE NORMALIZACIÓN (reutilizables entre múltiples flujos)
-    // -------------------------------------------------------------------------
     const normalizedAppLauncherSearchClick = normalizedStartRole.replace(
       /await page\.getByRole\('combobox', \{ name: 'Search apps and items\.\.\.' \}\)\.click\(\);/g,
       `{
@@ -458,14 +366,6 @@ class TaskPlay extends Command {
     .click();
   await waitForMaintenanceJob();`
     );
-
-    // -------------------------------------------------------------------------
-    // REGLAS ESPECÍFICAS DE FLUJO (Salesforce Setup por dominio funcional)
-    // Candidatas a futura extracción por módulo:
-    // - Deliverability / User Interface
-    // - Agentforce
-    // - Permission Set Assignments
-    // -------------------------------------------------------------------------
     const normalizedDeliverabilityClick = normalizedMaintenanceWaits.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Deliverability', exact: true \}\)\.click\(\);/g,
       `{
@@ -497,7 +397,21 @@ class TaskPlay extends Command {
     );
     const normalizedAgentforceLink = normalizedQuickFind.replace(
       /await (\w+)\.getByRole\('link', \{ name: 'Agentforce Agents' \}\)\.click\(\);/g,
-      `await clickAgentforceAgentsLink($1);`
+      `{
+    const agentforceLink = $1.getByRole('link', {name: 'Agentforce Agents'}).first();
+    if ((await agentforceLink.count()) === 0) {
+      await $1.waitForLoadState('domcontentloaded');
+      await $1.waitForTimeout(3000);
+      await $1.reload({waitUntil: 'domcontentloaded'});
+      await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('Agentforce Agents');
+      await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');
+    }
+    if ((await agentforceLink.count()) > 0) {
+      await agentforceLink.click({timeout: 15000});
+    } else {
+      await $1.getByText('Agentforce Agents', {exact: true}).first().click({timeout: 15000, force: true});
+    }
+  }`
     );
     const normalizedPermissionSetAssignmentsLink = normalizedAgentforceLink.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('link', \{ name: 'Permission Set Assignments\[\d+\]' \}\)\.click\(\);/g,
@@ -550,13 +464,7 @@ class TaskPlay extends Command {
       /await (\w+)\.locator\('#check-button-label-[^']+ > \.slds-checkbox_faux'\)\.click\(\);/g,
       `await selectActionLibraryCheckboxWithScroll($1);`
     );
-    const normalizedGenericCheckboxFauxClicks = this.shouldPreserveLegacyCriticalFlowSelectors(normalizedActionLibraryCheckboxes)
-      ? normalizedActionLibraryCheckboxes
-      : normalizedActionLibraryCheckboxes.replace(
-          /await (\w+)\.locator\('\.slds-checkbox_faux'\)\.click\(\);/g,
-          `await clickCheckboxFaux($1);`
-        );
-    const normalizedCheckboxes = normalizedGenericCheckboxFauxClicks.replace(
+    const normalizedCheckboxes = normalizedActionLibraryCheckboxes.replace(
       /await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.contentFrame\(\)\.getByRole\('checkbox', \{ name: '([^']+)' \}\)\.(check|uncheck)\(\);/g,
       `{
     const checkbox = await ensureSetupCheckbox($1, '$2', 'User Interface');
@@ -612,13 +520,7 @@ class TaskPlay extends Command {
       /(test\(['"][^'"]+['"],\s*async\s*\(\{\s*page\s*\}\)\s*=>\s*\{\s*\n)/,
       `$1  test.setTimeout(${Math.max(300000, (vlocityJobTime ?? 180) * 1000 + 120000)});\n  page.setDefaultTimeout(60000);\n  installOrgDomainGuard(page);\n  await gotoWithRetry(page, process.env.METADELTA_FRONTDOOR_URL ?? process.env.METADELTA_BASE_URL);\n  await runTaskOrchestrator(page);\n`
     );
-    return injected;
-  }
-
-  getPatchedTestHelpersBlock() {
-    return `
-// METADELTA_HELPERS_BEGIN
-// METADELTA_TECHNICAL_HELPERS_BEGIN
+    const helper = `
 async function gotoWithRetry(page, destination, options = {}) {
   const defaultOptions = {waitUntil: 'domcontentloaded', ...options};
   try {
@@ -630,320 +532,6 @@ async function gotoWithRetry(page, destination, options = {}) {
     }
     await page.waitForTimeout(1200);
     await page.goto(destination, defaultOptions);
-  }
-}
-
-async function openSetupPopup(page, options = {}) {
-  const {timeoutMs = 20000, popupTimeoutMs = 60000} = options;
-  const setupButton = page.getByRole('button', {name: 'Setup'}).first();
-  const setupMenuCandidates = [
-    page.getByRole('menuitem', {name: 'Setup Opens in a new tab Setup for current app'}).first(),
-    page.getByRole('menuitem', {name: /Setup Opens in a new tab/i}).first(),
-    page.getByText(/Setup Opens in a new tab/i).first(),
-  ];
-
-  let lastError = null;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      await setupButton.waitFor({timeout: timeoutMs});
-      await setupButton.click({timeout: timeoutMs});
-
-      let setupMenuItem = null;
-      for (const candidate of setupMenuCandidates) {
-        if ((await candidate.count()) > 0) {
-          setupMenuItem = candidate;
-          break;
-        }
-      }
-
-      if (!setupMenuItem) {
-        for (const candidate of setupMenuCandidates) {
-          try {
-            await candidate.waitFor({timeout: Math.max(4000, Math.floor(timeoutMs / 2))});
-            setupMenuItem = candidate;
-            break;
-          } catch (error) {
-            lastError = error;
-          }
-        }
-      }
-
-      if (!setupMenuItem) {
-        throw lastError ?? new Error('No se encontró el menuitem de Setup para abrir la nueva pestaña.');
-      }
-
-      const popupPromise = page.waitForEvent('popup', {timeout: popupTimeoutMs});
-      await setupMenuItem.click({timeout: timeoutMs, force: true});
-      const popup = await popupPromise;
-      await popup.waitForLoadState('domcontentloaded', {timeout: 15000}).catch(() => {});
-      return popup;
-    } catch (error) {
-      lastError = error;
-      await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(800);
-    }
-  }
-
-  throw new Error('No se pudo abrir Setup en una nueva pestaña. ' + (lastError?.message ?? 'El menú o popup no estuvo disponible.'));
-}
-
-async function forceFullPageRefresh(page, options = {}) {
-  const {timeoutMs = 20000} = options;
-  const reloadShortcut = process.platform === 'darwin' ? 'Meta+R' : 'Control+R';
-  const currentUrl = page.url();
-  const strategies = [
-    async () => {
-      await page.evaluate(() => window.location.reload());
-      await page.waitForLoadState('domcontentloaded', {timeout: timeoutMs});
-    },
-    async () => {
-      await page.keyboard.press(reloadShortcut);
-      await page.waitForLoadState('domcontentloaded', {timeout: timeoutMs});
-    },
-    async () => {
-      await page.reload({waitUntil: 'domcontentloaded', timeout: timeoutMs});
-    },
-    async () => {
-      if (!currentUrl) {
-        throw new Error('No hay URL disponible para forzar el refresh completo.');
-      }
-      await page.goto(currentUrl, {waitUntil: 'domcontentloaded', timeout: timeoutMs});
-    },
-  ];
-
-  let lastError = null;
-  for (const strategy of strategies) {
-    try {
-      await strategy();
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw new Error('No se pudo forzar el refresh completo de Setup. ' + (lastError?.message ?? 'Sin detalle adicional.'));
-}
-
-async function reopenSetupAfterEinsteinToggle(setupPage, rootPage, options = {}) {
-  const {waitMs = 20000, forceReopenAfterRefresh = true} = options;
-  await setupPage.waitForTimeout(waitMs);
-
-  if (!setupPage.isClosed() && !forceReopenAfterRefresh) {
-    await forceFullPageRefresh(setupPage);
-    return setupPage;
-  }
-
-  if (!setupPage.isClosed()) {
-    await forceFullPageRefresh(setupPage);
-    await setupPage.close().catch(() => {});
-  }
-
-  await rootPage.bringToFront().catch(() => {});
-  return await openSetupPopup(rootPage);
-}
-
-async function clickCheckboxFaux(scope, options = {}) {
-  const {timeoutMs = 15000} = options;
-  const checkboxCandidates = [
-    {type: 'click', locator: scope.locator('.slds-checkbox_faux:visible')},
-    {type: 'click', locator: scope.locator('[role="checkbox"]:visible')},
-    {type: 'check', locator: scope.locator('input[type="checkbox"]:visible')},
-  ];
-
-  for (const candidate of checkboxCandidates) {
-    const locator = candidate.locator;
-    const count = await locator.count();
-    if (count === 0) {
-      continue;
-    }
-
-    const target = locator.first();
-    await target.scrollIntoViewIfNeeded().catch(() => {});
-    if (count > 1) {
-      console.log('⚠️ .slds-checkbox_faux devolvió ' + count + ' elementos; se usará el primero visible.');
-    }
-
-    if (candidate.type === 'check') {
-      await target.check({timeout: timeoutMs, force: true});
-    } else {
-      await target.click({timeout: timeoutMs, force: true});
-    }
-    return;
-  }
-
-  throw new Error('No se encontró un checkbox visible compatible para el selector .slds-checkbox_faux.');
-}
-
-// METADELTA_TECHNICAL_HELPERS_END
-// METADELTA_FLOW_SPECIFIC_HELPERS_BEGIN
-async function clickAgentforceAgentsLink(page, options = {}) {
-  const {attempts = 4, reloadDelayMs = 5000} = options;
-  const rootPage = page.context().pages()[0] ?? page;
-  let currentPage = page;
-  const directSetupPaths = [
-    '/lightning/setup/EinsteinCopilot/home',
-    '/lightning/setup/AgentforceAgents/home',
-    '/lightning/setup/EinsteinGPTSetup/home',
-  ];
-
-  // Estrategia legacy exacta (prioritaria para Agentforce crítico).
-  const legacyQuickFindAttempt = async (scope) => {
-    const quickFind = scope.getByRole('searchbox', {name: 'Quick Find'}).first();
-    const agentforceLink = scope.getByRole('link', {name: 'Agentforce Agents'}).first();
-    const agentforceText = scope.getByText('Agentforce Agents', {exact: true}).first();
-    let quickFindReady = false;
-
-    await scope.waitForLoadState('domcontentloaded').catch(() => {});
-    try {
-      await quickFind.waitFor({state: 'visible', timeout: 15000});
-      await quickFind.click({timeout: 15000});
-      await quickFind.fill('Agentforce Agents');
-      await quickFind.press('Enter');
-      await scope.waitForTimeout(1200);
-      quickFindReady = true;
-    } catch (error) {
-      // seguimos con otras estrategias legacy si Quick Find aún no está listo
-    }
-
-    if ((await agentforceLink.count()) > 0) {
-      await agentforceLink.click({timeout: 15000});
-      return true;
-    }
-
-    if (quickFindReady) {
-      await scope.waitForLoadState('domcontentloaded');
-      await scope.waitForTimeout(3000);
-      await forceFullPageRefresh(scope);
-      await quickFind.waitFor({state: 'visible', timeout: 15000});
-      await quickFind.click({timeout: 15000});
-      await quickFind.fill('Agentforce Agents');
-      await quickFind.press('Enter');
-      await scope.waitForTimeout(1200);
-    }
-
-    if ((await agentforceLink.count()) > 0) {
-      await agentforceLink.click({timeout: 15000});
-      return true;
-    }
-
-    if ((await agentforceText.count()) > 0) {
-      await agentforceText.click({timeout: 15000, force: true});
-      return true;
-    }
-
-    return false;
-  };
-
-  const legacyCloseReopenAndRetry = async () => {
-    if (!currentPage.isClosed() && currentPage !== rootPage) {
-      await currentPage.close().catch(() => {});
-    }
-    await rootPage.bringToFront().catch(() => {});
-    currentPage = await openSetupPopup(rootPage);
-    await currentPage.waitForLoadState('domcontentloaded').catch(() => {});
-    return await legacyQuickFindAttempt(currentPage);
-  };
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await currentPage.waitForLoadState('domcontentloaded');
-
-    if (await legacyQuickFindAttempt(currentPage)) {
-      return;
-    }
-
-    const quickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
-    const candidateFactories = [
-      () => currentPage.getByRole('link', {name: 'Agentforce Agents'}).first(),
-      () => currentPage.getByText('Agentforce Agents', {exact: true}).first(),
-      () => currentPage.getByText(/Agentforce Agents/i).first(),
-    ];
-
-    if ((await quickFind.count()) > 0) {
-      for (const searchTerm of ['Agentforce Agents', 'Agentforce']) {
-        await quickFind.fill(searchTerm);
-        await quickFind.press('Enter');
-
-        for (const buildCandidate of candidateFactories) {
-          const candidate = buildCandidate();
-          if ((await candidate.count()) > 0) {
-            await candidate.click({timeout: 15000, force: true});
-            return;
-          }
-        }
-      }
-    }
-
-    for (const setupPath of directSetupPaths) {
-      try {
-        const currentOrigin = new URL(process.env.METADELTA_BASE_URL ?? currentPage.url()).origin;
-        await gotoWithRetry(currentPage, currentOrigin + setupPath);
-        const newAgentButton = currentPage.getByRole('button', {name: 'New Agent'}).first();
-        const agentforceHeading = currentPage.getByText(/Agentforce Agents/i).first();
-        if ((await newAgentButton.count()) > 0 || (await agentforceHeading.count()) > 0) {
-          return;
-        }
-      } catch (error) {
-        // seguimos con otras estrategias
-      }
-    }
-
-    if (attempt < attempts - 1) {
-      const waitMs = reloadDelayMs + attempt * 2000;
-      console.log('⚠️ Agentforce Agents no apareció aún; se esperará ' + waitMs + 'ms y se intentará refrescar Setup sin cambiar de pestaña.');
-      await currentPage.waitForTimeout(waitMs);
-
-      if (!currentPage.isClosed()) {
-        await forceFullPageRefresh(currentPage);
-        continue;
-      }
-
-      await rootPage.bringToFront().catch(() => {});
-      currentPage = await openSetupPopup(rootPage);
-    }
-  }
-
-  // Último intento acumulativo: espera más larga por texto exacto tras Quick Find.
-  try {
-    const finalQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
-    if ((await finalQuickFind.count()) > 0) {
-      await finalQuickFind.fill('Agentforce Agents');
-      await finalQuickFind.press('Enter');
-    }
-
-    await currentPage
-      .getByText('Agentforce Agents', {exact: true})
-      .first()
-      .click({timeout: 30000, force: true});
-    return;
-  } catch (error) {
-    console.log('⚠️ Agentforce Agents no apareció; se intentará reabrir Setup en nueva pestaña.');
-    const reopenedFound = await legacyCloseReopenAndRetry();
-    console.log('🔁 Setup reabierto, reintentando búsqueda de Agentforce Agents.');
-    if (reopenedFound) {
-      return;
-    }
-
-    const reopenedQuickFind = currentPage.getByRole('searchbox', {name: 'Quick Find'}).first();
-    try {
-      await reopenedQuickFind.waitFor({state: 'visible', timeout: 15000});
-      await reopenedQuickFind.click({timeout: 15000});
-      await reopenedQuickFind.fill('Agentforce Agents');
-      await reopenedQuickFind.press('Enter');
-      await currentPage.waitForTimeout(1200);
-    } catch (quickFindError) {
-      // mantenemos el intento de click final por texto exacto como último recurso
-    }
-
-    try {
-      await currentPage
-        .getByText('Agentforce Agents', {exact: true})
-        .first()
-        .click({timeout: 30000, force: true});
-      return;
-    } catch (reopenError) {
-      throw new Error('No se pudo ubicar Agentforce Agents después de agotar las estrategias acumulativas.');
-    }
   }
 }
 
@@ -1236,121 +824,14 @@ async function ensureStartTriggered(page) {
     // noop: si no se puede validar, dejamos que el flujo continúe.
   }
 }
-// METADELTA_FLOW_SPECIFIC_HELPERS_END
-// METADELTA_HELPERS_END
 `;
-  }
-
-  validatePatchedTestStructure(contents, patchedPath) {
-    const failures = [];
-
-    const playwrightImportCount = (contents.match(/import\s+\{[^}]*\}\s+from\s+['"]@playwright\/test['"];/g) ?? []).length;
-    if (playwrightImportCount !== 1) {
-      failures.push(`Se esperaba exactamente 1 import de @playwright/test y se encontraron ${playwrightImportCount}.`);
+    let withHelper = injected;
+    const hasHelper = /async function ensureStartTriggered\(/.test(withHelper);
+    if (!hasHelper) {
+      withHelper = `${helper}\n${withHelper}`;
     }
-
-    const orchestratorImportCount = (contents.match(/import\s+\{[^}]*\brunTaskOrchestrator\b[^}]*\}\s+from\s+['"]\.\/metadelta-task-orchestrator-routes\.js['"];/g) ?? []).length;
-    if (orchestratorImportCount !== 1) {
-      failures.push(`Se esperaba exactamente 1 import de runTaskOrchestrator y se encontraron ${orchestratorImportCount}.`);
-    }
-
-    const baseUrlDeclarationCount = (contents.match(/\bconst\s+baseUrl\s*=/g) ?? []).length;
-    if (baseUrlDeclarationCount !== 1) {
-      failures.push(`Se esperaba exactamente 1 declaración global de const baseUrl y se encontraron ${baseUrlDeclarationCount}.`);
-    }
-
-    const testBlockCount = (contents.match(/(^|[\s;])test\(/gm) ?? []).length;
-    if (testBlockCount !== 1) {
-      failures.push(`Se esperaba exactamente 1 bloque test( y se encontraron ${testBlockCount}.`);
-    }
-
-    const helperBeginCount = (contents.match(/\/\/\s*METADELTA_HELPERS_BEGIN/g) ?? []).length;
-    const helperEndCount = (contents.match(/\/\/\s*METADELTA_HELPERS_END/g) ?? []).length;
-    if (helperBeginCount !== 1 || helperEndCount !== 1) {
-      failures.push(
-        `Se esperaba exactamente 1 bloque de helpers marcado (BEGIN/END) y se encontraron BEGIN=${helperBeginCount}, END=${helperEndCount}.`
-      );
-    }
-
-    if (failures.length > 0) {
-      throw new Error(
-        `El archivo temporal parcheado no pasó validación estructural (${patchedPath}).\n- ${failures.join('\n- ')}`
-      );
-    }
-  }
-
-  detectLegacyOrPartialHelperIssue(contents) {
-    const markerCounts = {
-      helperBegin: (contents.match(/\/\/\s*METADELTA_HELPERS_BEGIN/g) ?? []).length,
-      helperEnd: (contents.match(/\/\/\s*METADELTA_HELPERS_END/g) ?? []).length,
-      technicalBegin: (contents.match(/\/\/\s*METADELTA_TECHNICAL_HELPERS_BEGIN/g) ?? []).length,
-      technicalEnd: (contents.match(/\/\/\s*METADELTA_TECHNICAL_HELPERS_END/g) ?? []).length,
-      flowBegin: (contents.match(/\/\/\s*METADELTA_FLOW_SPECIFIC_HELPERS_BEGIN/g) ?? []).length,
-      flowEnd: (contents.match(/\/\/\s*METADELTA_FLOW_SPECIFIC_HELPERS_END/g) ?? []).length,
-    };
-
-    const hasCompleteMainBlock = markerCounts.helperBegin === 1 && markerCounts.helperEnd === 1;
-    const hasAnyMarker = Object.values(markerCounts).some((count) => count > 0);
-
-    if (markerCounts.helperBegin !== markerCounts.helperEnd) {
-      return `Markers principales desbalanceados: BEGIN=${markerCounts.helperBegin}, END=${markerCounts.helperEnd}.`;
-    }
-
-    if (markerCounts.technicalBegin !== markerCounts.technicalEnd) {
-      return `Markers técnicos desbalanceados: BEGIN=${markerCounts.technicalBegin}, END=${markerCounts.technicalEnd}.`;
-    }
-
-    if (markerCounts.flowBegin !== markerCounts.flowEnd) {
-      return `Markers de flujo desbalanceados: BEGIN=${markerCounts.flowBegin}, END=${markerCounts.flowEnd}.`;
-    }
-
-    const helperSignals = [
-      'gotoWithRetry',
-      'openSetupPopup',
-      'forceFullPageRefresh',
-      'reopenSetupAfterEinsteinToggle',
-      'clickCheckboxFaux',
-    ];
-
-    const detectedSignals = helperSignals.filter((name) =>
-      new RegExp(`\\basync\\s+function\\s+${name}\\s*\\(`).test(contents)
-    );
-
-    if (hasCompleteMainBlock) {
-      return null;
-    }
-
-    if (hasAnyMarker) {
-      return `Se detectaron markers parciales o fuera de bloque principal: ${JSON.stringify(markerCounts)}.`;
-    }
-
-    if (detectedSignals.length > 0) {
-      return `Se detectaron funciones helper conocidas sin bloque marcado: ${detectedSignals.join(', ')}.`;
-    }
-
-    return null;
-  }
-
-  hasInjectedHelperBlock(contents) {
-    return /\/\/\s*METADELTA_HELPERS_BEGIN[\s\S]*\/\/\s*METADELTA_HELPERS_END/m.test(contents);
-  }
-
-  injectHelperBlockIfNeeded(contents) {
-    if (this.hasInjectedHelperBlock(contents)) {
-      return contents;
-    }
-    const helper = this.getPatchedTestHelpersBlock();
-    return `${helper}\n${contents}`;
-  }
-
-  writeValidatedPatchedTestFile(patchedPath, contents) {
-    this.validatePatchedTestStructure(contents, patchedPath);
-    fs.writeFileSync(patchedPath, contents, 'utf8');
+    fs.writeFileSync(patchedPath, withHelper, 'utf8');
     return patchedPath;
-  }
-
-  shouldPreserveLegacyCriticalFlowSelectors(contents) {
-    return /Agentforce Agents|Vlocity CMT Administration|Einstein Setup/.test(contents);
   }
 
   shouldNormalizeVisualforceFrames() {
