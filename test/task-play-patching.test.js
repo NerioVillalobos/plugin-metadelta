@@ -131,6 +131,19 @@ test('x', async ({page}) => {
   assert.equal(taskPlay.isValidAiPatchedTestContent(invalid), false);
 });
 
+test('validateAiTypescriptSyntax rejects markdown fences and parsing errors', () => {
+  const taskPlay = createTaskPlay();
+  const fenced = "```ts\nimport {test} from '@playwright/test';\n```";
+  const brokenTs = "import {test} from '@playwright/test';\nconst a = `unterminated;\ntest('x', async () => {});";
+
+  const fencedResult = taskPlay.validateAiTypescriptSyntax(fenced, '/tmp/.metadelta.sample.ts');
+  const brokenResult = taskPlay.validateAiTypescriptSyntax(brokenTs, '/tmp/.metadelta.sample.ts');
+
+  assert.equal(fencedResult.valid, false);
+  assert.match(fencedResult.reason, /markdown fences/i);
+  assert.equal(brokenResult.valid, false);
+});
+
 test('maybeCreateAiEnhancedTestFile falls back when AI credentials are missing', async () => {
   const taskPlay = createTaskPlay();
   const warnings = [];
@@ -216,6 +229,29 @@ test('x', async ({page}) => {
     patchedTestFile: patchedPath,
   });
   assert.equal(invalidOutcome.result, 'fallback-invalid-ai-output');
+
+  taskPlay.requestGeminiStabilization = async () => `
+import {test} from '@playwright/test';
+// METADELTA_HELPERS_BEGIN
+async function gotoWithRetry() {}
+// METADELTA_HELPERS_END
+async function runTaskOrchestrator() {}
+const oops = \`unterminated;
+test('x', async ({page}) => {
+  await gotoWithRetry(page, 'x');
+  await runTaskOrchestrator(page);
+});
+`;
+  const invalidTsOutcome = await taskPlay.maybeCreateAiEnhancedTestFile({
+    aiEnabled: true,
+    aiProvider: 'gemini',
+    aiKey: 'fake-key',
+    originalTestFile: originalPath,
+    patchedTestFile: patchedPath,
+  });
+  assert.equal(invalidTsOutcome.result, 'fallback-invalid-ai-output');
+  assert.equal(invalidTsOutcome.generatedAiFile, null);
+  assert.equal(warnings.some((message) => /TypeScript\/Playwright/i.test(message)), true);
 
   taskPlay.requestGeminiStabilization = async () => {
     throw new Error('provider down');
