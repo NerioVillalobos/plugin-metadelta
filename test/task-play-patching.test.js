@@ -24,6 +24,7 @@ test('TaskPlay exposes optional AI flags', () => {
   assert.ok(TaskPlay.flags.ai);
   assert.ok(TaskPlay.flags['ai-provider']);
   assert.ok(TaskPlay.flags['ai-key']);
+  assert.ok(TaskPlay.flags['ai-model']);
 });
 
 test('injectHelperBlockIfNeeded injects when helper block is absent', () => {
@@ -105,6 +106,12 @@ test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   assert.equal(aiPath, '/tmp/tests/.metadelta.sample.ai.ts');
 });
 
+test('normalizeGeminiModelName accepts short and full formats', () => {
+  const taskPlay = createTaskPlay();
+  assert.equal(taskPlay.normalizeGeminiModelName('gemini-2.0-flash'), 'models/gemini-2.0-flash');
+  assert.equal(taskPlay.normalizeGeminiModelName('models/gemini-2.0-flash'), 'models/gemini-2.0-flash');
+});
+
 test('isValidAiPatchedTestContent validates expected Playwright/metadelta signatures', () => {
   const taskPlay = createTaskPlay();
   const valid = `
@@ -163,6 +170,7 @@ test('x', async ({page}) => {
   fs.writeFileSync(originalPath, patched, 'utf8');
   fs.writeFileSync(patchedPath, patched, 'utf8');
   taskPlay.requestGeminiStabilization = async () => `${patched}\n// safe additive comment`;
+  taskPlay.resolveGeminiModel = async () => 'models/gemini-2.0-flash';
 
   const outcome = await taskPlay.maybeCreateAiEnhancedTestFile({
     aiEnabled: true,
@@ -197,6 +205,7 @@ test('x', async ({page}) => {
 `;
   fs.writeFileSync(originalPath, patched, 'utf8');
   fs.writeFileSync(patchedPath, patched, 'utf8');
+  taskPlay.resolveGeminiModel = async () => 'models/gemini-2.0-flash';
 
   taskPlay.requestGeminiStabilization = async () => '';
   const invalidOutcome = await taskPlay.maybeCreateAiEnhancedTestFile({
@@ -220,4 +229,30 @@ test('x', async ({page}) => {
   });
   assert.equal(providerOutcome.result, 'fallback-provider-error');
   assert.equal(warnings.some((message) => message.includes('fake-key')), false);
+});
+
+test('resolveGeminiModel uses preferred model and list-models fallback', async () => {
+  const taskPlay = createTaskPlay();
+  const originalFetch = global.fetch;
+  try {
+    const preferred = await taskPlay.resolveGeminiModel({apiKey: 'x', preferredModel: 'gemini-2.5-flash'});
+    assert.equal(preferred, 'models/gemini-2.5-flash');
+
+    global.fetch = async () => ({
+      ok: true,
+      async json() {
+        return {
+          models: [
+            {name: 'models/embedding-001', supportedGenerationMethods: ['embedContent']},
+            {name: 'models/gemini-2.0-flash', supportedGenerationMethods: ['generateContent']},
+          ],
+        };
+      },
+    });
+
+    const discovered = await taskPlay.resolveGeminiModel({apiKey: 'x', preferredModel: ''});
+    assert.equal(discovered, 'models/gemini-2.0-flash');
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

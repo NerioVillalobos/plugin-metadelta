@@ -49,6 +49,10 @@ class TaskPlay extends Command {
       summary: 'API key del proveedor IA. No se guarda en disco.',
       required: false,
     }),
+    'ai-model': Flags.string({
+      summary: 'Modelo Gemini opcional (ejemplo: gemini-2.0-flash). También puede definirse por METADELTA_AI_MODEL o GEMINI_MODEL.',
+      required: false,
+    }),
   };
 
   async run() {
@@ -79,6 +83,7 @@ class TaskPlay extends Command {
         aiEnabled: Boolean(flags.ai),
         aiProvider: flags['ai-provider'],
         aiKey: flags['ai-key'],
+        aiModel: flags['ai-model'],
         originalTestFile: testFile,
         patchedTestFile,
       });
@@ -87,6 +92,7 @@ class TaskPlay extends Command {
         [
           `AI mode: ${aiOutcome.enabled ? 'enabled' : 'disabled'}`,
           aiOutcome.provider ? `provider=${aiOutcome.provider}` : null,
+          aiOutcome.model ? `model=${aiOutcome.model}` : null,
           `result=${aiOutcome.result}`,
           `executionFile=${executionTestFile}`,
         ]
@@ -100,7 +106,7 @@ class TaskPlay extends Command {
         args.push('--headed');
       }
 
-      this.log(`Ejecutando prueba en ${targetOrg} con archivo ${testFile}`);
+      this.log(`Ejecutando prueba en ${targetOrg} con archivo ${executionTestFile}`);
 
       const result = await executeCommandLive(process.execPath, args, {
         env: {
@@ -181,12 +187,13 @@ class TaskPlay extends Command {
     return configPath;
   }
 
-  async maybeCreateAiEnhancedTestFile({aiEnabled, aiProvider, aiKey, originalTestFile, patchedTestFile}) {
+  async maybeCreateAiEnhancedTestFile({aiEnabled, aiProvider, aiKey, aiModel, originalTestFile, patchedTestFile}) {
     const provider = (aiProvider || 'gemini').toLowerCase();
     if (!aiEnabled) {
       return {
         enabled: false,
         provider: null,
+        model: null,
         result: 'ai-disabled',
         executionFile: patchedTestFile,
         generatedAiFile: null,
@@ -201,6 +208,7 @@ class TaskPlay extends Command {
       return {
         enabled: true,
         provider,
+        model: null,
         result: 'fallback-missing-config',
         executionFile: patchedTestFile,
         generatedAiFile: null,
@@ -212,6 +220,7 @@ class TaskPlay extends Command {
       return {
         enabled: true,
         provider,
+        model: null,
         result: 'fallback-unsupported-provider',
         executionFile: patchedTestFile,
         generatedAiFile: null,
@@ -222,8 +231,10 @@ class TaskPlay extends Command {
       const originalContent = fs.readFileSync(originalTestFile, 'utf8');
       const patchedContent = fs.readFileSync(patchedTestFile, 'utf8');
       const diagnosticExcerpt = this.getRecentTaskDiagnosticExcerpt();
+      const model = await this.resolveGeminiModel({apiKey: resolvedKey, preferredModel: aiModel});
       const aiContent = await this.requestGeminiStabilization({
         apiKey: resolvedKey,
+        model,
         originalContent,
         patchedContent,
         diagnosticExcerpt,
@@ -234,6 +245,7 @@ class TaskPlay extends Command {
         return {
           enabled: true,
           provider,
+          model,
           result: 'fallback-invalid-ai-output',
           executionFile: patchedTestFile,
           generatedAiFile: null,
@@ -246,6 +258,7 @@ class TaskPlay extends Command {
         return {
           enabled: true,
           provider,
+          model,
           result: 'no-changes-required',
           executionFile: patchedTestFile,
           generatedAiFile: null,
@@ -257,6 +270,7 @@ class TaskPlay extends Command {
       return {
         enabled: true,
         provider,
+        model,
         result: 'ai-safe-hardening-applied',
         executionFile: aiEnhancedPath,
         generatedAiFile: aiEnhancedPath,
@@ -266,6 +280,7 @@ class TaskPlay extends Command {
       return {
         enabled: true,
         provider,
+        model: null,
         result: 'fallback-provider-error',
         executionFile: patchedTestFile,
         generatedAiFile: null,
@@ -303,6 +318,7 @@ class TaskPlay extends Command {
         timestamp: new Date().toISOString(),
         enabled: aiOutcome.enabled,
         provider: aiOutcome.provider,
+        model: aiOutcome.model,
         result: aiOutcome.result,
         executionFile,
       };
@@ -377,8 +393,52 @@ class TaskPlay extends Command {
       .trim();
   }
 
-  async requestGeminiStabilization({apiKey, originalContent, patchedContent, diagnosticExcerpt}) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  normalizeGeminiModelName(modelName) {
+    const normalized = (modelName || '').trim();
+    if (!normalized) {
+      return '';
+    }
+    return normalized.startsWith('models/') ? normalized : `models/${normalized}`;
+  }
+
+  async resolveGeminiModel({apiKey, preferredModel}) {
+    const configuredModel = preferredModel || process.env.METADELTA_AI_MODEL || process.env.GEMINI_MODEL;
+    const normalizedConfiguredModel = this.normalizeGeminiModelName(configuredModel);
+    if (normalizedConfiguredModel) {
+      return normalizedConfiguredModel;
+    }
+
+    try {
+      const listEndpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(listEndpoint, {method: 'GET'});
+      if (!response.ok) {
+        return 'models/gemini-2.0-flash';
+      }
+      const payload = await response.json();
+      const models = Array.isArray(payload?.models) ? payload.models : [];
+      const compatible = models.filter((entry) =>
+        Array.isArray(entry?.supportedGenerationMethods) && entry.supportedGenerationMethods.includes('generateContent')
+      );
+      const preferredPatterns = [/gemini-2\.5-flash/i, /gemini-2\.0-flash/i, /gemini-1\.5-flash/i];
+      for (const pattern of preferredPatterns) {
+        const match = compatible.find((entry) => pattern.test(entry?.name || ''));
+        if (match?.name) {
+          return match.name;
+        }
+      }
+      const firstGemini = compatible.find((entry) => /models\/gemini/i.test(entry?.name || ''));
+      if (firstGemini?.name) {
+        return firstGemini.name;
+      }
+    } catch (error) {
+      return 'models/gemini-2.0-flash';
+    }
+
+    return 'models/gemini-2.0-flash';
+  }
+
+  async requestGeminiStabilization({apiKey, model, originalContent, patchedContent, diagnosticExcerpt}) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
     const body = {
       systemInstruction: {
         role: 'system',
@@ -410,6 +470,9 @@ class TaskPlay extends Command {
     });
     if (!response.ok) {
       const errorText = await response.text();
+      if (response.status === 404) {
+        throw new Error(`Modelo Gemini no disponible o incompatible con generateContent (${model}).`);
+      }
       throw new Error(`Gemini response ${response.status}: ${errorText.slice(0, 300)}`);
     }
     const payload = await response.json();

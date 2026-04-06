@@ -781,6 +781,14 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
+        },
+        "ai-model": {
+          "name": "ai-model",
+          "required": false,
+          "summary": "Modelo Gemini opcional (ejemplo: gemini-2.0-flash). También puede definirse por METADELTA_AI_MODEL o GEMINI_MODEL.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
         }
       },
       "hasDynamicHelp": false,
