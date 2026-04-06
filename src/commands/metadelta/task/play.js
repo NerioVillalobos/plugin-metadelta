@@ -102,10 +102,7 @@ class TaskPlay extends Command {
       );
       this.writeAiDiagnosticsSummary(aiOutcome, executionTestFile);
       const configPath = this.createPlaywrightConfig(executionTestFile);
-      const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
-      if (flags.header) {
-        args.push('--headed');
-      }
+      const args = this.buildPlaywrightArgs({cliPath, configPath, header: flags.header});
 
       this.log(`Ejecutando prueba en ${targetOrg} con archivo ${executionTestFile}`);
 
@@ -188,6 +185,14 @@ class TaskPlay extends Command {
     return configPath;
   }
 
+  buildPlaywrightArgs({cliPath, configPath, header}) {
+    const args = [cliPath, 'test', '--config', configPath, '--reporter', 'line'];
+    if (header) {
+      args.push('--headed');
+    }
+    return args;
+  }
+
   async maybeCreateAiEnhancedTestFile({aiEnabled, aiProvider, aiKey, aiModel, originalTestFile, patchedTestFile}) {
     const provider = (aiProvider || 'gemini').toLowerCase();
     if (!aiEnabled) {
@@ -254,7 +259,8 @@ class TaskPlay extends Command {
         };
       }
 
-      const aiContent = this.applyAiHardeningPlan(patchedContent, parsedPlan.changes);
+      const effectiveChanges = this.ensureMandatoryFragilityChanges(patchedContent, parsedPlan.changes);
+      const aiContent = this.applyAiHardeningPlan(patchedContent, effectiveChanges);
       if (!this.isValidAiPatchedTestContent(aiContent)) {
         this.warn('La IA devolvió una propuesta que dañó la estructura base del test. Se usará el archivo determinista.');
         return {
@@ -416,20 +422,38 @@ class TaskPlay extends Command {
     return {valid: true, changes};
   }
 
+  ensureMandatoryFragilityChanges(source, changes) {
+    const normalizedChanges = Array.isArray(changes) ? [...changes] : [];
+    const types = new Set(normalizedChanges.map((entry) => entry.type));
+    if (this.hasAmbiguousSetupSelector(source) && !types.has('setup_button_disambiguation')) {
+      normalizedChanges.push({
+        type: 'setup_button_disambiguation',
+        reason: 'mandatory-known-fragility-setup-selector',
+      });
+    }
+    return normalizedChanges;
+  }
+
+  hasAmbiguousSetupSelector(source) {
+    return /getByRole\('button',\s*\{\s*name:\s*'Setup'\s*\}\)\.click\(\);/.test(source);
+  }
+
   applyAiHardeningPlan(source, changes) {
     let updated = source;
     const changeTypes = new Set((changes || []).map((entry) => entry.type));
 
     if (changeTypes.has('setup_button_disambiguation')) {
       updated = updated.replace(
-        /await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);/g,
+        /await\s+page\.getByRole\('button',\s*\{\s*name:\s*'Setup'\s*\}\)\.click\(\);/g,
         `{
-    const setupButtonExact = page.getByRole('button', {name: 'Setup', exact: true}).first();
-    if ((await setupButtonExact.count()) > 0) {
+    const globalSetupButton = page.locator('a.slds-global-actions__setup, button.slds-global-actions__setup').first();
+    if ((await globalSetupButton.count()) > 0) {
+      await globalSetupButton.waitFor({state: 'visible', timeout: 15000});
+      await globalSetupButton.click({timeout: 15000});
+    } else {
+      const setupButtonExact = page.getByRole('button', {name: 'Setup', exact: true}).first();
       await setupButtonExact.waitFor({state: 'visible', timeout: 15000});
       await setupButtonExact.click({timeout: 15000});
-    } else {
-      await page.getByRole('button', {name: /^Setup$/}).first().click({timeout: 15000});
     }
   }`
       );

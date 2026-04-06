@@ -106,6 +106,14 @@ test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   assert.equal(aiPath, '/tmp/tests/.metadelta.sample.ai.ts');
 });
 
+test('buildPlaywrightArgs includes --headed when header is true', () => {
+  const taskPlay = createTaskPlay();
+  const withHeader = taskPlay.buildPlaywrightArgs({cliPath: '/tmp/cli.js', configPath: '/tmp/pw.cjs', header: true});
+  const withoutHeader = taskPlay.buildPlaywrightArgs({cliPath: '/tmp/cli.js', configPath: '/tmp/pw.cjs', header: false});
+  assert.equal(withHeader.includes('--headed'), true);
+  assert.equal(withoutHeader.includes('--headed'), false);
+});
+
 test('normalizeGeminiModelName accepts short and full formats', () => {
   const taskPlay = createTaskPlay();
   assert.equal(taskPlay.normalizeGeminiModelName('gemini-2.0-flash'), 'models/gemini-2.0-flash');
@@ -168,8 +176,16 @@ test('x', async ({page}) => {
     {type: 'quick_find_ready_guard'},
   ]);
 
+  assert.match(hardened, /slds-global-actions__setup/);
   assert.match(hardened, /exact: true/);
   assert.match(hardened, /waitFor\(\{state: 'visible', timeout: 15000\}\)/);
+});
+
+test('ensureMandatoryFragilityChanges enforces setup hardening for known ambiguous selector', () => {
+  const taskPlay = createTaskPlay();
+  const source = "await page.getByRole('button', { name: 'Setup' }).click();";
+  const changes = taskPlay.ensureMandatoryFragilityChanges(source, []);
+  assert.equal(changes.some((entry) => entry.type === 'setup_button_disambiguation'), true);
 });
 
 test('maybeCreateAiEnhancedTestFile falls back when AI credentials are missing', async () => {
@@ -213,12 +229,7 @@ test('x', async ({page}) => {
   fs.writeFileSync(patchedPath, patched, 'utf8');
   taskPlay.requestGeminiStabilization = async () =>
     JSON.stringify({
-      changes: [
-        {
-          type: 'setup_button_disambiguation',
-          reason: 'Selector Setup ambiguo en orgs con botones adicionales de setup',
-        },
-      ],
+      changes: [],
     });
   taskPlay.resolveGeminiModel = async () => 'models/gemini-2.0-flash';
 
@@ -234,7 +245,7 @@ test('x', async ({page}) => {
   assert.ok(outcome.generatedAiFile?.endsWith('.ai.ts'));
   assert.equal(fs.existsSync(outcome.generatedAiFile), true);
   const hardened = fs.readFileSync(outcome.generatedAiFile, 'utf8');
-  assert.match(hardened, /exact: true/);
+  assert.match(hardened, /slds-global-actions__setup/);
 });
 
 test('maybeCreateAiEnhancedTestFile falls back on invalid AI output and provider failures', async () => {
