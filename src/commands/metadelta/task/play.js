@@ -233,7 +233,7 @@ class TaskPlay extends Command {
       const patchedContent = fs.readFileSync(patchedTestFile, 'utf8');
       const diagnosticExcerpt = this.getRecentTaskDiagnosticExcerpt();
       const model = await this.resolveGeminiModel({apiKey: resolvedKey, preferredModel: aiModel});
-      const aiContent = await this.requestGeminiStabilization({
+      const aiResponse = await this.requestGeminiStabilization({
         apiKey: resolvedKey,
         model,
         originalContent,
@@ -241,8 +241,22 @@ class TaskPlay extends Command {
         diagnosticExcerpt,
       });
 
+      const parsedPlan = this.parseAiHardeningPlan(aiResponse);
+      if (!parsedPlan.valid) {
+        this.warn(`La salida IA fue inválida para hardening dirigido (${parsedPlan.reason}). Se usará el archivo determinista.`);
+        return {
+          enabled: true,
+          provider,
+          model,
+          result: 'fallback-invalid-ai-output',
+          executionFile: patchedTestFile,
+          generatedAiFile: null,
+        };
+      }
+
+      const aiContent = this.applyAiHardeningPlan(patchedContent, parsedPlan.changes);
       if (!this.isValidAiPatchedTestContent(aiContent)) {
-        this.warn('La IA devolvió contenido vacío/estructuralmente inválido. Se usará el archivo determinista.');
+        this.warn('La IA devolvió una propuesta que dañó la estructura base del test. Se usará el archivo determinista.');
         return {
           enabled: true,
           provider,
@@ -376,16 +390,93 @@ class TaskPlay extends Command {
     return {valid: true, reason: 'ok'};
   }
 
+  parseAiHardeningPlan(aiResponse) {
+    if (!aiResponse || typeof aiResponse !== 'string' || !aiResponse.trim()) {
+      return {valid: false, reason: 'respuesta vacía'};
+    }
+    if (/```/i.test(aiResponse)) {
+      return {valid: false, reason: 'markdown fences detectados'};
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(aiResponse);
+    } catch (error) {
+      return {valid: false, reason: 'JSON inválido en plan AI'};
+    }
+
+    const rawChanges = Array.isArray(parsed?.changes) ? parsed.changes : [];
+    const allowedTypes = new Set([
+      'setup_button_disambiguation',
+      'quick_find_ready_guard',
+      'click_ready_guard',
+      'iframe_readiness_guard',
+    ]);
+    const changes = rawChanges.filter((entry) => allowedTypes.has(entry?.type));
+    return {valid: true, changes};
+  }
+
+  applyAiHardeningPlan(source, changes) {
+    let updated = source;
+    const changeTypes = new Set((changes || []).map((entry) => entry.type));
+
+    if (changeTypes.has('setup_button_disambiguation')) {
+      updated = updated.replace(
+        /await page\.getByRole\('button', \{ name: 'Setup' \}\)\.click\(\);/g,
+        `{
+    const setupButtonExact = page.getByRole('button', {name: 'Setup', exact: true}).first();
+    if ((await setupButtonExact.count()) > 0) {
+      await setupButtonExact.waitFor({state: 'visible', timeout: 15000});
+      await setupButtonExact.click({timeout: 15000});
+    } else {
+      await page.getByRole('button', {name: /^Setup$/}).first().click({timeout: 15000});
+    }
+  }`
+      );
+    }
+
+    if (changeTypes.has('quick_find_ready_guard')) {
+      updated = updated
+        .replace(
+          /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.click\(\);/g,
+          `await $1.getByRole('searchbox', {name: 'Quick Find'}).waitFor({state: 'visible', timeout: 15000});
+  await $1.getByRole('searchbox', {name: 'Quick Find'}).click({timeout: 15000});`
+        )
+        .replace(
+          /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.fill\('([^']+)'\);/g,
+          `await $1.getByRole('searchbox', {name: 'Quick Find'}).waitFor({state: 'visible', timeout: 15000});
+  await $1.getByRole('searchbox', {name: 'Quick Find'}).fill('$2');`
+        );
+    }
+
+    if (changeTypes.has('iframe_readiness_guard')) {
+      updated = updated.replace(
+        /const vf = await (\w+)\.locator\('iframe\[name\^="vfFrameId_"\]'\)\.first\(\)\.contentFrame\(\);/g,
+        `const vfLocator = $1.locator('iframe[name^="vfFrameId_"]').first();
+  await vfLocator.waitFor({timeout: 15000});
+  const vf = await vfLocator.contentFrame();`
+      );
+    }
+
+    if (changeTypes.has('click_ready_guard')) {
+      updated = updated.replace(
+        /await (\w+)\.getByRole\('button', \{ name: 'OK' \}\)\.click\(\);/g,
+        `await $1.getByRole('button', {name: 'OK'}).waitFor({state: 'visible', timeout: 15000});
+  await $1.getByRole('button', {name: 'OK'}).click({timeout: 15000});`
+      );
+    }
+
+    return updated;
+  }
+
   buildAiSystemInstruction() {
     return [
-      'Eres un asistente de hardening para pruebas Playwright de Salesforce.',
-      'Regla principal: NO reescribir agresivamente ni cambiar la intención funcional del flujo grabado.',
-      'El archivo patched ya contiene estabilizadores de metadelta: debes preservarlos completamente.',
-      'Mantén helpers/imports/estructura base; no elimines ni sustituyas lógica de metadelta.',
-      'Solo aplica mejoras mínimas, aditivas y seguras: waits, guards, checks visibility/enabled, retries acotados, fallback selectors, sincronización.',
-      'Si el archivo patched ya está estable, devuelve exactamente el mismo contenido (no changes required).',
-      'No introduzcas abstracciones nuevas ni refactors amplios.',
-      'Devuelve ÚNICAMENTE el contenido completo del archivo TypeScript resultante, sin markdown ni explicaciones.',
+      'Eres un asistente de hardening preventivo para playback Playwright de Salesforce orientado a CI/CD.',
+      'No reescribas el archivo completo. Solo analiza fragilidad y devuelve un plan JSON mínimo.',
+      'Preserva intención funcional y helpers/metadelta existentes.',
+      'Prioriza riesgos: selector Setup ambiguo, Quick Find sin waits, iframe readiness, click/fill sin ready state.',
+      'No incluyas markdown fences, comentarios ni texto fuera de JSON.',
+      'Respuesta obligatoria: {"changes":[{"type":"setup_button_disambiguation|quick_find_ready_guard|click_ready_guard|iframe_readiness_guard","reason":"..."}]}.',
     ].join('\n');
   }
 
@@ -413,7 +504,7 @@ class TaskPlay extends Command {
       'Extracto diagnóstico reciente (si existe):',
       diagnosticExcerpt || '(sin diagnóstico adicional)',
       '',
-      'Recuerda: salida = archivo TS completo únicamente.',
+      'Recuerda: salida = JSON válido con "changes". Si no hay mejoras seguras, devuelve {"changes":[]}.',
     ].join('\n');
   }
 

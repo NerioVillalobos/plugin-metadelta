@@ -382,7 +382,7 @@ sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--heade
 Supported coverage for `sf metadelta task play` (scope and limits):
 
 * `task play` creates a temporary patched file (`tests/.metadelta.*`) to stabilize recurring Salesforce UI differences.
-* Optional AI hardening (`--ai`) runs **after** deterministic patching, creates a second derived file (`tests/.metadelta.<name>.ai.ts`), supports model override with `--ai-model`/`METADELTA_AI_MODEL`, and falls back to the deterministic file if AI is unavailable/invalid.
+* Optional AI hardening (`--ai`) runs **after** deterministic patching, uses a constrained AI fragility-analysis plan (targeted hardening, not full-file free rewrite), creates a second derived file (`tests/.metadelta.<name>.ai.ts`) when safe, supports model override with `--ai-model`/`METADELTA_AI_MODEL`, and falls back to the deterministic file if AI is unavailable/invalid.
 * The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
 
 Automatic mitigations currently covered:
@@ -954,7 +954,7 @@ sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--hea
 Cobertura soportada de `sf metadelta task play` (alcance y límites):
 
 * `task play` crea un archivo temporal parcheado (`tests/.metadelta.*`) para estabilizar diferencias recurrentes de UI en Salesforce.
-* El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`), permite forzar modelo con `--ai-model`/`METADELTA_AI_MODEL` y vuelve al archivo determinista si la IA falla o responde inválido.
+* El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, usa un plan interno acotado de análisis de fragilidad (no reescritura libre del archivo completo), crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`) cuando es seguro, permite forzar modelo con `--ai-model`/`METADELTA_AI_MODEL` y vuelve al archivo determinista si la IA falla o responde inválido.
 * El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
 
 Mitigaciones automáticas cubiertas actualmente:

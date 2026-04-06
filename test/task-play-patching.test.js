@@ -112,6 +112,16 @@ test('normalizeGeminiModelName accepts short and full formats', () => {
   assert.equal(taskPlay.normalizeGeminiModelName('models/gemini-2.0-flash'), 'models/gemini-2.0-flash');
 });
 
+test('parseAiHardeningPlan accepts valid JSON and rejects fenced responses', () => {
+  const taskPlay = createTaskPlay();
+  const ok = taskPlay.parseAiHardeningPlan('{"changes":[{"type":"setup_button_disambiguation"}]}');
+  const fenced = taskPlay.parseAiHardeningPlan('```json\\n{"changes":[{"type":"setup_button_disambiguation"}]}\\n```');
+
+  assert.equal(ok.valid, true);
+  assert.equal(ok.changes.length, 1);
+  assert.equal(fenced.valid, false);
+});
+
 test('isValidAiPatchedTestContent validates expected Playwright/metadelta signatures', () => {
   const taskPlay = createTaskPlay();
   const valid = `
@@ -142,6 +152,24 @@ test('validateAiTypescriptSyntax rejects markdown fences and parsing errors', ()
   assert.equal(fencedResult.valid, false);
   assert.match(fencedResult.reason, /markdown fences/i);
   assert.equal(brokenResult.valid, false);
+});
+
+test('applyAiHardeningPlan hardens ambiguous Setup selector and Quick Find timing', () => {
+  const taskPlay = createTaskPlay();
+  const source = `
+import {test} from '@playwright/test';
+test('x', async ({page}) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  await page.getByRole('searchbox', { name: 'Quick Find' }).click();
+});
+`;
+  const hardened = taskPlay.applyAiHardeningPlan(source, [
+    {type: 'setup_button_disambiguation'},
+    {type: 'quick_find_ready_guard'},
+  ]);
+
+  assert.match(hardened, /exact: true/);
+  assert.match(hardened, /waitFor\(\{state: 'visible', timeout: 15000\}\)/);
 });
 
 test('maybeCreateAiEnhancedTestFile falls back when AI credentials are missing', async () => {
@@ -176,13 +204,22 @@ async function gotoWithRetry() {}
 // METADELTA_HELPERS_END
 async function runTaskOrchestrator() {}
 test('x', async ({page}) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
   await gotoWithRetry(page, 'x');
   await runTaskOrchestrator(page);
 });
 `;
   fs.writeFileSync(originalPath, patched, 'utf8');
   fs.writeFileSync(patchedPath, patched, 'utf8');
-  taskPlay.requestGeminiStabilization = async () => `${patched}\n// safe additive comment`;
+  taskPlay.requestGeminiStabilization = async () =>
+    JSON.stringify({
+      changes: [
+        {
+          type: 'setup_button_disambiguation',
+          reason: 'Selector Setup ambiguo en orgs con botones adicionales de setup',
+        },
+      ],
+    });
   taskPlay.resolveGeminiModel = async () => 'models/gemini-2.0-flash';
 
   const outcome = await taskPlay.maybeCreateAiEnhancedTestFile({
@@ -196,6 +233,8 @@ test('x', async ({page}) => {
   assert.equal(outcome.result, 'ai-safe-hardening-applied');
   assert.ok(outcome.generatedAiFile?.endsWith('.ai.ts'));
   assert.equal(fs.existsSync(outcome.generatedAiFile), true);
+  const hardened = fs.readFileSync(outcome.generatedAiFile, 'utf8');
+  assert.match(hardened, /exact: true/);
 });
 
 test('maybeCreateAiEnhancedTestFile falls back on invalid AI output and provider failures', async () => {
@@ -230,18 +269,7 @@ test('x', async ({page}) => {
   });
   assert.equal(invalidOutcome.result, 'fallback-invalid-ai-output');
 
-  taskPlay.requestGeminiStabilization = async () => `
-import {test} from '@playwright/test';
-// METADELTA_HELPERS_BEGIN
-async function gotoWithRetry() {}
-// METADELTA_HELPERS_END
-async function runTaskOrchestrator() {}
-const oops = \`unterminated;
-test('x', async ({page}) => {
-  await gotoWithRetry(page, 'x');
-  await runTaskOrchestrator(page);
-});
-`;
+  taskPlay.requestGeminiStabilization = async () => '```json\n{"changes":[{"type":"setup_button_disambiguation"}]}\n```';
   const invalidTsOutcome = await taskPlay.maybeCreateAiEnhancedTestFile({
     aiEnabled: true,
     aiProvider: 'gemini',
@@ -251,7 +279,7 @@ test('x', async ({page}) => {
   });
   assert.equal(invalidTsOutcome.result, 'fallback-invalid-ai-output');
   assert.equal(invalidTsOutcome.generatedAiFile, null);
-  assert.equal(warnings.some((message) => /TypeScript\/Playwright/i.test(message)), true);
+  assert.equal(warnings.some((message) => /hardening dirigido/i.test(message)), true);
 
   taskPlay.requestGeminiStabilization = async () => {
     throw new Error('provider down');
