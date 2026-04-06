@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-25 — `@nervill/metadelta` 0.11.0
+> **Last update / Última actualización:** 2026-03-25 — `@nervill/metadelta` 0.11.1
 
 # Metadelta Salesforce CLI Plugin
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1 (link)`.
 
 ### Usage
 
@@ -376,12 +376,13 @@ Use `task record` to capture a Playwright flow and `task play` to replay it in a
 
 ```bash
 sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header]
+sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header] [--ai --ai-provider gemini --ai-key <key>]
 ```
 
 Supported coverage for `sf metadelta task play` (scope and limits):
 
 * `task play` creates a temporary patched file (`tests/.metadelta.*`) to stabilize recurring Salesforce UI differences.
+* Optional AI hardening (`--ai`) runs **after** deterministic patching, creates a second derived file (`tests/.metadelta.<name>.ai.ts`), and falls back to the deterministic file if AI is unavailable/invalid.
 * The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
 
 Automatic mitigations currently covered:
@@ -947,12 +948,13 @@ Usa `task record` para grabar un flujo en Playwright y `task play` para reproduc
 
 ```bash
 sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header]
+sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header] [--ai --ai-provider gemini --ai-key <key>]
 ```
 
 Cobertura soportada de `sf metadelta task play` (alcance y límites):
 
 * `task play` crea un archivo temporal parcheado (`tests/.metadelta.*`) para estabilizar diferencias recurrentes de UI en Salesforce.
+* El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`) y vuelve al archivo determinista si la IA falla o responde inválido.
 * El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
 
 Mitigaciones automáticas cubiertas actualmente:

@@ -759,6 +759,28 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
+        },
+        "ai": {
+          "name": "ai",
+          "summary": "Activa una capa opcional de estabilización asistida por IA sobre el archivo .metadelta.* ya parcheado.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ai-provider": {
+          "name": "ai-provider",
+          "required": false,
+          "summary": "Proveedor de IA para estabilización opcional (actualmente: gemini).",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "ai-key": {
+          "name": "ai-key",
+          "required": false,
+          "summary": "API key del proveedor IA. No se guarda en disco.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
         }
       },
       "hasDynamicHelp": false,
@@ -820,5 +842,5 @@
       ]
     }
   },
-  "version": "0.11.0"
+  "version": "0.11.1"
 }

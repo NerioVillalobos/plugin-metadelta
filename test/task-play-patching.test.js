@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import TaskPlay from '../src/commands/metadelta/task/play.js';
 
 function createTaskPlay() {
@@ -15,6 +18,12 @@ test('hasInjectedHelperBlock detects full helper block', () => {
   const contents = `${helperBlock}\nconst x = 1;`;
 
   assert.equal(taskPlay.hasInjectedHelperBlock(contents), true);
+});
+
+test('TaskPlay exposes optional AI flags', () => {
+  assert.ok(TaskPlay.flags.ai);
+  assert.ok(TaskPlay.flags['ai-provider']);
+  assert.ok(TaskPlay.flags['ai-key']);
 });
 
 test('injectHelperBlockIfNeeded injects when helper block is absent', () => {
@@ -88,4 +97,127 @@ test('patch me', async ({page}) => {
   assert.match(normalized, /const baseUrl = process\.env\.METADELTA_BASE_URL;/);
   assert.match(normalized, /await gotoWithRetry\(page, baseUrl \+ '\/lightning\/page\/home'\);/);
   assert.match(normalized, /await runTaskOrchestrator\(page\);/);
+});
+
+test('createAiEnhancedTestFilePath appends .ai before extension', () => {
+  const taskPlay = createTaskPlay();
+  const aiPath = taskPlay.createAiEnhancedTestFilePath('/tmp/tests/.metadelta.sample.ts');
+  assert.equal(aiPath, '/tmp/tests/.metadelta.sample.ai.ts');
+});
+
+test('isValidAiPatchedTestContent validates expected Playwright/metadelta signatures', () => {
+  const taskPlay = createTaskPlay();
+  const valid = `
+import {test} from '@playwright/test';
+// METADELTA_HELPERS_BEGIN
+async function gotoWithRetry() {}
+// METADELTA_HELPERS_END
+async function runTaskOrchestrator() {}
+test('x', async ({page}) => {
+  await gotoWithRetry(page, 'https://example.com');
+  await runTaskOrchestrator(page);
+});
+`;
+  const invalid = "import {test} from '@playwright/test'; test('x', async () => {});";
+
+  assert.equal(taskPlay.isValidAiPatchedTestContent(valid), true);
+  assert.equal(taskPlay.isValidAiPatchedTestContent(invalid), false);
+});
+
+test('maybeCreateAiEnhancedTestFile falls back when AI credentials are missing', async () => {
+  const taskPlay = createTaskPlay();
+  const warnings = [];
+  taskPlay.warn = (message) => warnings.push(message);
+
+  const outcome = await taskPlay.maybeCreateAiEnhancedTestFile({
+    aiEnabled: true,
+    aiProvider: 'gemini',
+    aiKey: '',
+    originalTestFile: '/tmp/original.ts',
+    patchedTestFile: '/tmp/patched.ts',
+  });
+
+  assert.equal(outcome.result, 'fallback-missing-config');
+  assert.equal(outcome.executionFile, '/tmp/patched.ts');
+  assert.equal(warnings.length > 0, true);
+  assert.equal(warnings.join('\n').includes('ai-key'), true);
+});
+
+test('maybeCreateAiEnhancedTestFile writes AI file when provider returns valid content', async () => {
+  const taskPlay = createTaskPlay();
+  taskPlay.warn = () => {};
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-ai-'));
+  const originalPath = path.join(tmp, 'original.ts');
+  const patchedPath = path.join(tmp, '.metadelta.sample.ts');
+  const patched = `
+import {test} from '@playwright/test';
+// METADELTA_HELPERS_BEGIN
+async function gotoWithRetry() {}
+// METADELTA_HELPERS_END
+async function runTaskOrchestrator() {}
+test('x', async ({page}) => {
+  await gotoWithRetry(page, 'x');
+  await runTaskOrchestrator(page);
+});
+`;
+  fs.writeFileSync(originalPath, patched, 'utf8');
+  fs.writeFileSync(patchedPath, patched, 'utf8');
+  taskPlay.requestGeminiStabilization = async () => `${patched}\n// safe additive comment`;
+
+  const outcome = await taskPlay.maybeCreateAiEnhancedTestFile({
+    aiEnabled: true,
+    aiProvider: 'gemini',
+    aiKey: 'fake-key',
+    originalTestFile: originalPath,
+    patchedTestFile: patchedPath,
+  });
+
+  assert.equal(outcome.result, 'ai-safe-hardening-applied');
+  assert.ok(outcome.generatedAiFile?.endsWith('.ai.ts'));
+  assert.equal(fs.existsSync(outcome.generatedAiFile), true);
+});
+
+test('maybeCreateAiEnhancedTestFile falls back on invalid AI output and provider failures', async () => {
+  const taskPlay = createTaskPlay();
+  const warnings = [];
+  taskPlay.warn = (message) => warnings.push(message);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-ai-'));
+  const originalPath = path.join(tmp, 'original.ts');
+  const patchedPath = path.join(tmp, '.metadelta.sample.ts');
+  const patched = `
+import {test} from '@playwright/test';
+// METADELTA_HELPERS_BEGIN
+async function gotoWithRetry() {}
+// METADELTA_HELPERS_END
+async function runTaskOrchestrator() {}
+test('x', async ({page}) => {
+  await gotoWithRetry(page, 'x');
+  await runTaskOrchestrator(page);
+});
+`;
+  fs.writeFileSync(originalPath, patched, 'utf8');
+  fs.writeFileSync(patchedPath, patched, 'utf8');
+
+  taskPlay.requestGeminiStabilization = async () => '';
+  const invalidOutcome = await taskPlay.maybeCreateAiEnhancedTestFile({
+    aiEnabled: true,
+    aiProvider: 'gemini',
+    aiKey: 'fake-key',
+    originalTestFile: originalPath,
+    patchedTestFile: patchedPath,
+  });
+  assert.equal(invalidOutcome.result, 'fallback-invalid-ai-output');
+
+  taskPlay.requestGeminiStabilization = async () => {
+    throw new Error('provider down');
+  };
+  const providerOutcome = await taskPlay.maybeCreateAiEnhancedTestFile({
+    aiEnabled: true,
+    aiProvider: 'gemini',
+    aiKey: 'fake-key',
+    originalTestFile: originalPath,
+    patchedTestFile: patchedPath,
+  });
+  assert.equal(providerOutcome.result, 'fallback-provider-error');
+  assert.equal(warnings.some((message) => message.includes('fake-key')), false);
 });
