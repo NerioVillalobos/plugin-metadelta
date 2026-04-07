@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import {createRequire} from 'node:module';
 import {spawn, spawnSync} from 'node:child_process';
 
 const DEFAULT_ORCHESTRATOR_FILENAME = 'metadelta-task-orchestrator.json';
@@ -570,6 +571,11 @@ export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
     return {cacheDir, cliPath};
   }
 
+  const localRuntime = resolveInstalledPlaywrightRuntime(baseDir);
+  if (localRuntime) {
+    return localRuntime;
+  }
+
   fs.mkdirSync(cacheDir, {recursive: true});
   const result = spawnSync(
     'npm',
@@ -577,15 +583,54 @@ export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
     {stdio: 'inherit'}
   );
   if (result.status !== 0) {
-    throw new Error('No se pudo instalar @playwright/test automáticamente.');
+    const fallbackRuntime = resolveInstalledPlaywrightRuntime(baseDir);
+    if (fallbackRuntime) {
+      return fallbackRuntime;
+    }
+    throw new Error(
+      'No se pudo instalar @playwright/test automáticamente y tampoco se pudo resolver una instalación existente desde el proyecto actual.'
+    );
   }
 
   if (!fs.existsSync(cliPath)) {
-    throw new Error('No se encontró el CLI de @playwright/test después de la instalación.');
+    const fallbackRuntime = resolveInstalledPlaywrightRuntime(baseDir);
+    if (fallbackRuntime) {
+      return fallbackRuntime;
+    }
+    throw new Error('No se encontró el CLI de @playwright/test después de la instalación y no hay instalación local resolvible.');
   }
 
   ensureTestModuleSymlink(baseDir, cacheDir);
   return {cacheDir, cliPath};
+}
+
+export function resolveInstalledPlaywrightRuntime(baseDir = process.cwd()) {
+  const requireFromOrchestrator = createRequire(import.meta.url);
+  try {
+    const packageJsonPath = requireFromOrchestrator.resolve('@playwright/test/package.json', {paths: [baseDir]});
+    const moduleDir = path.dirname(packageJsonPath);
+    const cliPath = path.join(moduleDir, 'cli.js');
+    if (!fs.existsSync(cliPath)) {
+      return null;
+    }
+
+    const nodeModulesDir = findNearestNodeModulesDir(moduleDir);
+    const runtimeBaseDir = nodeModulesDir ? path.dirname(nodeModulesDir) : baseDir;
+    return {cacheDir: runtimeBaseDir, cliPath};
+  } catch (error) {
+    return null;
+  }
+}
+
+function findNearestNodeModulesDir(startDir) {
+  let current = path.resolve(startDir);
+  while (current && current !== path.dirname(current)) {
+    if (path.basename(current) === 'node_modules') {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  return null;
 }
 
 function ensureTestModuleSymlink(baseDir, cacheDir) {
