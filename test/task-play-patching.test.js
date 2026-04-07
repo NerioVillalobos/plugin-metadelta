@@ -100,6 +100,20 @@ test('patch me', async ({page}) => {
   assert.match(normalized, /await runTaskOrchestrator\(page\);/);
 });
 
+test('applyPatchedTestNormalizations adds post-save stabilization for save input clicks', () => {
+  const taskPlay = createTaskPlay();
+  const source = `
+import {test, expect} from '@playwright/test';
+
+test('save action', async ({page}) => {
+  await page.locator('iframe[name^="vfFrameId_"]').contentFrame().getByRole('row', { name: 'Save Save & New Cancel', exact: true }).locator('input[name="save"]').click();
+});
+`;
+  const normalized = taskPlay.applyPatchedTestNormalizations(source, 180);
+  assert.match(normalized, /waitForLoadState\('networkidle'\)/);
+  assert.match(normalized, /waitForTimeout\(1200\)/);
+});
+
 test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   const taskPlay = createTaskPlay();
   const aiPath = taskPlay.createAiEnhancedTestFilePath('/tmp/tests/.metadelta.sample.ts');
