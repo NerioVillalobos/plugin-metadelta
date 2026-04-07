@@ -1061,8 +1061,8 @@ class TaskPlay extends Command {
       .getByRole('button', {name: 'Save'});
     if (await saveButton.count()) {
       await saveButton.first().click({timeout: 15000});
-      await $1.waitForLoadState('networkidle');
-      await $1.waitForTimeout(1200);
+      await $1.waitForLoadState('domcontentloaded', {timeout: 7000}).catch(() => {});
+      await $1.waitForTimeout(600);
     } else {
       console.log('⚠️ Se omite Save porque no existe botón Save visible en el contexto actual.');
     }
@@ -1079,8 +1079,8 @@ class TaskPlay extends Command {
       .first();
     if ((await saveInput.count()) > 0) {
       await saveInput.click({timeout: 15000});
-      await $1.waitForLoadState('networkidle');
-      await $1.waitForTimeout(1200);
+      await $1.waitForLoadState('domcontentloaded', {timeout: 7000}).catch(() => {});
+      await $1.waitForTimeout(600);
     } else {
       console.log('⚠️ Se omite Save input porque no se encontró input[name=\"save\"] visible.');
     }

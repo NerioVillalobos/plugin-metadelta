@@ -110,8 +110,8 @@ test('save action', async ({page}) => {
 });
 `;
   const normalized = taskPlay.applyPatchedTestNormalizations(source, 180);
-  assert.match(normalized, /waitForLoadState\('networkidle'\)/);
-  assert.match(normalized, /waitForTimeout\(1200\)/);
+  assert.match(normalized, /waitForLoadState\('domcontentloaded', \{timeout: 7000\}\)\.catch\(\(\) => \{\}\)/);
+  assert.match(normalized, /waitForTimeout\(600\)/);
 });
 
 test('createAiEnhancedTestFilePath appends .ai before extension', () => {
