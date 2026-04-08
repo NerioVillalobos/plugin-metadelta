@@ -1103,7 +1103,11 @@ class TaskPlay extends Command {
       (match, locatorExpression, desiredValue) =>
         `await fillIfNeeded(${locatorExpression}, '${desiredValue.replace(/'/g, "\\'")}', 'fill:${desiredValue.slice(0, 32)}');`
     );
-    const normalizedClickLogs = normalizedIdempotentFills.replace(
+    const normalizedOffThenToggle = normalizedIdempotentFills.replace(
+      /await expect\(([\w$]+\.locator\('[^']+'\))\.getByText\('Off'\)\)\.toBeVisible\(\);\s*\n\s*await ([^;\n]+?\.locator\('\.slds-checkbox_faux'\)\.first\(\))\.click\(\);/g,
+      `await ensureToggleStateFromDescription($1, $2, 'Off', 'On', 'toggle-from-off-expectation');`
+    );
+    const normalizedClickLogs = normalizedOffThenToggle.replace(
       /await (\w+)\.getByRole\('searchbox', \{ name: 'Quick Find' \}\)\.press\('Enter'\);/g,
       `console.log('➡️ Enter: Quick Find');\n  await $1.getByRole('searchbox', {name: 'Quick Find'}).press('Enter');`
     );
@@ -1394,6 +1398,31 @@ async function fillIfNeeded(locator, desiredValue, reason = '') {
   }
 
   await target.fill(desiredValue);
+}
+
+async function ensureToggleStateFromDescription(containerLocator, toggleLocator, offText = 'Off', onText = 'On', reason = '') {
+  const container = containerLocator.first();
+  const toggle = toggleLocator.first();
+  await container.waitFor({state: 'visible', timeout: 15000}).catch(() => {});
+  await toggle.waitFor({state: 'visible', timeout: 15000});
+
+  const offCandidate = container.getByText(offText).first();
+  const onCandidate = container.getByText(onText).first();
+  const offVisible = (await offCandidate.count()) > 0 && (await offCandidate.isVisible().catch(() => false));
+  const onVisible = (await onCandidate.count()) > 0 && (await onCandidate.isVisible().catch(() => false));
+
+  if (onVisible && !offVisible) {
+    logIdempotentSkip(reason || 'toggle-already-on');
+    return;
+  }
+
+  if (offVisible) {
+    await toggle.click({timeout: 15000, force: true});
+    return;
+  }
+
+  await expect(offCandidate).toBeVisible({timeout: 5000});
+  await toggle.click({timeout: 15000, force: true});
 }
 
 // METADELTA_TECHNICAL_HELPERS_END

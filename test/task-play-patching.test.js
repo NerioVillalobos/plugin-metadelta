@@ -143,6 +143,25 @@ test('helper block keeps conservative behavior for uncertain states and skip log
   assert.match(helpers, /await target\.fill\(desiredValue\);/);
 });
 
+test('applyPatchedTestNormalizations converts Off expectation + toggle click into idempotent guard', () => {
+  const taskPlay = createTaskPlay();
+  const source = `
+import {test, expect} from '@playwright/test';
+
+test('off toggle guard', async ({page}) => {
+  await expect(page.locator('#toggle-description-240').getByText('Off')).toBeVisible();
+  await page.locator('.slds-checkbox_faux').first().click();
+});
+`;
+  const normalized = taskPlay.applyPatchedTestNormalizations(source, 180);
+  assert.equal(
+    normalized.includes(
+      "ensureToggleStateFromDescription(page.locator('#toggle-description-240'), page.locator('.slds-checkbox_faux').first(), 'Off', 'On', 'toggle-from-off-expectation')"
+    ),
+    true
+  );
+});
+
 test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   const taskPlay = createTaskPlay();
   const aiPath = taskPlay.createAiEnhancedTestFilePath('/tmp/tests/.metadelta.sample.ts');
