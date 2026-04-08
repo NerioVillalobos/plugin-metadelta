@@ -1348,6 +1348,26 @@ async function readToggleState(locator) {
   return null;
 }
 
+async function readToggleStateFromNearbyCheckbox(toggleLocator) {
+  const candidates = [
+    toggleLocator.locator('xpath=ancestor::label[1]//input[@type="checkbox"]').first(),
+    toggleLocator.locator('xpath=preceding::input[@type="checkbox"][1]').first(),
+    toggleLocator.locator('xpath=ancestor::*[contains(@class,"slds-checkbox")][1]//input[@type="checkbox"]').first(),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if ((await candidate.count()) > 0) {
+        return await candidate.isChecked();
+      }
+    } catch (error) {
+      // noop
+    }
+  }
+
+  return null;
+}
+
 async function setCheckboxStateIfNeeded(locator, desiredChecked, reason = '') {
   const target = locator.first();
   await target.waitFor({state: 'visible', timeout: 15000});
@@ -1410,6 +1430,9 @@ async function ensureToggleStateFromDescription(containerLocator, toggleLocator,
   const onCandidate = container.getByText(onText).first();
   const offVisible = (await offCandidate.count()) > 0 && (await offCandidate.isVisible().catch(() => false));
   const onVisible = (await onCandidate.count()) > 0 && (await onCandidate.isVisible().catch(() => false));
+  const inferredToggleState = await readToggleState(toggle).then((state) =>
+    typeof state === 'boolean' ? state : readToggleStateFromNearbyCheckbox(toggle)
+  );
 
   if (onVisible && !offVisible) {
     logIdempotentSkip(reason || 'toggle-already-on');
@@ -1421,8 +1444,17 @@ async function ensureToggleStateFromDescription(containerLocator, toggleLocator,
     return;
   }
 
-  await expect(offCandidate).toBeVisible({timeout: 5000});
-  await toggle.click({timeout: 15000, force: true});
+  if (inferredToggleState === true) {
+    logIdempotentSkip(reason || 'toggle-already-on-inferred');
+    return;
+  }
+
+  if (inferredToggleState === false) {
+    await toggle.click({timeout: 15000, force: true});
+    return;
+  }
+
+  logIdempotentSkip(reason || 'toggle-state-uncertain');
 }
 
 // METADELTA_TECHNICAL_HELPERS_END

@@ -141,6 +141,8 @@ test('helper block keeps conservative behavior for uncertain states and skip log
   assert.match(helpers, /if \(typeof current === 'boolean' && current === desiredOn\)/);
   assert.match(helpers, /await target\.click\(\{timeout: 15000, force: true\}\);/);
   assert.match(helpers, /await target\.fill\(desiredValue\);/);
+  assert.match(helpers, /toggle-state-uncertain/);
+  assert.match(helpers, /readToggleStateFromNearbyCheckbox/);
 });
 
 test('applyPatchedTestNormalizations converts Off expectation + toggle click into idempotent guard', () => {
