@@ -143,6 +143,8 @@ test('helper block keeps conservative behavior for uncertain states and skip log
   assert.match(helpers, /await target\.fill\(desiredValue\);/);
   assert.match(helpers, /toggle-state-uncertain/);
   assert.match(helpers, /readToggleStateFromNearbyCheckbox/);
+  assert.match(helpers, /isLikelySetupPage/);
+  assert.match(helpers, /if \(await isLikelySetupPage\(page\)\) \{\n    return page;/);
 });
 
 test('applyPatchedTestNormalizations converts Off expectation + toggle click into idempotent guard', () => {
