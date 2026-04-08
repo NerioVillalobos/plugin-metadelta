@@ -114,6 +114,35 @@ test('save action', async ({page}) => {
   assert.match(normalized, /waitForTimeout\(600\)/);
 });
 
+test('applyPatchedTestNormalizations injects conservative idempotent wrappers for checkbox/toggle/fill', () => {
+  const taskPlay = createTaskPlay();
+  const source = `
+import {test, expect} from '@playwright/test';
+
+test('idempotent wrappers', async ({page}) => {
+  await page.getByRole('checkbox', { name: 'Starts with vowel sound' }).check();
+  await page.getByRole('checkbox', { name: 'Starts with vowel sound' }).uncheck();
+  await page.getByRole('switch', { name: 'Enable Feature X' }).click();
+  await page.getByRole('textbox', { name: 'Label' }).fill('Nerio');
+});
+`;
+  const normalized = taskPlay.applyPatchedTestNormalizations(source, 180);
+
+  assert.match(normalized, /setCheckboxStateIfNeeded\(/);
+  assert.match(normalized, /clickToggleIfNeeded\(/);
+  assert.match(normalized, /fillIfNeeded\(/);
+});
+
+test('helper block keeps conservative behavior for uncertain states and skip logging', () => {
+  const taskPlay = createTaskPlay();
+  const helpers = taskPlay.getPatchedTestHelpersBlock();
+
+  assert.match(helpers, /action skipped: already satisfied/);
+  assert.match(helpers, /if \(typeof current === 'boolean' && current === desiredOn\)/);
+  assert.match(helpers, /await target\.click\(\{timeout: 15000, force: true\}\);/);
+  assert.match(helpers, /await target\.fill\(desiredValue\);/);
+});
+
 test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   const taskPlay = createTaskPlay();
   const aiPath = taskPlay.createAiEnhancedTestFilePath('/tmp/tests/.metadelta.sample.ts');
