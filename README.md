@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-25 — `@nervill/metadelta` 0.11.1
+> **Last update / Última actualización:** 2026-04-16 — `@nervill/metadelta` 0.11.1
 
 # Metadelta Salesforce CLI Plugin
 
@@ -385,6 +385,26 @@ Supported coverage for `sf metadelta task play` (scope and limits):
 * Optional AI hardening (`--ai`) runs **after** deterministic patching, uses a constrained AI fragility-analysis plan (targeted hardening, not full-file free rewrite), creates a second derived file (`tests/.metadelta.<name>.ai.ts`) when safe, supports model override with `--ai-model`/`METADELTA_AI_MODEL`, and falls back to the deterministic file if AI is unavailable/invalid.
 * Playback now also includes conservative idempotent guards for supported patterns (checkbox state, toggle state, and safe fill-value matches): when target state is already satisfied the step is skipped; otherwise it runs normally.
 * The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
+
+AI and idempotency options (quick reference):
+
+| Option | Purpose | Required |
+|---|---|---|
+| `--ai` | Enables optional AI hardening stage over deterministic patched file. | No |
+| `--ai-provider` | AI provider selector (current supported value: `gemini`). | No (defaults to `gemini` when `--ai` is used) |
+| `--ai-model` | Overrides Gemini model (e.g. `gemini-2.5-flash`). | No |
+| `--ai-key` | API key passed inline (pipeline-friendly but prefer env secrets). | No (required only when `--ai` is enabled and no env key exists) |
+
+Environment variables recognized by AI mode:
+
+* `GEMINI_API_KEY` or `METADELTA_AI_KEY` for credentials.
+* `METADELTA_AI_MODEL` or `GEMINI_MODEL` for model override.
+
+How idempotent playback behaves:
+
+* Supported patterns (checkbox/switch/fill and specific toggle flows) are checked before acting.
+* If target state is confidently already satisfied, the step is skipped with concise log (`⏭️ action skipped: already satisfied ...`).
+* If state is uncertain, playback does **not** skip blindly; it keeps conservative execution.
 
 Automatic mitigations currently covered:
 
@@ -958,6 +978,26 @@ Cobertura soportada de `sf metadelta task play` (alcance y límites):
 * El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, usa un plan interno acotado de análisis de fragilidad (no reescritura libre del archivo completo), crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`) cuando es seguro, permite forzar modelo con `--ai-model`/`METADELTA_AI_MODEL` y vuelve al archivo determinista si la IA falla o responde inválido.
 * La reproducción ahora incluye guardas idempotentes conservadoras para patrones soportados (estado de checkbox, estado de toggles y fills comparables): si el estado objetivo ya está cumplido se omite el paso; si no, se ejecuta normalmente.
 * El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
+
+Opciones de IA e idempotencia (resumen rápido):
+
+| Opción | Propósito | Requerido |
+|---|---|---|
+| `--ai` | Activa la capa opcional de hardening con IA sobre el parche determinista. | No |
+| `--ai-provider` | Selector de proveedor IA (valor soportado actualmente: `gemini`). | No (por defecto `gemini` al usar `--ai`) |
+| `--ai-model` | Permite forzar modelo Gemini (ejemplo: `gemini-2.5-flash`). | No |
+| `--ai-key` | API key inline (útil en pipeline, aunque se recomienda secret por variable de entorno). | No (solo requerida si usas `--ai` y no hay key por entorno) |
+
+Variables de entorno reconocidas por modo IA:
+
+* `GEMINI_API_KEY` o `METADELTA_AI_KEY` para credenciales.
+* `METADELTA_AI_MODEL` o `GEMINI_MODEL` para override de modelo.
+
+Comportamiento de reproducción idempotente:
+
+* Patrones soportados (checkbox/switch/fill y ciertos toggles específicos) se validan antes de actuar.
+* Si el estado objetivo ya está satisfecho con alta confianza, se omite el paso y se registra (`⏭️ action skipped: already satisfied ...`).
+* Si el estado es incierto, no se omite de forma especulativa; se mantiene ejecución conservadora.
 
 Mitigaciones automáticas cubiertas actualmente:
 
