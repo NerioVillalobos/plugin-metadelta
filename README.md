@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-03-25 — `@nervill/metadelta` 0.11.0
+> **Last update / Última actualización:** 2026-04-16 — `@nervill/metadelta` 0.11.1
 
 # Metadelta Salesforce CLI Plugin
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1 (link)`.
 
 ### Usage
 
@@ -365,7 +365,7 @@ What the command creates:
 
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
-> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`.
+> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
@@ -376,13 +376,35 @@ Use `task record` to capture a Playwright flow and `task play` to replay it in a
 
 ```bash
 sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header]
+sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header] [--ai --ai-provider gemini --ai-model <model> --ai-key <key>]
 ```
 
 Supported coverage for `sf metadelta task play` (scope and limits):
 
 * `task play` creates a temporary patched file (`tests/.metadelta.*`) to stabilize recurring Salesforce UI differences.
+* Optional AI hardening (`--ai`) runs **after** deterministic patching, uses a constrained AI fragility-analysis plan (targeted hardening, not full-file free rewrite), creates a second derived file (`tests/.metadelta.<name>.ai.ts`) when safe, supports model override with `--ai-model`/`METADELTA_AI_MODEL`, and falls back to the deterministic file if AI is unavailable/invalid.
+* Playback now also includes conservative idempotent guards for supported patterns (checkbox state, toggle state, and safe fill-value matches): when target state is already satisfied the step is skipped; otherwise it runs normally.
 * The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
+
+AI and idempotency options (quick reference):
+
+| Option | Purpose | Required |
+|---|---|---|
+| `--ai` | Enables optional AI hardening stage over deterministic patched file. | No |
+| `--ai-provider` | AI provider selector (current supported value: `gemini`). | No (defaults to `gemini` when `--ai` is used) |
+| `--ai-model` | Overrides Gemini model (e.g. `gemini-2.5-flash`). | No |
+| `--ai-key` | API key passed inline (pipeline-friendly but prefer env secrets). | No (required only when `--ai` is enabled and no env key exists) |
+
+Environment variables recognized by AI mode:
+
+* `GEMINI_API_KEY` or `METADELTA_AI_KEY` for credentials.
+* `METADELTA_AI_MODEL` or `GEMINI_MODEL` for model override.
+
+How idempotent playback behaves:
+
+* Supported patterns (checkbox/switch/fill and specific toggle flows) are checked before acting.
+* If target state is confidently already satisfied, the step is skipped with concise log (`⏭️ action skipped: already satisfied ...`).
+* If state is uncertain, playback does **not** skip blindly; it keeps conservative execution.
 
 Automatic mitigations currently covered:
 
@@ -936,7 +958,7 @@ Qué crea el comando:
 
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
-> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`.
+> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
@@ -947,13 +969,35 @@ Usa `task record` para grabar un flujo en Playwright y `task play` para reproduc
 
 ```bash
 sf metadelta task record --org <alias>
-sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header]
+sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header] [--ai --ai-provider gemini --ai-model <model> --ai-key <key>]
 ```
 
 Cobertura soportada de `sf metadelta task play` (alcance y límites):
 
 * `task play` crea un archivo temporal parcheado (`tests/.metadelta.*`) para estabilizar diferencias recurrentes de UI en Salesforce.
+* El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, usa un plan interno acotado de análisis de fragilidad (no reescritura libre del archivo completo), crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`) cuando es seguro, permite forzar modelo con `--ai-model`/`METADELTA_AI_MODEL` y vuelve al archivo determinista si la IA falla o responde inválido.
+* La reproducción ahora incluye guardas idempotentes conservadoras para patrones soportados (estado de checkbox, estado de toggles y fills comparables): si el estado objetivo ya está cumplido se omite el paso; si no, se ejecuta normalmente.
 * El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
+
+Opciones de IA e idempotencia (resumen rápido):
+
+| Opción | Propósito | Requerido |
+|---|---|---|
+| `--ai` | Activa la capa opcional de hardening con IA sobre el parche determinista. | No |
+| `--ai-provider` | Selector de proveedor IA (valor soportado actualmente: `gemini`). | No (por defecto `gemini` al usar `--ai`) |
+| `--ai-model` | Permite forzar modelo Gemini (ejemplo: `gemini-2.5-flash`). | No |
+| `--ai-key` | API key inline (útil en pipeline, aunque se recomienda secret por variable de entorno). | No (solo requerida si usas `--ai` y no hay key por entorno) |
+
+Variables de entorno reconocidas por modo IA:
+
+* `GEMINI_API_KEY` o `METADELTA_AI_KEY` para credenciales.
+* `METADELTA_AI_MODEL` o `GEMINI_MODEL` para override de modelo.
+
+Comportamiento de reproducción idempotente:
+
+* Patrones soportados (checkbox/switch/fill y ciertos toggles específicos) se validan antes de actuar.
+* Si el estado objetivo ya está satisfecho con alta confianza, se omite el paso y se registra (`⏭️ action skipped: already satisfied ...`).
+* Si el estado es incierto, no se omite de forma especulativa; se mantiene ejecución conservadora.
 
 Mitigaciones automáticas cubiertas actualmente:
 
