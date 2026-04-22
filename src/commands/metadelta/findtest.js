@@ -990,18 +990,22 @@ class FindTest extends Command {
 
       const hasBlockingWarnings = blockingWarnings.length > 0;
 
-      if (manifestUpdated || hasBlockingWarnings) {
+      if (hasBlockingWarnings) {
         this.log(`\nComando sugerido (no ejecutado): ${commandPreview}`);
-        if (manifestUpdated) {
-          this.log('Se omitió la ejecución automática porque el package.xml fue modificado.');
-          if (manifestUpdateReason) {
-            this.log(`Motivo: ${manifestUpdateReason}`);
-          }
-        }
-        if (hasBlockingWarnings) {
-          this.log('\nSe omite la ejecución de sf project deploy start porque faltan clases de prueba requeridas.');
-        }
+        this.log('\nSe omite la ejecución de sf project deploy start porque faltan clases de prueba requeridas.');
         return;
+      }
+
+      if (manifestUpdated) {
+        if (manifestUpdateReason) {
+          this.log(`\n${manifestUpdateReason}`);
+        }
+        try {
+          readPackageXml(manifestFlagPath);
+          this.log('Se recargó el package.xml actualizado. Se continuará con la ejecución del deploy.');
+        } catch (error) {
+          this.error(`El package.xml se actualizó, pero no se pudo recargar para continuar: ${error.message}`);
+        }
       }
 
       this.log(`\nEjecutando: ${commandPreview}`);
