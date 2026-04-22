@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-04-16 — `@nervill/metadelta` 0.11.1
+> **Last update / Última actualización:** 2026-04-22 — `@nervill/metadelta` 0.11.2
 
 # Metadelta Salesforce CLI Plugin
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.2`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.1 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.2 (link)`.
 
 ### Usage
 

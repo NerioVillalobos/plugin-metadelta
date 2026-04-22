@@ -215,31 +215,111 @@ const DIRECT_TEST_SUFFIXES = [
 ];
 
 const DIRECT_TEST_ALTERNATES = ['handler'];
+const APEX_ROLE_SUFFIXES = [
+  'invocable',
+  'controller',
+  'service',
+  'helper',
+  'util',
+  'utils',
+  'handler',
+  'batch',
+  'queueable',
+  'schedulable',
+  'triggerhandler'
+];
+
+const normalizeNameForMatch = (value = '') => stripManagedNamespace(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const stripApexRoleSuffixes = (value = '') => {
+  let current = value;
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const suffix of APEX_ROLE_SUFFIXES) {
+      if (current.endsWith(suffix) && current.length > suffix.length + 3) {
+        current = current.slice(0, -suffix.length);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return current;
+};
+
+const deriveApexBaseNames = (apexClass) => {
+  const normalized = normalizeNameForMatch(apexClass);
+  if (!normalized) {
+    return new Set();
+  }
+
+  const bases = new Set([normalized]);
+  const stripped = stripApexRoleSuffixes(normalized);
+  if (stripped) {
+    bases.add(stripped);
+  }
+
+  return bases;
+};
+
+const extractTestBaseName = (testClass) => {
+  const normalized = normalizeNameForMatch(testClass);
+  if (!normalized) {
+    return '';
+  }
+
+  for (const suffix of DIRECT_TEST_SUFFIXES) {
+    const normalizedSuffix = suffix.replace(/[^a-z0-9]/g, '');
+    if (normalized.endsWith(normalizedSuffix) && normalized.length > normalizedSuffix.length + 2) {
+      return normalized.slice(0, -normalizedSuffix.length);
+    }
+  }
+
+  return normalized;
+};
 
 const isDirectTestMatch = (apexClass, testClass) => {
   if (!testClass) {
     return false;
   }
 
-  const normalizedApex = apexClass.toLowerCase();
-  const normalizedTest = testClass.toLowerCase();
+  const normalizedApex = normalizeNameForMatch(apexClass);
+  const normalizedTest = normalizeNameForMatch(testClass);
+  const apexBases = deriveApexBaseNames(apexClass);
 
-  if (DIRECT_TEST_SUFFIXES.some((suffix) => normalizedTest === `${normalizedApex}${suffix}`)) {
+  if (
+    DIRECT_TEST_SUFFIXES.some((suffix) => {
+      const normalizedSuffix = suffix.replace(/[^a-z0-9]/g, '');
+      return normalizedTest === `${normalizedApex}${normalizedSuffix}`;
+    })
+  ) {
+    return true;
+  }
+
+  const testBase = extractTestBaseName(testClass);
+  if (testBase && apexBases.has(testBase)) {
     return true;
   }
 
   return DIRECT_TEST_ALTERNATES.some((alternateSuffix) => {
-    if (!normalizedApex.endsWith(alternateSuffix)) {
+    const normalizedAlternate = alternateSuffix.replace(/[^a-z0-9]/g, '');
+    if (!normalizedApex.endsWith(normalizedAlternate)) {
       return false;
     }
 
-    const baseName = normalizedApex.slice(0, -alternateSuffix.length);
-    return DIRECT_TEST_SUFFIXES.some((suffix) => baseName && normalizedTest === `${baseName}${suffix}`);
+    const baseName = normalizedApex.slice(0, -normalizedAlternate.length);
+    return DIRECT_TEST_SUFFIXES.some((suffix) => {
+      const normalizedSuffix = suffix.replace(/[^a-z0-9]/g, '');
+      return baseName && normalizedTest === `${baseName}${normalizedSuffix}`;
+    });
   });
 };
 
 const findPrimaryTestClass = (apexClass, testClasses, directory) => {
   let bestSuggestion = null;
+  const apexBases = deriveApexBaseNames(apexClass);
 
   for (const testClass of testClasses) {
     if (isDirectTestMatch(apexClass, testClass)) {
@@ -256,7 +336,16 @@ const findPrimaryTestClass = (apexClass, testClasses, directory) => {
       score += 2;
     }
 
-    if (score > 0) {
+    const testBase = extractTestBaseName(testClass);
+    if (testBase) {
+      if (apexBases.has(testBase)) {
+        score += 4;
+      } else if (Array.from(apexBases).some((base) => testBase.startsWith(base) || base.startsWith(testBase))) {
+        score += 2;
+      }
+    }
+
+    if (score >= 3) {
       if (!bestSuggestion || score > bestSuggestion.score) {
         bestSuggestion = {testClass, confidence: 'suggested', score};
       }
