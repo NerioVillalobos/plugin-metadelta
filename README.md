@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-04-22 — `@nervill/metadelta` 0.11.3
+> **Last update / Última actualización:** 2026-06-03 — `@nervill/metadelta` 0.11.4
 
 # Metadelta Salesforce CLI Plugin
 
@@ -48,7 +48,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.3`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.4`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +61,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.3 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.4 (link)`.
 
 ### Usage
 
@@ -227,7 +227,7 @@ Core flow:
 
 1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
    During this step, the command tries to print an ASCII QR in the terminal (when Python `qrcode` is available); it always prints Secret + URI as fallback.
-2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL (`sf org display --verbose`), encrypts it, and rewrites `accessbackup.dat` with encrypted payloads.
+2. `--capture <folder>` asks for MFA + passphrase, reads each alias auth URL with `sf org display --verbose`, encrypts it, and rewrites `accessbackup.dat` with encrypted payloads. Starting in v0.11.4, Metadelta injects `SF_TEMP_SHOW_SECRETS=true` only for this internal Salesforce CLI call so the automated capture receives the real `sfdxAuthUrl` even when recent Salesforce CLI versions redact secrets by default; users do **not** need to export the variable manually.
 3. `--addaccess <folder>` asks for MFA + passphrase, decrypts each entry, and restores auth using `sfdx auth:sfdxurl:store -f <file> -a <alias>` (fallback: `sf org login sfdx-url` when available).
 
 > Important: `--addaccess` only works after `--capture` has encrypted the file. If `accessbackup.dat` still contains `alias;username` rows, run capture first.
@@ -367,6 +367,7 @@ What the command creates:
 
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
+> **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -820,7 +821,7 @@ Flujo principal:
 
 1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
    En este paso, el comando intenta mostrar un QR ASCII en terminal (si Python `qrcode` está disponible); siempre imprime Secret + URI como respaldo.
-2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL (`sf org display --verbose`), la cifra y reemplaza `accessbackup.dat` con datos cifrados.
+2. `--capture <carpeta>` solicita MFA + passphrase, obtiene cada auth URL con `sf org display --verbose`, la cifra y reemplaza `accessbackup.dat` con datos cifrados. Desde v0.11.4, Metadelta inyecta `SF_TEMP_SHOW_SECRETS=true` únicamente para esta llamada interna a Salesforce CLI, de modo que la captura automatizada reciba el `sfdxAuthUrl` real aunque las versiones recientes de Salesforce CLI oculten secretos por defecto; el usuario no necesita exportar la variable manualmente.
 3. `--addaccess <carpeta>` solicita MFA + passphrase, descifra cada registro y restaura el acceso con `sfdx auth:sfdxurl:store -f <archivo> -a <alias>` (fallback: `sf org login sfdx-url` si está disponible).
 
 > Importante: `--addaccess` solo funciona después de ejecutar `--capture` para cifrar el archivo. Si `accessbackup.dat` aún tiene filas `alias;usuario`, primero ejecuta capture.
@@ -960,6 +961,7 @@ Qué crea el comando:
 
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
+> **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 

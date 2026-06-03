@@ -4,7 +4,7 @@ This document records a local installation attempt following the requested steps
 
 1. `npm init -y` in a clean directory.
 2. `npm install @salesforce/cli`
-3. `npm install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v1.0.16/metadelta-1.0.16.tgz`
+3. `npm install https://github.com/NerioVillalobos/plugin-metadelta/releases/download/v0.11.4/metadelta-0.11.4.tgz`
 4. Inspect `node_modules/@salesforce/cli/node_modules` and run `./node_modules/.bin/sf plugins`.
 
 ## Result
