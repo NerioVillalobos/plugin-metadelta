@@ -44,7 +44,7 @@ test('ensurePlaywrightTestDependency reuses local project install without auto-i
 });
 
 
-test('buildFrontdoorUrlFromOrgDisplay uses sf org open url-only before secret commands', () => {
+test('buildFrontdoorUrlFromOrgDisplay uses org display verbose with SF_TEMP_SHOW_SECRETS workaround', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-sf-'));
   const callsFile = path.join(tmp, 'calls.json');
   const fakeSf = createFakeSfCli(
@@ -53,9 +53,53 @@ test('buildFrontdoorUrlFromOrgDisplay uses sf org open url-only before secret co
 const fs = require('node:fs');
 const callsFile = ${JSON.stringify(callsFile)};
 const calls = fs.existsSync(callsFile) ? JSON.parse(fs.readFileSync(callsFile, 'utf8')) : [];
-calls.push(process.argv.slice(2));
+calls.push({args: process.argv.slice(2), showSecrets: process.env.SF_TEMP_SHOW_SECRETS});
 fs.writeFileSync(callsFile, JSON.stringify(calls), 'utf8');
 const args = process.argv.slice(2);
+if (args.includes('display') && args.includes('--verbose') && process.env.SF_TEMP_SHOW_SECRETS === 'true') {
+  console.log(JSON.stringify({status: 0, result: {instanceUrl: 'https://example.my.salesforce.com', accessToken: 'real token'}}));
+  process.exit(0);
+}
+console.error('unexpected command: ' + args.join(' '));
+process.exit(1);
+`
+  );
+
+  const previous = process.env.SF_BINPATH;
+  process.env.SF_BINPATH = fakeSf;
+  try {
+    const url = buildFrontdoorUrlFromOrgDisplay('TLC-EPC');
+    const calls = JSON.parse(fs.readFileSync(callsFile, 'utf8'));
+
+    assert.equal(url, 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=real%20token');
+    assert.deepEqual(calls, [
+      {args: ['org', 'display', '--target-org', 'TLC-EPC', '--verbose', '--json'], showSecrets: 'true'},
+    ]);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.SF_BINPATH;
+    } else {
+      process.env.SF_BINPATH = previous;
+    }
+  }
+});
+
+test('buildFrontdoorUrlFromOrgDisplay falls back to org open when display verbose returns a redacted token', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-sf-'));
+  const callsFile = path.join(tmp, 'calls.json');
+  const fakeSf = createFakeSfCli(
+    tmp,
+    `
+const fs = require('node:fs');
+const callsFile = ${JSON.stringify(callsFile)};
+const calls = fs.existsSync(callsFile) ? JSON.parse(fs.readFileSync(callsFile, 'utf8')) : [];
+calls.push({args: process.argv.slice(2), showSecrets: process.env.SF_TEMP_SHOW_SECRETS});
+fs.writeFileSync(callsFile, JSON.stringify(calls), 'utf8');
+const args = process.argv.slice(2);
+if (args.includes('display') && args.includes('--verbose')) {
+  console.log(JSON.stringify({status: 0, result: {instanceUrl: 'https://example.my.salesforce.com', accessToken: '[REDACTED]'}}));
+  process.exit(0);
+}
 if (args.includes('open') && args.includes('--url-only')) {
   console.log(JSON.stringify({status: 0, result: {url: 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=from-open'}}));
   process.exit(0);
@@ -72,58 +116,10 @@ process.exit(1);
     const calls = JSON.parse(fs.readFileSync(callsFile, 'utf8'));
 
     assert.equal(url, 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=from-open');
-    assert.deepEqual(calls, [['org', 'open', '--target-org', 'TLC-EPC', '--url-only', '--json']]);
-  } finally {
-    if (previous === undefined) {
-      delete process.env.SF_BINPATH;
-    } else {
-      process.env.SF_BINPATH = previous;
-    }
-  }
-});
-
-test('buildFrontdoorUrlFromOrgDisplay falls back to sf org auth show-access-token without verbose org display secrets', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-sf-'));
-  const callsFile = path.join(tmp, 'calls.json');
-  const fakeSf = createFakeSfCli(
-    tmp,
-    `
-const fs = require('node:fs');
-const callsFile = ${JSON.stringify(callsFile)};
-const calls = fs.existsSync(callsFile) ? JSON.parse(fs.readFileSync(callsFile, 'utf8')) : [];
-calls.push(process.argv.slice(2));
-fs.writeFileSync(callsFile, JSON.stringify(calls), 'utf8');
-const args = process.argv.slice(2);
-if (args.includes('open') && args.includes('--url-only')) {
-  console.error('open unavailable');
-  process.exit(1);
-}
-if (args.includes('display')) {
-  console.log(JSON.stringify({status: 0, result: {instanceUrl: 'https://example.my.salesforce.com', accessToken: '[REDACTED]'}}));
-  process.exit(0);
-}
-if (args.includes('show-access-token')) {
-  console.log(JSON.stringify({status: 0, result: {accessToken: 'real token'}}));
-  process.exit(0);
-}
-console.error('unexpected command: ' + args.join(' '));
-process.exit(1);
-`
-  );
-
-  const previous = process.env.SF_BINPATH;
-  process.env.SF_BINPATH = fakeSf;
-  try {
-    const url = buildFrontdoorUrlFromOrgDisplay('TLC-EPC');
-    const calls = JSON.parse(fs.readFileSync(callsFile, 'utf8'));
-
-    assert.equal(url, 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=real%20token');
     assert.deepEqual(calls, [
-      ['org', 'open', '--target-org', 'TLC-EPC', '--url-only', '--json'],
-      ['org', 'display', '--target-org', 'TLC-EPC', '--json'],
-      ['org', 'auth', 'show-access-token', '--target-org', 'TLC-EPC', '--json'],
+      {args: ['org', 'display', '--target-org', 'TLC-EPC', '--verbose', '--json'], showSecrets: 'true'},
+      {args: ['org', 'open', '--target-org', 'TLC-EPC', '--url-only', '--json']},
     ]);
-    assert.equal(calls.some((call) => call.includes('--verbose')), false);
   } finally {
     if (previous === undefined) {
       delete process.env.SF_BINPATH;
@@ -133,12 +129,12 @@ process.exit(1);
   }
 });
 
-test('metadelta access obtains SFDX auth URL from sf org auth show-sfdx-auth-url', async () => {
+test('metadelta access obtains SFDX auth URL from org display verbose with SF_TEMP_SHOW_SECRETS', async () => {
   const {default: Access} = await import('../src/commands/metadelta/access.js');
   const access = Object.create(Access.prototype);
   let received;
-  access.runJSON = (cmd, args) => {
-    received = {cmd, args};
+  access.runJSON = (cmd, args, options) => {
+    received = {cmd, args, showSecrets: options?.env?.SF_TEMP_SHOW_SECRETS};
     return {status: 0, result: {sfdxAuthUrl: 'force://PlatformCLI::refresh@example.my.salesforce.com'}};
   };
 
@@ -147,6 +143,7 @@ test('metadelta access obtains SFDX auth URL from sf org auth show-sfdx-auth-url
   assert.equal(authUrl, 'force://PlatformCLI::refresh@example.my.salesforce.com');
   assert.deepEqual(received, {
     cmd: 'sf',
-    args: ['org', 'auth', 'show-sfdx-auth-url', '--target-org', 'TLC-EPC', '--json'],
+    args: ['org', 'display', '--target-org', 'TLC-EPC', '--json', '--verbose'],
+    showSecrets: 'true',
   });
 });
