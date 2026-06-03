@@ -16,7 +16,7 @@ const DEFAULT_SOLUTIONS = [
   {
     pattern: 'Error al obtener URL de la org|No se pudo consultar la org|No pudo encontrar ninguna org|No authorized orgs',
     description: 'No fue posible obtener la URL de login de la org con el alias indicado.',
-    solution: 'Ejecuta "sf org display --target-org <alias> --verbose" para validar sesión activa y, si falla, vuelve a autenticar con "sf org login web -a <alias>".',
+    solution: 'Ejecuta "sf org open --target-org <alias> --url-only" para validar sesión activa y, si falla, vuelve a autenticar con "sf org login web -a <alias>".',
   },
   {
     pattern: 'browserType\\.launch: Executable doesn\\\'t exist',
@@ -409,21 +409,12 @@ function buildFallbackOrgLookupMessage(targetOrg) {
   return [
     `No se pudo consultar la org "${targetOrg}" en Salesforce CLI.`,
     'Verifica el alias con "sf org list --all".',
-    `Prueba "sf org display --target-org ${targetOrg} --verbose" para ver el error detallado.`,
+    `Prueba "sf org open --target-org ${targetOrg} --url-only" o "sf org auth show-access-token --target-org ${targetOrg}" para ver el error detallado.`,
   ].join(' ');
 }
 
 export function buildFrontdoorUrlFromOrgDisplay(targetOrg) {
   const fallbackMessage = buildFallbackOrgLookupMessage(targetOrg);
-
-  const displayVerbose = runSfJsonCommand(['org', 'display', '--target-org', targetOrg, '--verbose']);
-  if (displayVerbose.result.status === 0) {
-    const instanceUrl = displayVerbose.parsed?.result?.instanceUrl ?? '';
-    const accessToken = displayVerbose.parsed?.result?.accessToken ?? '';
-    if (instanceUrl && accessToken) {
-      return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
-    }
-  }
 
   const openUrlOnly = runSfJsonCommand(['org', 'open', '--target-org', targetOrg, '--url-only']);
   if (openUrlOnly.result.status === 0) {
@@ -434,18 +425,22 @@ export function buildFrontdoorUrlFromOrgDisplay(targetOrg) {
   }
 
   const displayStandard = runSfJsonCommand(['org', 'display', '--target-org', targetOrg]);
-  if (displayStandard.result.status === 0) {
-    const instanceUrl = displayStandard.parsed?.result?.instanceUrl ?? '';
-    const accessToken = displayStandard.parsed?.result?.accessToken ?? '';
-    if (instanceUrl && accessToken) {
-      return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
-    }
+  const instanceUrl = displayStandard.parsed?.result?.instanceUrl ?? '';
+  const accessTokenResult = runSfJsonCommand(['org', 'auth', 'show-access-token', '--target-org', targetOrg]);
+  const accessToken =
+    accessTokenResult.parsed?.result?.accessToken ??
+    accessTokenResult.parsed?.result?.token ??
+    accessTokenResult.parsed?.result?.value ??
+    '';
+
+  if (displayStandard.result.status === 0 && accessTokenResult.result.status === 0 && instanceUrl && accessToken) {
+    return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
   }
 
   const combinedError = [
-    displayVerbose.combinedOutput,
     openUrlOnly.combinedOutput,
     displayStandard.combinedOutput,
+    accessTokenResult.combinedOutput,
   ]
     .filter(Boolean)
     .join('\n');

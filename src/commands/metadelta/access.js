@@ -103,10 +103,10 @@ class Access extends Command {
   }
 
   getSfdxAuthUrl(alias) {
-    const data = this.runJSON('sf', ['org', 'display', '--target-org', alias, '--json', '--verbose']);
-    const authUrl = data?.result?.sfdxAuthUrl;
-    if (!authUrl) {
-      throw new Error(`No se pudo obtener sfdxAuthUrl para ${alias}`);
+    const data = this.runJSON('sf', ['org', 'auth', 'show-sfdx-auth-url', '--target-org', alias, '--json']);
+    const authUrl = data?.result?.sfdxAuthUrl ?? data?.result?.url ?? data?.result?.sfdxAuthUrlFile;
+    if (!authUrl || !String(authUrl).startsWith('force://')) {
+      throw new Error(`No se pudo obtener sfdxAuthUrl para ${alias} usando sf org auth show-sfdx-auth-url.`);
     }
 
     return authUrl;
