@@ -16,7 +16,7 @@ const DEFAULT_SOLUTIONS = [
   {
     pattern: 'Error al obtener URL de la org|No se pudo consultar la org|No pudo encontrar ninguna org|No authorized orgs',
     description: 'No fue posible obtener la URL de login de la org con el alias indicado.',
-    solution: 'Ejecuta "sf org display --target-org <alias> --verbose" para validar sesión activa y, si falla, vuelve a autenticar con "sf org login web -a <alias>".',
+    solution: 'Ejecuta "SF_TEMP_SHOW_SECRETS=true sf org display --target-org <alias> --verbose" para validar sesión activa y, si falla, vuelve a autenticar con "sf org login web -a <alias>".',
   },
   {
     pattern: 'browserType\\.launch: Executable doesn\\\'t exist',
@@ -369,7 +369,7 @@ function getSfCommandCandidates() {
   return [...new Set(candidates.filter(Boolean))];
 }
 
-function executeSfCommand(args) {
+function executeSfCommand(args, options = {}) {
   const candidates = getSfCommandCandidates();
   let lastResult = null;
 
@@ -377,6 +377,7 @@ function executeSfCommand(args) {
     const result = spawnSync(command, args, {
       encoding: 'utf8',
       shell: process.platform === 'win32',
+      ...options,
     });
 
     lastResult = result;
@@ -388,8 +389,8 @@ function executeSfCommand(args) {
   return lastResult ?? {status: 1, stdout: '', stderr: ''};
 }
 
-function runSfJsonCommand(args) {
-  const result = executeSfCommand([...args, '--json']);
+function runSfJsonCommand(args, options = {}) {
+  const result = executeSfCommand([...args, '--json'], options);
   const commandError = result.error?.message ? String(result.error.message).trim() : '';
   const combinedOutput = commandError || result.stderr?.trim() || result.stdout?.trim();
 
@@ -409,18 +410,22 @@ function buildFallbackOrgLookupMessage(targetOrg) {
   return [
     `No se pudo consultar la org "${targetOrg}" en Salesforce CLI.`,
     'Verifica el alias con "sf org list --all".',
-    `Prueba "sf org display --target-org ${targetOrg} --verbose" para ver el error detallado.`,
+    `Prueba "SF_TEMP_SHOW_SECRETS=true sf org display --target-org ${targetOrg} --verbose" para ver el error detallado.`,
   ].join(' ');
 }
 
 export function buildFrontdoorUrlFromOrgDisplay(targetOrg) {
   const fallbackMessage = buildFallbackOrgLookupMessage(targetOrg);
+  const showSecretsOptions = {env: {...process.env, SF_TEMP_SHOW_SECRETS: 'true'}};
 
-  const displayVerbose = runSfJsonCommand(['org', 'display', '--target-org', targetOrg, '--verbose']);
+  const displayVerbose = runSfJsonCommand(
+    ['org', 'display', '--target-org', targetOrg, '--verbose'],
+    showSecretsOptions
+  );
   if (displayVerbose.result.status === 0) {
     const instanceUrl = displayVerbose.parsed?.result?.instanceUrl ?? '';
     const accessToken = displayVerbose.parsed?.result?.accessToken ?? '';
-    if (instanceUrl && accessToken) {
+    if (instanceUrl && accessToken && !String(accessToken).includes('[REDACTED]')) {
       return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
     }
   }
@@ -433,11 +438,11 @@ export function buildFrontdoorUrlFromOrgDisplay(targetOrg) {
     }
   }
 
-  const displayStandard = runSfJsonCommand(['org', 'display', '--target-org', targetOrg]);
+  const displayStandard = runSfJsonCommand(['org', 'display', '--target-org', targetOrg], showSecretsOptions);
   if (displayStandard.result.status === 0) {
     const instanceUrl = displayStandard.parsed?.result?.instanceUrl ?? '';
     const accessToken = displayStandard.parsed?.result?.accessToken ?? '';
-    if (instanceUrl && accessToken) {
+    if (instanceUrl && accessToken && !String(accessToken).includes('[REDACTED]')) {
       return `${instanceUrl}/secur/frontdoor.jsp?sid=${encodeURIComponent(accessToken)}`;
     }
   }
