@@ -637,6 +637,78 @@
         "collect.js"
       ]
     },
+    "metadelta:monitor:run": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,\n  tracks drift with a local Git repository, and renders an interactive terminal monitor.\n  All snapshots and Git data are removed when the monitor exits.\n  ",
+      "examples": [
+        "sf metadelta monitor run --org DEV",
+        "sf metadelta monitor run --org devNervill-2 --scope salesforce",
+        "sf metadelta monitor run --org vlocitySandbox --scope vlocity --vlocity-job ./vlocity-export.yaml"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "interval": {
+          "name": "interval",
+          "summary": "Refresh interval in minutes",
+          "default": 5,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "scope": {
+          "name": "scope",
+          "summary": "Metadata source to monitor: all, salesforce, or vlocity",
+          "default": "all",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "all",
+            "salesforce",
+            "vlocity"
+          ],
+          "type": "option"
+        },
+        "once": {
+          "name": "once",
+          "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "vlocity-job": {
+          "name": "vlocity-job",
+          "summary": "Optional Vlocity job file. Defaults to a temporary packExportAllDefault job for common DataPack types.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:monitor:run",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Run a temporary local Salesforce/Vlocity metadata drift monitor.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "monitor",
+        "run.js"
+      ]
+    },
     "metadelta:security:users": {
       "aliases": [],
       "args": {},
@@ -850,5 +922,5 @@
       ]
     }
   },
-  "version": "0.11.4"
+  "version": "0.11.5"
 }
