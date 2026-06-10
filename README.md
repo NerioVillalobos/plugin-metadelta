@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-03 — `@nervill/metadelta` 0.11.4
+> **Last update / Última actualización:** 2026-06-10 — `@nervill/metadelta` 0.11.5
 
 # Metadelta Salesforce CLI Plugin
 
@@ -7,7 +7,7 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers eleven complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers twelve complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
 * `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when deletions are detected. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
@@ -19,6 +19,7 @@ Metadelta is a custom Salesforce CLI plugin that offers eleven complementary wor
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 * `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
+* `sf metadelta monitor run` starts a temporary terminal monitor for Salesforce Core and Vlocity metadata drift using only local filesystem snapshots and a local Git diff engine.
 * `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with automatic recovery stabilizers, patched `.metadelta.*` playback, and orchestrated diagnostics.
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
@@ -36,6 +37,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta access`](#access-command)
 - [`sf metadelta security users`](#security-users-command)
 - [`sf metadelta initspace`](#initspace-command)
+- [`sf metadelta monitor run`](#monitor-run-command)
 - [`sf metadelta task record / task play`](#task-record--task-play-command)
 
 ### Installation
@@ -48,7 +50,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.4`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.5`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -61,7 +63,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.4 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.5 (link)`.
 
 ### Usage
 
@@ -365,9 +367,32 @@ What the command creates:
 
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
+### `monitor run` command
+
+Starts a temporary terminal monitor for Salesforce Core and Vlocity metadata drift:
+
+```bash
+sf metadelta monitor run --org DEV
+```
+
+The monitor creates `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes a local-only Git repository as the diff engine, and refreshes every five minutes with an on-screen countdown. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Press `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, `d`/Enter for details, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
+
+For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` with a temporary job that covers OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC, and standard DataPack exports. You can also provide your own Vlocity job file:
+
+```bash
+sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+```
+
+When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. All metadata, manifests, temporary files, and Git history are deleted on exit; only the empty `.metadelta-monitor/` root may remain. For orgs without Vlocity CLI installed, use:
+
+```bash
+sf metadelta monitor run --org DEV --scope salesforce
+```
+
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
+> **Monitor Vlocity support (v0.11.5):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -648,7 +673,7 @@ This project is released under the [ISC License](LICENSE).
 
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece once flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece doce flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
 * `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
@@ -660,6 +685,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece once flujos co
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 * `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
+* `sf metadelta monitor run` inicia un monitor temporal de terminal para detectar drift de metadatos Salesforce Core y Vlocity usando solo snapshots locales y Git local como motor de diff.
 * `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, estabilizadores automáticos de recuperación, reproducción sobre `.metadelta.*` y diagnósticos orquestados.
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
@@ -677,6 +703,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 - [`sf metadelta access`](#comando-access)
 - [`sf metadelta security users`](#comando-security-users)
 - [`sf metadelta initspace`](#comando-initspace)
+- [`sf metadelta monitor run`](#comando-monitor-run)
 - [`sf metadelta task record / task play`](#comando-task-record--task-play)
 
 ### Instalación
@@ -959,9 +986,32 @@ Qué crea el comando:
 
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
+### Comando `monitor run`
+
+Inicia un monitor temporal de terminal para detectar drift de metadatos Salesforce Core y Vlocity:
+
+```bash
+sf metadelta monitor run --org DEV
+```
+
+El monitor crea `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa un repositorio Git local como motor de diff y refresca cada cinco minutos con un countdown visible en pantalla. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Presiona `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo, `d`/Enter para detalle y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
+
+Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` con un job temporal que cubre OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC y exports estándar de DataPacks. También puedes indicar tu propio job Vlocity:
+
+```bash
+sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+```
+
+Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Al salir se eliminan metadatos, manifests, temporales e historial Git; solo puede quedar la raíz vacía `.metadelta-monitor/`. Para orgs sin Vlocity CLI instalado, usa:
+
+```bash
+sf metadelta monitor run --org DEV --scope salesforce
+```
+
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
+> **Soporte monitor Vlocity (v0.11.5):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
