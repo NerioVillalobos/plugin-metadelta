@@ -9,6 +9,7 @@ import {normalizeTree} from '../../../utils/monitor/normalizer.js';
 import {retrieveSalesforceCore, exportVlocity} from '../../../utils/monitor/retriever.js';
 import {enrichChanges} from '../../../utils/monitor/metadata.js';
 import {MonitorUi} from '../../../utils/monitor/ui.js';
+import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 
 class MonitorRun extends Command {
   static id = 'metadelta:monitor:run';
@@ -104,6 +105,7 @@ class MonitorRun extends Command {
           await retrieveSalesforceCore(paths, orgAlias);
         }
         let vlocityMessage = '';
+        let vlocityWarning = '';
         if (scope === 'all' || scope === 'vlocity') {
           ui?.update({message: 'Exporting Vlocity DataPacks...'});
           const vlocityResult = await exportVlocity(paths, orgAlias, {
@@ -112,6 +114,8 @@ class MonitorRun extends Command {
           });
           if (vlocityResult.skipped) {
             vlocityMessage = vlocityResult.reason;
+          } else if (vlocityResult.warning) {
+            vlocityWarning = vlocityResult.warning;
           }
         }
 
@@ -126,14 +130,18 @@ class MonitorRun extends Command {
             rows: [],
             status: 'BASELINE CREATED',
             lastRefreshAt,
-            message: vlocityMessage ? `${baselineMessage} Vlocity fue omitido; ver detalles abajo.` : baselineMessage,
+            message: vlocityMessage
+              ? `${baselineMessage} Vlocity fue omitido; ver detalles abajo.`
+              : vlocityWarning
+                ? `${baselineMessage} ${vlocityWarning}`
+                : baselineMessage,
             noticeDetail: vlocityMessage,
           });
           return;
         }
 
         const currentPrefix = `${orgAlias}/current/`;
-        const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix));
+        const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix) && !isIgnoredMonitorFile(change.file));
         const rows = await enrichChanges(rawChanges, orgAlias, paths.root, diffSummary);
         ui?.update({
           rows,
@@ -141,7 +149,9 @@ class MonitorRun extends Command {
           lastRefreshAt,
           message: vlocityMessage
             ? `${rows.length} change(s) detected. Vlocity fue omitido; ver detalles abajo.`
-            : `${rows.length} change(s) detected. Baseline updated for next refresh.`,
+            : vlocityWarning
+              ? `${rows.length} change(s) detected. ${vlocityWarning}`
+              : `${rows.length} change(s) detected. Baseline updated for next refresh.`,
           noticeDetail: vlocityMessage,
         });
         await updateBaseline(paths.root);

@@ -385,6 +385,8 @@ sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-expor
 
 When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. All metadata, manifests, temporary files, and Git history are deleted on exit; only the empty `.metadelta-monitor/` root may remain. For orgs without Vlocity CLI installed, use:
 
+`RECENT CHANGES` is not cumulative history; it shows the current diff since the previous baseline refresh. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
+
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce
 ```
@@ -1003,6 +1005,8 @@ sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-expor
 ```
 
 Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Al salir se eliminan metadatos, manifests, temporales e historial Git; solo puede quedar la raíz vacía `.metadelta-monitor/`. Para orgs sin Vlocity CLI instalado, usa:
+
+`RECENT CHANGES` no es historial acumulativo; muestra el diff actual contra la baseline del refresh anterior. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
 
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {isIgnoredMonitorFile} from './ignore.js';
 
 const volatileLinePatterns = [
   /LastModifiedDate/i,
@@ -31,6 +32,9 @@ function collectFiles(dir) {
       continue;
     }
     const fullPath = path.join(dir, entry.name);
+    if (isIgnoredMonitorFile(fullPath)) {
+      continue;
+    }
     if (entry.isDirectory()) {
       files.push(...collectFiles(fullPath));
     } else if (entry.isFile()) {
