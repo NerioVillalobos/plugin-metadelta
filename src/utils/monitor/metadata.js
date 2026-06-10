@@ -84,23 +84,6 @@ async function detectVlocityNamespace(orgAlias, context) {
   if (context.namespace !== undefined) {
     return context.namespace;
   }
-  for (const objectName of ['OmniUiCard', 'OmniProcess']) {
-    try {
-      await runProcess('sf', [
-        'data',
-        'query',
-        '--query',
-        `SELECT Id FROM ${objectName} LIMIT 1`,
-        '--target-org',
-        orgAlias,
-        '--json',
-      ]);
-      context.namespace = '';
-      return '';
-    } catch {
-      // Try namespaced legacy objects next.
-    }
-  }
   for (const namespace of ['omnistudio', 'vlocity_cmt', 'vlocity_ins', 'vlocity_ps', 'vlocity']) {
     try {
       await runProcess('sf', [
@@ -116,6 +99,23 @@ async function detectVlocityNamespace(orgAlias, context) {
       return namespace;
     } catch {
       // Try the next known OmniStudio/Vlocity namespace.
+    }
+  }
+  for (const objectName of ['OmniUiCard', 'OmniProcess']) {
+    try {
+      await runProcess('sf', [
+        'data',
+        'query',
+        '--query',
+        `SELECT Id FROM ${objectName} LIMIT 1`,
+        '--target-org',
+        orgAlias,
+        '--json',
+      ]);
+      context.namespace = '';
+      return '';
+    } catch {
+      // No legacy namespace or modern OmniStudio objects were queryable.
     }
   }
   context.namespace = null;
@@ -135,7 +135,7 @@ async function queryVlocityOrgMetadata(orgAlias, classified, namespace) {
       return {
         user: record.LastModifiedBy?.Name ?? record.LastModifiedByName ?? 'Audit unavailable',
         lastModifiedDate: record.LastModifiedDate ?? null,
-        query,
+        query: `metadelta find base query:\n${query}`,
       };
     } catch {
       // Some orgs use modern OmniStudio objects, others use namespaced legacy objects.
@@ -153,27 +153,45 @@ function buildVlocityQueries(classified, namespace) {
   const languageValue = omniNameParts.at(-1) || '';
 
   if (classified.type === 'DRBundle') {
-    return ns ? [
-      `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM ${ns}DRBundle__c WHERE Name = '${name}' LIMIT 1`,
-    ] : [];
+    return ns
+      ? [
+          // Same base query used by metadelta find for DataRaptor.
+          `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM ${ns}DRBundle__c WHERE ${ns}Type__c != 'Migration' AND Name = '${name}' LIMIT 1`,
+        ]
+      : [];
   }
   if (classified.type === 'FlexCard') {
     return [
+      ...(ns
+        ? [
+            // Same base query used by metadelta find for VlocityCard/FlexCard.
+            `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM ${ns}VlocityCard__c WHERE ${ns}Active__c = true AND Name = '${name}' LIMIT 1`,
+          ]
+        : []),
       `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM OmniUiCard WHERE Name = '${name}' LIMIT 1`,
-      ...(ns ? [`SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM ${ns}VlocityCard__c WHERE Name = '${name}' LIMIT 1`] : []),
     ];
   }
   if (classified.type === 'IntegrationProcedure') {
     return [
+      ...(ns
+        ? [
+            // Same base query used by metadelta find for IntegrationProcedure.
+            `SELECT Id, ${ns}Type__c, ${ns}SubType__c, LastModifiedDate, LastModifiedBy.Name FROM ${ns}OmniScript__c WHERE ${ns}IsActive__c = true AND ${ns}IsProcedure__c = true AND ${ns}Type__c = '${typeValue}' AND ${ns}SubType__c = '${subTypeValue}' LIMIT 1`,
+          ]
+        : []),
       `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM OmniProcess WHERE Type = '${typeValue}' AND SubType = '${subTypeValue}' AND IsActive = true LIMIT 1`,
-      ...(ns ? [`SELECT Id, ${ns}Type__c, ${ns}SubType__c, LastModifiedDate, LastModifiedBy.Name FROM ${ns}OmniScript__c WHERE ${ns}Type__c = '${typeValue}' AND ${ns}SubType__c = '${subTypeValue}' AND ${ns}IsProcedure__c = true AND ${ns}IsActive__c = true LIMIT 1`] : []),
       `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM OmniProcess WHERE Name = '${name}' LIMIT 1`,
     ];
   }
   if (classified.type === 'OmniProcess') {
     return [
+      ...(ns
+        ? [
+            // Same base query used by metadelta find for OmniScript.
+            `SELECT Id, ${ns}Type__c, ${ns}SubType__c, ${ns}Language__c, LastModifiedDate, LastModifiedBy.Name FROM ${ns}OmniScript__c WHERE ${ns}IsActive__c = true AND ${ns}IsProcedure__c = false AND ${ns}Type__c = '${typeValue}' AND ${ns}SubType__c = '${subTypeValue}' AND ${ns}Language__c = '${languageValue}' LIMIT 1`,
+          ]
+        : []),
       `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM OmniProcess WHERE Type = '${typeValue}' AND SubType = '${subTypeValue}' AND Language = '${languageValue}' AND IsActive = true LIMIT 1`,
-      ...(ns ? [`SELECT Id, ${ns}Type__c, ${ns}SubType__c, ${ns}Language__c, LastModifiedDate, LastModifiedBy.Name FROM ${ns}OmniScript__c WHERE ${ns}Type__c = '${typeValue}' AND ${ns}SubType__c = '${subTypeValue}' AND ${ns}Language__c = '${languageValue}' AND ${ns}IsProcedure__c = false AND ${ns}IsActive__c = true LIMIT 1`] : []),
       `SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM OmniProcess WHERE Name = '${name}' LIMIT 1`,
     ];
   }
