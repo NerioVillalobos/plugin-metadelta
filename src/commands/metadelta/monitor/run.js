@@ -89,7 +89,13 @@ class MonitorRun extends Command {
         clearTimeout(timer);
         timer = undefined;
       }
-      ui?.update({status: 'REFRESHING', nextRefreshAt: null, message: 'Retrieving metadata from org...'});
+      ui?.update({
+        status: 'REFRESHING',
+        nextRefreshAt: null,
+        errorDetail: '',
+        noticeDetail: '',
+        message: 'Retrieving metadata from org...',
+      });
 
       try {
         resetCurrent(paths, scope);
@@ -120,7 +126,8 @@ class MonitorRun extends Command {
             rows: [],
             status: 'BASELINE CREATED',
             lastRefreshAt,
-            message: vlocityMessage ? `${baselineMessage} ${vlocityMessage}` : baselineMessage,
+            message: vlocityMessage ? `${baselineMessage} Vlocity fue omitido; ver detalles abajo.` : baselineMessage,
+            noticeDetail: vlocityMessage,
           });
           return;
         }
@@ -133,12 +140,18 @@ class MonitorRun extends Command {
           status: 'WATCHING',
           lastRefreshAt,
           message: vlocityMessage
-            ? `${rows.length} change(s) detected. ${vlocityMessage}`
+            ? `${rows.length} change(s) detected. Vlocity fue omitido; ver detalles abajo.`
             : `${rows.length} change(s) detected. Baseline updated for next refresh.`,
+          noticeDetail: vlocityMessage,
         });
         await updateBaseline(paths.root);
       } catch (error) {
-        ui?.update({status: 'ERROR', message: error.message});
+        ui?.update({
+          status: 'ERROR',
+          message: 'Refresh failed. Error completo abajo.',
+          errorDetail: error.message,
+          noticeDetail: '',
+        });
         if (flags.once) {
           throw error;
         }

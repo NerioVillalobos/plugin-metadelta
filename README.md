@@ -375,7 +375,7 @@ Starts a temporary terminal monitor for Salesforce Core and Vlocity metadata dri
 sf metadelta monitor run --org DEV
 ```
 
-The monitor creates `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes a local-only Git repository as the diff engine, and refreshes every five minutes with an on-screen countdown. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Press `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, `d`/Enter for details, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
+The monitor creates `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes a local-only Git repository as the diff engine, and refreshes every five minutes with an on-screen countdown. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Full errors and Vlocity warnings are wrapped in a detail section inside the terminal UI. Press `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, `d`/Enter for details, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
 
 For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` with a temporary job that covers OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC, and standard DataPack exports. You can also provide your own Vlocity job file:
 
@@ -994,7 +994,7 @@ Inicia un monitor temporal de terminal para detectar drift de metadatos Salesfor
 sf metadelta monitor run --org DEV
 ```
 
-El monitor crea `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa un repositorio Git local como motor de diff y refresca cada cinco minutos con un countdown visible en pantalla. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Presiona `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo, `d`/Enter para detalle y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
+El monitor crea `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa un repositorio Git local como motor de diff y refresca cada cinco minutos con un countdown visible en pantalla. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Los errores completos y avisos de Vlocity se muestran envueltos en una sección de detalle dentro de la UI. Presiona `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo, `d`/Enter para detalle y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
 
 Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` con un job temporal que cubre OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC y exports estándar de DataPacks. También puedes indicar tu propio job Vlocity:
 
