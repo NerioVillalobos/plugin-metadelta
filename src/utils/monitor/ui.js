@@ -152,7 +152,7 @@ export class MonitorUi {
       lines.push(tableRow(width, [colorType(item.type), color.bold(String(item.count)), formatDate(item.lastModifiedDate), color.dim(item.user)], [24, 8, 20]));
     }
     lines.push(separator(width));
-    lines.push(section(width, 'RECENT CHANGES', 'cyan'));
+    lines.push(section(width, 'RECENT CHANGES (SESSION CUMULATIVE)', 'cyan'));
     const maxRows = Math.max(1, available - lines.length - detailLines.length - 2);
     for (const [index, item] of this.rows.slice(0, maxRows).entries()) {
       const marker = index === this.selected ? '>' : ' ';
@@ -184,6 +184,7 @@ export class MonitorUi {
       '',
       `LAST MODIFIED BY: ${item.user}`,
       `LAST MODIFIED DATE: ${item.lastModifiedDate ?? 'Unknown'}`,
+      `DETECTED BY MONITOR: ${item.detectedAt ?? 'Unknown'}`,
       '',
       'QUERY:',
       item.query ?? 'N/A',
