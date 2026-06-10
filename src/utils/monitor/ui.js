@@ -13,6 +13,8 @@ export class MonitorUi {
     this.message = '';
     this.errorDetail = '';
     this.noticeDetail = '';
+    this.renderPaused = false;
+    this.autoPausedForDetail = false;
     this.lastRefreshAt = null;
     this.nextRefreshAt = null;
     this.commandBuffer = '';
@@ -28,8 +30,10 @@ export class MonitorUi {
     }
     process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H');
     this.countdownTimer = setInterval(() => {
-      this.render();
-    }, 1000);
+      if (!this.renderPaused && !this.hasVisibleDetail()) {
+        this.render();
+      }
+    }, 5000);
     this.render();
   }
 
@@ -48,6 +52,14 @@ export class MonitorUi {
   update(state) {
     Object.assign(this, state);
     this.selected = Math.max(0, Math.min(this.selected, Math.max(0, this.rows.length - 1)));
+    if (this.hasVisibleDetail()) {
+      this.renderPaused = true;
+      this.autoPausedForDetail = true;
+      this.forceRenderOnce = true;
+    } else if (this.autoPausedForDetail) {
+      this.renderPaused = false;
+      this.autoPausedForDetail = false;
+    }
     this.render();
   }
 
@@ -70,7 +82,16 @@ export class MonitorUi {
       this.commandBuffer = '';
     }
     if (key === 'r') {
+      this.renderPaused = false;
+      this.autoPausedForDetail = false;
       this.onRefresh();
+      return;
+    }
+    if (key === 'p') {
+      this.renderPaused = !this.renderPaused;
+      this.autoPausedForDetail = false;
+      this.forceRenderOnce = true;
+      this.render();
       return;
     }
     if (key === 'd' || key === '\r') {
@@ -95,6 +116,10 @@ export class MonitorUi {
   }
 
   render() {
+    if (this.renderPaused && !this.forceRenderOnce) {
+      return;
+    }
+    this.forceRenderOnce = false;
     const width = Math.max(80, process.stdout.columns || 100);
     const height = Math.max(24, process.stdout.rows || 30);
     const lines = [];
@@ -102,7 +127,7 @@ export class MonitorUi {
     lines.push(boxTop(width, title));
     lines.push(row(width, labelValue('ORG', this.orgAlias), labelValue('STATUS', colorStatus(this.status)), labelValue('SCOPE', colorScope(this.scope))));
     lines.push(row(width, labelValue('INTERVAL', `${Math.round(this.intervalMs / 60000)} min`), labelValue('NEXT', colorCountdown(formatCountdown(this.nextRefreshAt), this.nextRefreshAt)), labelValue('LAST', formatTime(this.lastRefreshAt))));
-    lines.push(row(width, colorMessage(this.message || 'q/x/exit quit | r refresh | d detail | s/v/a scope', this.status)));
+    lines.push(row(width, colorMessage(this.message || 'q/x/exit quit | r refresh | p pause | d detail | s/v/a scope', this.status), this.renderPaused ? color.yellow(color.bold('UI PAUSED')) : ''));
     lines.push(separator(width));
 
     if (this.detailMode && this.rows[this.selected]) {
@@ -170,6 +195,10 @@ export class MonitorUi {
       lines.push(row(width, line));
     }
     return lines;
+  }
+
+  hasVisibleDetail() {
+    return Boolean(this.errorDetail || this.noticeDetail);
   }
 }
 
