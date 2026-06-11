@@ -9,7 +9,10 @@ export class MonitorUi {
     this.status = 'INITIALIZING';
     this.scope = 'all';
     this.selected = 0;
+    this.selectedGroup = 0;
+    this.focus = 'changes';
     this.detailMode = false;
+    this.typeDetailMode = false;
     this.message = '';
     this.errorDetail = '';
     this.noticeDetail = '';
@@ -42,6 +45,13 @@ export class MonitorUi {
   update(state) {
     Object.assign(this, state);
     this.selected = Math.max(0, Math.min(this.selected, Math.max(0, this.rows.length - 1)));
+    const groupCount = groupByType(this.rows).length;
+    this.selectedGroup = Math.max(0, Math.min(this.selectedGroup, Math.max(0, groupCount - 1)));
+    if (this.rows.length === 0) {
+      this.focus = 'changes';
+      this.detailMode = false;
+      this.typeDetailMode = false;
+    }
     if (this.hasVisibleDetail()) {
       this.renderPaused = true;
       this.autoPausedForDetail = true;
@@ -74,6 +84,8 @@ export class MonitorUi {
     if (key === 'r') {
       this.renderPaused = false;
       this.autoPausedForDetail = false;
+      this.detailMode = false;
+      this.typeDetailMode = false;
       this.onRefresh();
       return;
     }
@@ -85,7 +97,13 @@ export class MonitorUi {
       return;
     }
     if (key === 'd' || key === '\r') {
-      this.detailMode = !this.detailMode;
+      if (this.focus === 'types' && groupByType(this.rows)[this.selectedGroup]) {
+        this.typeDetailMode = !this.typeDetailMode;
+        this.detailMode = false;
+      } else {
+        this.detailMode = !this.detailMode;
+        this.typeDetailMode = false;
+      }
       this.render();
       return;
     }
@@ -96,13 +114,42 @@ export class MonitorUi {
       return;
     }
     if (buffer.equals(Buffer.from([0x1b, 0x5b, 0x41]))) {
-      this.selected = Math.max(0, this.selected - 1);
+      this.moveSelection(-1);
       this.render();
     }
     if (buffer.equals(Buffer.from([0x1b, 0x5b, 0x42]))) {
-      this.selected = Math.min(Math.max(0, this.rows.length - 1), this.selected + 1);
+      this.moveSelection(1);
       this.render();
     }
+  }
+
+  moveSelection(direction) {
+    const grouped = groupByType(this.rows);
+    if (direction < 0) {
+      if (this.focus === 'types') {
+        this.selectedGroup = Math.max(0, this.selectedGroup - 1);
+      } else if (this.selected > 0) {
+        this.selected -= 1;
+      } else if (grouped.length > 0) {
+        this.focus = 'types';
+        this.selectedGroup = grouped.length - 1;
+        this.detailMode = false;
+      }
+      return;
+    }
+
+    if (this.focus === 'types') {
+      if (this.selectedGroup < grouped.length - 1) {
+        this.selectedGroup += 1;
+      } else if (this.rows.length > 0) {
+        this.focus = 'changes';
+        this.selected = 0;
+        this.typeDetailMode = false;
+      }
+      return;
+    }
+
+    this.selected = Math.min(Math.max(0, this.rows.length - 1), this.selected + 1);
   }
 
   render() {
@@ -120,7 +167,9 @@ export class MonitorUi {
     lines.push(row(width, colorMessage(this.message || 'q/x/exit quit | r refresh | p pause | d detail | s/v/a scope', this.status), this.renderPaused ? color.yellow(color.bold('UI PAUSED')) : ''));
     lines.push(separator(width));
 
-    if (this.detailMode && this.rows[this.selected]) {
+    if (this.typeDetailMode && groupByType(this.rows)[this.selectedGroup]) {
+      lines.push(...this.renderTypeDetail(width, height - lines.length - 1));
+    } else if (this.detailMode && this.rows[this.selected]) {
       lines.push(...this.renderDetail(width, height - lines.length - 1));
     } else {
       lines.push(...this.renderMain(width, height - lines.length - 1));
@@ -138,8 +187,13 @@ export class MonitorUi {
     lines.push(section(width, 'SALESFORCE CORE / VLOCITY', 'cyan'));
     lines.push(tableHeader(width, ['TYPE', 'COUNT', 'LAST CHANGE', 'LAST MODIFIED BY'], [24, 8, 20]));
     const groupLimit = Math.max(2, Math.floor((available - detailLines.length) / 2) - 4);
-    for (const item of grouped.slice(0, groupLimit)) {
-      lines.push(tableRow(width, [colorType(item.type), color.bold(String(item.count)), formatDate(item.lastModifiedDate), color.dim(item.user)], [24, 8, 20]));
+    const groupWindowStart = visibleWindowStart(this.selectedGroup, groupLimit, grouped.length);
+    const visibleGroups = grouped.slice(groupWindowStart, groupWindowStart + groupLimit);
+    for (const [offset, item] of visibleGroups.entries()) {
+      const index = groupWindowStart + offset;
+      const selected = this.focus === 'types' && index === this.selectedGroup;
+      const marker = selected ? '>' : ' ';
+      lines.push(tableRow(width, [colorSelected(`${marker} ${item.type}`, selected), color.bold(String(item.count)), formatDate(item.lastModifiedDate), color.dim(item.user)], [24, 8, 20]));
     }
     lines.push(separator(width));
     lines.push(section(width, 'RECENT CHANGES (SESSION CUMULATIVE)', 'cyan'));
@@ -148,9 +202,10 @@ export class MonitorUi {
     const visibleRows = this.rows.slice(windowStart, windowStart + maxRows);
     for (const [offset, item] of visibleRows.entries()) {
       const index = windowStart + offset;
-      const marker = index === this.selected ? '>' : ' ';
+      const selected = this.focus === 'changes' && index === this.selected;
+      const marker = selected ? '>' : ' ';
       lines.push(tableRow(width, [
-        colorSelected(`${marker} ${item.type}`, index === this.selected),
+        colorSelected(`${marker} ${item.type}`, selected),
         colorAction(item.action),
         color.dim(item.user),
         colorFile(item.file, item.action),
@@ -187,6 +242,26 @@ export class MonitorUi {
     ];
     for (const line of detail.slice(0, available - 1)) {
       lines.push(row(width, line));
+    }
+    return lines;
+  }
+
+  renderTypeDetail(width, available) {
+    const grouped = groupByType(this.rows);
+    const selectedType = grouped[this.selectedGroup]?.type;
+    const typeRows = this.rows.filter((item) => item.type === selectedType).sort(compareChangesByRecentDate);
+    const lines = [section(width, `TYPE DETAILS: ${selectedType} (${typeRows.length})`, 'cyan')];
+    lines.push(tableHeader(width, ['ACTION', 'LAST CHANGE', 'LAST MODIFIED BY', 'FILE'], [12, 20, 22]));
+    for (const item of typeRows.slice(0, Math.max(1, available - lines.length - 1))) {
+      lines.push(tableRow(width, [
+        colorAction(item.action),
+        formatDate(item.lastModifiedDate ?? item.detectedAt),
+        color.dim(item.user),
+        colorFile(item.file, item.action),
+      ], [12, 20, 22]));
+    }
+    if (typeRows.length === 0) {
+      lines.push(row(width, color.dim('Sin cambios para este tipo.')));
     }
     return lines;
   }
@@ -241,6 +316,20 @@ function visibleWindowStart(selected, visibleCount, total) {
   }
 
   return Math.min(selected - visibleCount + 1, total - visibleCount);
+}
+
+function compareChangesByRecentDate(left, right) {
+  const detectedDiff = Date.parse(right.detectedAt ?? '') - Date.parse(left.detectedAt ?? '');
+  if (Number.isFinite(detectedDiff) && detectedDiff !== 0) {
+    return detectedDiff;
+  }
+
+  const modifiedDiff = Date.parse(right.lastModifiedDate ?? '') - Date.parse(left.lastModifiedDate ?? '');
+  if (Number.isFinite(modifiedDiff) && modifiedDiff !== 0) {
+    return modifiedDiff;
+  }
+
+  return String(left.file ?? '').localeCompare(String(right.file ?? ''));
 }
 
 function labelValue(label, value) {
