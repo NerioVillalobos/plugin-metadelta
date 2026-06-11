@@ -150,7 +150,7 @@ class MonitorRun extends Command {
             detectedAt: new Date(lastRefreshAt).toISOString(),
           });
         }
-        const cumulativeRows = [...accumulatedChanges.values()];
+        const cumulativeRows = [...accumulatedChanges.values()].sort(sortRecentChanges);
         ui?.update({
           rows: cumulativeRows,
           status: 'WATCHING',
@@ -220,6 +220,20 @@ class MonitorRun extends Command {
       this.error(error.message);
     }
   }
+}
+
+function sortRecentChanges(left, right) {
+  const detectedDiff = Date.parse(right.detectedAt ?? '') - Date.parse(left.detectedAt ?? '');
+  if (Number.isFinite(detectedDiff) && detectedDiff !== 0) {
+    return detectedDiff;
+  }
+
+  const modifiedDiff = Date.parse(right.lastModifiedDate ?? '') - Date.parse(left.lastModifiedDate ?? '');
+  if (Number.isFinite(modifiedDiff) && modifiedDiff !== 0) {
+    return modifiedDiff;
+  }
+
+  return String(left.file ?? '').localeCompare(String(right.file ?? ''));
 }
 
 export default MonitorRun;

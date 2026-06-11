@@ -390,7 +390,7 @@ sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-expor
 
 When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. All metadata, manifests, temporary files, and Git history are deleted on exit; only the empty `.metadelta-monitor/` root may remain. For orgs without Vlocity CLI installed, use:
 
-`RECENT CHANGES` is cumulative within the active terminal session only. It keeps changes detected across refreshes in memory, but nothing is persisted after exit. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
+`RECENT CHANGES` is cumulative within the active terminal session only. It keeps changes detected across refreshes in memory, ordered with the most recently detected changes first, but nothing is persisted after exit. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
 
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce
@@ -1016,7 +1016,7 @@ sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-expor
 
 Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Al salir se eliminan metadatos, manifests, temporales e historial Git; solo puede quedar la raíz vacía `.metadelta-monitor/`. Para orgs sin Vlocity CLI instalado, usa:
 
-`RECENT CHANGES` es acumulativo solo dentro de la sesión activa de terminal. Conserva en memoria los cambios detectados entre refreshes, pero no persiste nada después de salir. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
+`RECENT CHANGES` es acumulativo solo dentro de la sesión activa de terminal. Conserva en memoria los cambios detectados entre refreshes, ordenados con los cambios detectados más recientemente primero, pero no persiste nada después de salir. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
 
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce
