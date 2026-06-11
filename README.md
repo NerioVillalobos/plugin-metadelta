@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-10 — `@nervill/metadelta` 0.11.5
+> **Last update / Última actualización:** 2026-06-11 — `@nervill/metadelta` 0.11.6
 
 # Metadelta Salesforce CLI Plugin
 
@@ -10,7 +10,7 @@
 Metadelta is a custom Salesforce CLI plugin that offers twelve complementary workflows:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
-* `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when deletions are detected. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
+* `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when complete deletions are detected. ApexClass destructive entries require both `.cls` and `.cls-meta.xml` to be deleted, and Vlocity destructive entries require the entire datapack folder to be absent from the source branch. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
 * `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
 * `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
@@ -50,7 +50,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.5`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.6`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -63,7 +63,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.5 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.6 (link)`.
 
 ### Usage
 
@@ -152,8 +152,13 @@ What it does:
 
 1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
 2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
-3. Creates destructive manifests automatically when deletions exist.
+3. Creates destructive manifests automatically when complete deletions exist.
 4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+
+Destructive hardening:
+
+- ApexClass entries are emitted only when both the `.cls` file and its `.cls-meta.xml` companion were deleted.
+- Vlocity entries are emitted only when the full `Vlocity/<DataPackType>/<DataPackName>` folder has no remaining files in the `from` branch.
 
 Core outputs:
 
@@ -394,7 +399,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
-> **Monitor Vlocity support (v0.11.5):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
+> **Monitor Vlocity support (v0.11.6):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -678,7 +683,7 @@ This project is released under the [ISC License](LICENSE).
 Metadelta es un plugin personalizado de Salesforce CLI que ofrece doce flujos complementarios:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
-* `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
+* `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones completas. Las entradas destructivas de ApexClass requieren que se eliminen tanto el `.cls` como su `.cls-meta.xml`, y las entradas destructivas de Vlocity requieren que la carpeta completa del datapack no exista en la rama fuente. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
 * `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
 * `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
@@ -814,8 +819,13 @@ Qué hace:
 
 1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
 2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
-3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones.
+3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones completas.
 4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+
+Endurecimiento de destructivos:
+
+- ApexClass se emite solo cuando se eliminaron tanto el archivo `.cls` como su `.cls-meta.xml`.
+- Vlocity se emite solo cuando la carpeta completa `Vlocity/<DataPackType>/<DataPackName>` no tiene archivos restantes en la rama `from`.
 
 Salidas Core:
 
@@ -1015,7 +1025,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
-> **Soporte monitor Vlocity (v0.11.5):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
+> **Soporte monitor Vlocity (v0.11.6):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
