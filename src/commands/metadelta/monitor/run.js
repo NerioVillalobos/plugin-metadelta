@@ -23,7 +23,7 @@ class MonitorRun extends Command {
   static examples = [
     'sf metadelta monitor run --org DEV',
     'sf metadelta monitor run --org devNervill-2 --scope salesforce',
-    'sf metadelta monitor run --org vlocitySandbox --scope vlocity --vlocity-job ./vlocity-export.yaml',
+    'sf metadelta monitor run --org vlocitySandbox --scope vlocity',
   ];
 
   static flags = {
@@ -35,9 +35,6 @@ class MonitorRun extends Command {
       options: ['all', 'salesforce', 'vlocity'],
     }),
     once: Flags.boolean({summary: 'Run one refresh cycle and exit after cleanup. Useful for validation.'}),
-    'vlocity-job': Flags.string({
-      summary: 'Optional Vlocity job file. Defaults to a temporary packExportAllDefault job for common DataPack types.',
-    }),
   };
 
   async run() {
@@ -110,7 +107,6 @@ class MonitorRun extends Command {
         if (scope === 'all' || scope === 'vlocity') {
           ui?.update({message: 'Exporting Vlocity DataPacks...'});
           const vlocityResult = await exportVlocity(paths, orgAlias, {
-            jobPath: flags['vlocity-job'],
             required: scope === 'vlocity',
           });
           if (vlocityResult.skipped) {

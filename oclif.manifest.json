@@ -644,7 +644,7 @@
       "examples": [
         "sf metadelta monitor run --org DEV",
         "sf metadelta monitor run --org devNervill-2 --scope salesforce",
-        "sf metadelta monitor run --org vlocitySandbox --scope vlocity --vlocity-job ./vlocity-export.yaml"
+        "sf metadelta monitor run --org vlocitySandbox --scope vlocity"
       ],
       "flags": {
         "org": {
@@ -682,13 +682,6 @@
           "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",
           "allowNo": false,
           "type": "boolean"
-        },
-        "vlocity-job": {
-          "name": "vlocity-job",
-          "summary": "Optional Vlocity job file. Defaults to a temporary packExportAllDefault job for common DataPack types.",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
         }
       },
       "hasDynamicHelp": false,
@@ -922,5 +915,5 @@
       ]
     }
   },
-  "version": "0.11.7"
+  "version": "0.11.8"
 }

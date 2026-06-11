@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-11 — `@nervill/metadelta` 0.11.7
+> **Last update / Última actualización:** 2026-06-11 — `@nervill/metadelta` 0.11.8
 
 # Metadelta Salesforce CLI Plugin
 
@@ -50,7 +50,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.7`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.8`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -63,7 +63,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.7 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.8 (link)`.
 
 ### Usage
 
@@ -386,10 +386,10 @@ The UI has two navigable sections. `SALESFORCE CORE / VLOCITY` groups changes by
 
 Press `p` to pause/resume, `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
 
-For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` with a temporary job that covers OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC, and standard DataPack exports. You can also provide your own Vlocity job file:
+For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` without a job file:
 
 ```bash
-sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+sf metadelta monitor run --org DEV --scope vlocity
 ```
 
 When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. All metadata, manifests, temporary files, and Git history are deleted on exit; only the empty `.metadelta-monitor/` root may remain. For orgs without Vlocity CLI installed, use:
@@ -403,7 +403,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
-> **Monitor Vlocity support (v0.11.7):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
+> **Monitor Vlocity support (v0.11.8):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and uses `vlocity -sfdx.username <orgAlias> --projectPath <paths.vlocity> -nojob packExportAllDefault`.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -1016,10 +1016,10 @@ La UI tiene dos secciones navegables. `SALESFORCE CORE / VLOCITY` agrupa cambios
 
 Presiona `p` para pausar/reanudar, `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
 
-Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` con un job temporal que cubre OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC y exports estándar de DataPacks. También puedes indicar tu propio job Vlocity:
+Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` sin archivo job:
 
 ```bash
-sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+sf metadelta monitor run --org DEV --scope vlocity
 ```
 
 Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Al salir se eliminan metadatos, manifests, temporales e historial Git; solo puede quedar la raíz vacía `.metadelta-monitor/`. Para orgs sin Vlocity CLI instalado, usa:
@@ -1033,7 +1033,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
-> **Soporte monitor Vlocity (v0.11.7):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
+> **Soporte monitor Vlocity (v0.11.8):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y usa `vlocity -sfdx.username <orgAlias> --projectPath <paths.vlocity> -nojob packExportAllDefault`.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
