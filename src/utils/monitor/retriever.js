@@ -31,7 +31,7 @@ export async function retrieveSalesforceCore(paths, orgAlias) {
 }
 
 export async function exportVlocity(paths, orgAlias, options = {}) {
-  const {jobPath: providedJobPath, required = false} = options;
+  const {required = false} = options;
   if (!commandExists('vlocity')) {
     const reason = 'El binario vlocity no está disponible en este ambiente.';
     if (required) {
@@ -40,15 +40,10 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
-  const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeDefaultVlocityJob(paths);
-  if (!fs.existsSync(jobPath)) {
-    throw new Error(`No se encontró el job Vlocity: ${jobPath}`);
-  }
-
   try {
     await runProcess(
       'vlocity',
-      ['-sfdx.username', orgAlias, '--projectPath', paths.vlocity, '-job', jobPath, 'packExportAllDefault'],
+      ['-sfdx.username', orgAlias, '--projectPath', paths.vlocity, '-nojob', 'packExportAllDefault'],
       {cwd: paths.orgRoot}
     );
   } catch (error) {
@@ -94,34 +89,6 @@ function collectFiles(dir) {
     }
   }
   return files;
-}
-
-function writeDefaultVlocityJob(paths) {
-  const jobPath = path.join(paths.temp, 'vlocity-export-all.yaml');
-  fs.writeFileSync(
-    jobPath,
-    [
-      'projectPath: .',
-      'expansionPath: .',
-      'maxDepth: -1',
-      'useAllRelationships: true',
-      'supportHeadersOnly: true',
-      'supportForceDeploy: true',
-      'includeSalesforceMetadata: false',
-      'manifest:',
-      '  - OmniScript',
-      '  - DataRaptor',
-      '  - FlexCard',
-      '  - IntegrationProcedure',
-      '  - EPC',
-      '  - VlocityDataPack',
-      '',
-      '# packExportAllDefault uses Vlocity default DataPack queries.',
-      '# The manifest documents the monitor scope and keeps the job compatible with custom overrides.',
-      '',
-    ].join('\n')
-  );
-  return jobPath;
 }
 
 function ensureSfdxProject(dir) {
