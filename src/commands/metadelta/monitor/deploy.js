@@ -111,15 +111,15 @@ class DeployMonitorUi {
   }
 
   renderDeploymentTable(width, available) {
-    const tableWidth = width;
-    const columnWidths = buildDeployTableColumnWidths(width);
+    const columnWidths = buildDeployTableColumnWidths(width, this.rows);
+    const metricsRows = buildMetricsRows(this.rows);
     const lines = [
       tableConnector(columnWidths),
-      tableLine(columnWidths, ['', 'DEPLOY ID', 'STATUS', 'CREATED BY']),
+      tableLine(columnWidths, ['', 'DEPLOY ID', 'STATUS', 'CREATED BY', 'METRICS']),
       tableSeparator(columnWidths),
     ];
     if (this.rows.length === 0) {
-      lines.push(tableLine(columnWidths, ['', 'No deploys loaded', '', '']));
+      lines.push(tableLine(columnWidths, ['', 'No deploys loaded', '', '', metricsRows[0] ?? '']));
     } else {
       const availableRows = Math.max(1, available - lines.length - 1);
       const start = visibleWindowStart(this.selected, availableRows, this.rows.length);
@@ -133,11 +133,12 @@ class DeployMonitorUi {
           colorSelected(item.deployId ?? 'N/A', selected),
           colorSelected(item.status ?? 'Unknown', selected),
           colorSelected(item.createdBy ?? 'Unknown', selected),
+          metricsRows[offset] ?? '',
         ]));
       }
     }
     lines.push(tableFooterConnector(columnWidths));
-    return lines.map((line) => fitLine(line, tableWidth));
+    return lines.map((line) => fitTableLine(line, width));
   }
 
   renderNavigation(width) {
@@ -240,11 +241,37 @@ function tableLine(sizes, values) {
   return `${color.dim('│')}${cells.join(color.dim('│'))}${color.dim('│')}`;
 }
 
-function buildDeployTableColumnWidths(width) {
+function buildDeployTableColumnWidths(width, rows) {
   const fixedWidth = 3 + 20 + 12;
-  const borderAndPaddingWidth = 1 + (4 * 2) + 3 + 1;
-  const createdByWidth = Math.max(18, width - fixedWidth - borderAndPaddingWidth);
-  return [3, 20, 12, createdByWidth];
+  const borderAndPaddingWidth = 1 + (5 * 2) + 4 + 1;
+  const maxCreatedByLength = Math.max(
+    'CREATED BY'.length,
+    ...rows.map((row) => stripAnsi(row.createdBy ?? 'Unknown').length)
+  );
+  const minimumMetricsWidth = 'METRICS'.length;
+  const maxCreatedByWidth = Math.max(
+    'CREATED BY'.length,
+    width - fixedWidth - borderAndPaddingWidth - minimumMetricsWidth
+  );
+  const createdByWidth = Math.min(maxCreatedByWidth, Math.max('CREATED BY'.length, maxCreatedByLength));
+  const metricsWidth = Math.max(
+    minimumMetricsWidth,
+    width - fixedWidth - createdByWidth - borderAndPaddingWidth
+  );
+  return [3, 20, 12, createdByWidth, metricsWidth];
+}
+
+function buildMetricsRows(rows) {
+  const total = rows.length;
+  const succeeded = rows.filter((row) => isSucceededStatus(row.status)).length;
+  const effectiveDeploys = total === 0 ? 0 : (succeeded / total) * 100;
+  return [
+    `Effective Deploys: ${effectiveDeploys.toFixed(1)}%`,
+  ];
+}
+
+function isSucceededStatus(status) {
+  return /^(success|succeeded)$/i.test(String(status ?? '').trim());
 }
 
 function fitCell(value, size) {
@@ -261,6 +288,14 @@ function fitLine(value, width) {
     return `${value}${' '.repeat(width - cleanLength)}`;
   }
   return `${stripAnsi(value).slice(0, Math.max(0, width - 1))}…`;
+}
+
+function fitTableLine(value, width) {
+  const cleanLength = stripAnsi(value).length;
+  if (cleanLength >= width) {
+    return fitLine(value, width);
+  }
+  return `${value}${' '.repeat(width - cleanLength)}`;
 }
 
 function colorSelected(value, selected) {
