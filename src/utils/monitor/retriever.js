@@ -40,18 +40,26 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
+  const jobPath = writeVlocityMonitorJob(paths);
   try {
     await runProcess(
       'vlocity',
-      ['-sfdx.username', orgAlias, '--projectPath', paths.vlocity, '-nojob', 'packExportAllDefault'],
+      ['-sfdx.username', orgAlias, '-job', jobPath, '--projectPath', paths.vlocity, 'packExportAllDefault'],
       {cwd: paths.orgRoot}
     );
   } catch (error) {
     removeIgnoredMonitorFiles(paths.vlocity);
+    const hasExportedFiles = hasMonitorFiles(paths.vlocity);
     if (isSampleInputJsonError(error.message)) {
       return {
         skipped: false,
         warning: 'Vlocity export tuvo errores en *_SampleInputJson.json; esos archivos fueron ignorados por el monitor.',
+      };
+    }
+    if (hasExportedFiles) {
+      return {
+        skipped: false,
+        warning: `Vlocity export terminó con errores, pero se conservaron los DataPacks exportados parcialmente:\n${error.message}`,
       };
     }
     if (required) {
@@ -64,6 +72,38 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
   }
   removeIgnoredMonitorFiles(paths.vlocity);
   return {skipped: false};
+}
+
+function writeVlocityMonitorJob(paths) {
+  fs.mkdirSync(paths.manifest, {recursive: true});
+  const jobPath = path.join(paths.manifest, 'monitor-vlocity-export.yaml');
+  const yaml = [
+    `projectPath: ${yamlScalar(paths.vlocity)}`,
+    'continueAfterError: true',
+    'compileOnBuild: false',
+    'maxDepth: 0',
+    'autoUpdateSettings: true',
+    '',
+    'OverrideSettings:',
+    '    DataPacks:',
+    '        Catalog:',
+    '        Product2:',
+    '            MaxDeploy: 1',
+    '',
+  ].join('\n');
+  fs.writeFileSync(jobPath, yaml, 'utf8');
+  return jobPath;
+}
+
+function yamlScalar(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function hasMonitorFiles(root) {
+  if (!fs.existsSync(root)) {
+    return false;
+  }
+  return collectFiles(root).some((filePath) => !isIgnoredMonitorFile(filePath));
 }
 
 function removeIgnoredMonitorFiles(root) {
