@@ -52,7 +52,6 @@ class DeployMonitorUi {
     this.rows = rows;
     this.onQuit = onQuit;
     this.selected = 0;
-    this.commandBuffer = '';
     this.keyHandler = this.handleKey.bind(this);
   }
 
@@ -76,18 +75,9 @@ class DeployMonitorUi {
 
   handleKey(buffer) {
     const key = buffer.toString();
-    if (key === 'q' || key === 'x' || key === '\u0003' || buffer.equals(Buffer.from([0x1b]))) {
+    if (key === '\u0003') {
       this.onQuit();
       return;
-    }
-    if (/^[a-z]$/i.test(key)) {
-      this.commandBuffer = `${this.commandBuffer}${key.toLowerCase()}`.slice(-8);
-      if (this.commandBuffer.endsWith('exit')) {
-        this.onQuit();
-        return;
-      }
-    } else {
-      this.commandBuffer = '';
     }
     if (buffer.equals(Buffer.from([0x1b, 0x5b, 0x41]))) {
       this.moveSelection(-1);
@@ -153,12 +143,7 @@ class DeployMonitorUi {
 
   renderNavigation(width) {
     return [
-      fitLine('Navigation:', width),
-      '',
-      fitLine('Up Arrow', width),
-      fitLine('Down Arrow', width),
-      fitLine('ENTER', width),
-      fitLine('Q', width),
+      fitLine('Navigation: Up Arrow | Down Arrow | ENTER | CTRL+C', width),
     ];
   }
 }
