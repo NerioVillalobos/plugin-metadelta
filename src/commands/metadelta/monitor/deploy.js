@@ -114,7 +114,6 @@ class DeployMonitorUi {
     const lines = [];
     lines.push(boxTop(width, color.cyan(color.bold(' METADELTA MONITOR DEPLOY '))));
     lines.push(row(width, labelValue('ORG', this.orgAlias)));
-    lines.push(separator(width));
     lines.push(...this.renderDeploymentTable(width, height - lines.length - 8));
     lines.push('');
     lines.push(...this.renderNavigation(width));
