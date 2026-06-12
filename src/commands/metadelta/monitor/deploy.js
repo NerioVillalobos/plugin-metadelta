@@ -136,13 +136,13 @@ class DeployMonitorUi {
         ]));
       }
     }
-    lines.push(tableBottom(columnWidths));
+    lines.push(tableFooterConnector(columnWidths));
     return lines.map((line) => fitLine(line, tableWidth));
   }
 
   renderNavigation(width) {
     return [
-      fitLine('|  Navigation: Up Arrow | Down Arrow | ENTER | CTRL+C', width),
+      row(width, 'Navigation: Up Arrow | Down Arrow | ENTER | CTRL+C'),
     ];
   }
 }
@@ -227,8 +227,8 @@ function tableSeparator(sizes) {
   return tableBorder('├', '┼', '┤', sizes);
 }
 
-function tableBottom(sizes) {
-  return tableBorder('└', '┴', '┘', sizes);
+function tableFooterConnector(sizes) {
+  return tableBorder('├', '┴', '┤', sizes);
 }
 
 function tableBorder(left, join, right, sizes) {
