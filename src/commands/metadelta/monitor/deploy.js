@@ -105,7 +105,6 @@ class DeployMonitorUi {
     lines.push(boxTop(width, color.cyan(color.bold(' METADELTA MONITOR DEPLOY '))));
     lines.push(row(width, labelValue('ORG', this.orgAlias)));
     lines.push(...this.renderDeploymentTable(width, height - lines.length - 8));
-    lines.push('');
     lines.push(...this.renderNavigation(width));
     lines.push(boxBottom(width));
     process.stdout.write(`\x1b[2J\x1b[H${lines.slice(0, height).join('\n')}`);
@@ -143,7 +142,7 @@ class DeployMonitorUi {
 
   renderNavigation(width) {
     return [
-      fitLine('Navigation: Up Arrow | Down Arrow | ENTER | CTRL+C', width),
+      fitLine('|  Navigation: Up Arrow | Down Arrow | ENTER | CTRL+C', width),
     ];
   }
 }
