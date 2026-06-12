@@ -115,8 +115,6 @@ class DeployMonitorUi {
     lines.push(boxTop(width, color.cyan(color.bold(' METADELTA MONITOR DEPLOY '))));
     lines.push(row(width, labelValue('ORG', this.orgAlias)));
     lines.push(separator(width));
-    lines.push(...this.renderDeploymentHeader(width));
-    lines.push('');
     lines.push(...this.renderDeploymentTable(width, height - lines.length - 8));
     lines.push('');
     lines.push(...this.renderNavigation(width));
@@ -124,20 +122,11 @@ class DeployMonitorUi {
     process.stdout.write(`\x1b[2J\x1b[H${lines.slice(0, height).join('\n')}`);
   }
 
-  renderDeploymentHeader(width) {
-    const innerWidth = Math.min(78, width - 2);
-    return [
-      titledBoxTop(innerWidth, ' DEPLOYMENT MONITOR '),
-      boxRow(innerWidth, `Org: ${this.orgAlias}`),
-      simpleBoxBottom(innerWidth),
-    ];
-  }
-
   renderDeploymentTable(width, available) {
-    const tableWidth = Math.min(78, width - 2);
-    const columnWidths = [3, 20, 12, 35];
+    const tableWidth = width;
+    const columnWidths = buildDeployTableColumnWidths(width);
     const lines = [
-      tableTop(columnWidths),
+      tableConnector(columnWidths),
       tableLine(columnWidths, ['', 'DEPLOY ID', 'STATUS', 'CREATED BY']),
       tableSeparator(columnWidths),
     ];
@@ -222,19 +211,6 @@ function boxBottom(width) {
   return `${color.dim('└')}${color.dim('─'.repeat(width - 2))}${color.dim('┘')}`;
 }
 
-function titledBoxTop(width, title) {
-  const cleanTitle = stripAnsi(title);
-  return `${color.dim('┌')}${title}${color.dim('─'.repeat(Math.max(0, width - cleanTitle.length - 2)))}${color.dim('┐')}`;
-}
-
-function simpleBoxBottom(width) {
-  return `${color.dim('└')}${color.dim('─'.repeat(width - 2))}${color.dim('┘')}`;
-}
-
-function boxRow(width, value) {
-  return `${color.dim('│')} ${fitCell(value, width - 4)} ${color.dim('│')}`;
-}
-
 function separator(width) {
   return `${color.dim('├')}${color.dim('─'.repeat(width - 2))}${color.dim('┤')}`;
 }
@@ -260,8 +236,8 @@ function tableRow(width, values, sizes) {
   return row(width, cells.join(' '));
 }
 
-function tableTop(sizes) {
-  return tableBorder('┌', '┬', '┐', sizes);
+function tableConnector(sizes) {
+  return tableBorder('├', '┬', '┤', sizes);
 }
 
 function tableSeparator(sizes) {
@@ -279,6 +255,13 @@ function tableBorder(left, join, right, sizes) {
 function tableLine(sizes, values) {
   const cells = sizes.map((size, index) => ` ${fitCell(String(values[index] ?? ''), size)} `);
   return `${color.dim('│')}${cells.join(color.dim('│'))}${color.dim('│')}`;
+}
+
+function buildDeployTableColumnWidths(width) {
+  const fixedWidth = 3 + 20 + 12;
+  const borderAndPaddingWidth = 1 + (4 * 2) + 3 + 1;
+  const createdByWidth = Math.max(18, width - fixedWidth - borderAndPaddingWidth);
+  return [3, 20, 12, createdByWidth];
 }
 
 function fitCell(value, size) {
