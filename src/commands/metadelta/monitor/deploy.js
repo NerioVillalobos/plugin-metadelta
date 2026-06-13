@@ -57,6 +57,7 @@ class DeployMonitorUi {
     this.metrics = metrics;
     this.onQuit = onQuit;
     this.selected = 0;
+    this.detailMode = false;
     this.keyHandler = this.handleKey.bind(this);
   }
 
@@ -92,6 +93,13 @@ class DeployMonitorUi {
     if (buffer.equals(Buffer.from([0x1b, 0x5b, 0x42]))) {
       this.moveSelection(1);
       this.render();
+      return;
+    }
+    if (key === '\r' || key === '\n') {
+      if (this.rows[this.selected]) {
+        this.detailMode = !this.detailMode;
+        this.render();
+      }
     }
   }
 
@@ -101,6 +109,7 @@ class DeployMonitorUi {
       return;
     }
     this.selected = Math.max(0, Math.min(this.rows.length - 1, this.selected + direction));
+    this.detailMode = false;
   }
 
   render() {
@@ -117,7 +126,7 @@ class DeployMonitorUi {
 
   renderDeploymentTable(width, available) {
     const columnWidths = buildDeployTableColumnWidths(width, this.rows);
-    const metricsRows = buildMetricsRows(this.metrics);
+    const metricsRows = buildMetricsRows(this.metrics, this.rows[this.selected], this.detailMode);
     const lines = [
       tableConnector(columnWidths),
       tableLine(columnWidths, ['', 'DEPLOY ID', 'STATUS', 'CREATED BY', 'METRICS']),
@@ -188,7 +197,13 @@ async function loadDeployMetrics(orgAlias, rows) {
   const succeededRows = rows.filter((row) => isSucceededStatus(row.status));
   const successRate = total === 0 ? 0 : (succeededRows.length / total) * 100;
   const reports = await mapWithConcurrency(succeededRows, 3, (row) => loadDeployReport(orgAlias, row.deployId));
-  const components = reports.reduce((sum, report) => sum + countDeployedComponents(report), 0);
+  let components = 0;
+  for (const [index, report] of reports.entries()) {
+    const deployComponents = listDeployedComponents(report);
+    succeededRows[index].components = deployComponents;
+    succeededRows[index].componentCount = deployComponents.length;
+    components += deployComponents.length;
+  }
   return {
     successRate,
     components,
@@ -227,12 +242,13 @@ async function mapWithConcurrency(items, limit, iteratee) {
   return results;
 }
 
-function countDeployedComponents(report) {
+function listDeployedComponents(report) {
   if (!report) {
-    return 0;
+    return [];
   }
   const componentEntries = collectComponentSuccesses(report);
   const uniqueComponents = new Set();
+  const components = [];
   for (const component of componentEntries) {
     const type = component.componentType ?? component.type ?? component.metadataType ?? '';
     const name = component.fullName ?? component.name ?? component.fileName ?? component.filePath ?? '';
@@ -242,9 +258,14 @@ function countDeployedComponents(report) {
     if (/package\.xml$/i.test(name)) {
       continue;
     }
-    uniqueComponents.add(`${type}:${name}`);
+    const key = `${type}:${name}`;
+    if (uniqueComponents.has(key)) {
+      continue;
+    }
+    uniqueComponents.add(key);
+    components.push(formatComponentName(type, name));
   }
-  return uniqueComponents.size;
+  return components.sort((left, right) => left.localeCompare(right));
 }
 
 function collectComponentSuccesses(value) {
@@ -348,11 +369,28 @@ function buildDeployTableColumnWidths(width, rows) {
   return [3, 20, 12, createdByWidth, metricsWidth];
 }
 
-function buildMetricsRows(metrics) {
+function buildMetricsRows(metrics, selectedRow, detailMode) {
+  if (detailMode && selectedRow) {
+    const components = selectedRow.components ?? [];
+    return [
+      `Deploy: ${selectedRow.deployId}`,
+      `Status: ${selectedRow.status ?? 'Unknown'}`,
+      `Created By: ${selectedRow.createdBy ?? 'Unknown'}`,
+      `Components: ${selectedRow.componentCount ?? components.length ?? 0}`,
+      ...components.map((component) => `- ${component}`),
+    ];
+  }
   return [
     `Success Rate: ${metrics.successRate.toFixed(1)}%`,
     `Components: ${metrics.components}`,
   ];
+}
+
+function formatComponentName(type, name) {
+  if (type && name) {
+    return `${type}: ${name}`;
+  }
+  return type || name || 'Unknown component';
 }
 
 function isSucceededStatus(status) {
