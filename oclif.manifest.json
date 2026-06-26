@@ -640,7 +640,7 @@
     "metadelta:monitor:run": {
       "aliases": [],
       "args": {},
-      "description": "\n  Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,\n  tracks drift with a local Git repository, and renders an interactive terminal monitor.\n  All snapshots and Git data are removed when the monitor exits.\n  ",
+      "description": "\n  Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,\n  tracks drift with a local Git repository, and renders an interactive terminal monitor.\n  Snapshots, Git baseline, and change logs are preserved under .metadelta/monitor/<org>.\n  ",
       "examples": [
         "sf metadelta monitor run --org DEV",
         "sf metadelta monitor run --org devNervill-2 --scope salesforce",

@@ -2,7 +2,6 @@ import {Command, Flags} from '@oclif/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  cleanupMonitorWorkspace,
   createMonitorWorkspace,
   resetCurrent,
 } from '../../../utils/monitor/workspace.js';
@@ -10,6 +9,7 @@ import {initGit, hasBaseline, createBaseline, parseDiff, diffSummary, updateBase
 import {normalizeTree} from '../../../utils/monitor/normalizer.js';
 import {retrieveSalesforceCore, exportVlocity} from '../../../utils/monitor/retriever.js';
 import {enrichChanges} from '../../../utils/monitor/metadata.js';
+import {appendChangeLogEntries} from '../../../utils/monitor/changeLog.js';
 import {MonitorUi} from '../../../utils/monitor/ui.js';
 import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 
@@ -19,7 +19,7 @@ class MonitorRun extends Command {
   static description = `
   Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,
   tracks drift with a local Git repository, and renders an interactive terminal monitor.
-  All snapshots and Git data are removed when the monitor exits.
+  Snapshots, Git baseline, and change logs are preserved under .metadelta/monitor/<org>.
   `;
 
   static examples = [
@@ -50,6 +50,7 @@ class MonitorRun extends Command {
     const commandRoot = path.join(launchRoot, '.metadelta', 'monitor', orgAlias);
     fs.mkdirSync(commandRoot, {recursive: true});
     process.chdir(commandRoot);
+    const changeLogPath = path.join(commandRoot, 'change-log.jsonl');
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
@@ -83,7 +84,6 @@ class MonitorRun extends Command {
         clearInterval(timer);
       }
       ui?.stop();
-      cleanupMonitorWorkspace(paths);
       if (flags.once) {
         return;
       }
@@ -158,12 +158,14 @@ class MonitorRun extends Command {
         const currentPrefix = `${orgAlias}/current/`;
         const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix) && !isIgnoredMonitorFile(change.file));
         const rows = await enrichChanges(rawChanges, orgAlias, paths.root, diffSummary);
+        const detectedAt = new Date(lastRefreshAt).toISOString();
         for (const row of rows) {
           accumulatedChanges.set(`${row.action}:${row.file}`, {
             ...row,
-            detectedAt: new Date(lastRefreshAt).toISOString(),
+            detectedAt,
           });
         }
+        appendChangeLogEntries(changeLogPath, rows, {orgAlias, detectedAt});
         const cumulativeRows = [...accumulatedChanges.values()].sort(sortRecentChanges);
         ui?.update({
           rows: cumulativeRows,
@@ -232,7 +234,6 @@ class MonitorRun extends Command {
       await refresh();
     } catch (error) {
       ui?.stop();
-      cleanupMonitorWorkspace(paths);
       this.error(error.message);
     }
   }
