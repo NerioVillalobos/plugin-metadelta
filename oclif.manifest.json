@@ -677,6 +677,20 @@
           ],
           "type": "option"
         },
+        "scope-xml": {
+          "name": "scope-xml",
+          "summary": "Path to a Salesforce Core package.xml used to monitor only those components",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "scope-yaml": {
+          "name": "scope-yaml",
+          "summary": "Path to a Vlocity YAML manifest used to monitor only those DataPacks",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
         "once": {
           "name": "once",
           "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",

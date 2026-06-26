@@ -36,18 +36,23 @@ class MonitorRun extends Command {
       default: 'all',
       options: ['all', 'salesforce', 'vlocity'],
     }),
+    'scope-xml': Flags.string({summary: 'Path to a Salesforce Core package.xml used to monitor only those components'}),
+    'scope-yaml': Flags.string({summary: 'Path to a Vlocity YAML manifest used to monitor only those DataPacks'}),
     once: Flags.boolean({summary: 'Run one refresh cycle and exit after cleanup. Useful for validation.'}),
   };
 
   async run() {
     const {flags} = await this.parse(MonitorRun);
     const orgAlias = flags.org;
-    const commandRoot = path.join(process.cwd(), '.metadelta', 'monitor', orgAlias);
+    const launchRoot = process.cwd();
+    const scopedXmlPath = resolveOptionalManifestPath(launchRoot, flags['scope-xml']);
+    const scopedYamlPath = resolveOptionalManifestPath(launchRoot, flags['scope-yaml']);
+    const commandRoot = path.join(launchRoot, '.metadelta', 'monitor', orgAlias);
     fs.mkdirSync(commandRoot, {recursive: true});
     process.chdir(commandRoot);
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
-    let scope = flags.scope;
+    let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
     let ui;
     let timer;
     let refreshing = false;
@@ -105,7 +110,7 @@ class MonitorRun extends Command {
         resetCurrent(paths, scope);
         if (scope === 'all' || scope === 'salesforce') {
           ui?.update({message: 'Retrieving Salesforce Core metadata...'});
-          await retrieveSalesforceCore(paths, orgAlias);
+          await retrieveSalesforceCore(paths, orgAlias, {manifestPath: scopedXmlPath});
         }
         let vlocityMessage = '';
         let vlocityWarning = '';
@@ -113,6 +118,7 @@ class MonitorRun extends Command {
           ui?.update({message: 'Exporting Vlocity DataPacks...'});
           const vlocityResult = await exportVlocity(paths, orgAlias, {
             required: scope === 'vlocity',
+            jobPath: scopedYamlPath,
           });
           if (vlocityResult.skipped) {
             vlocityMessage = vlocityResult.reason;
@@ -208,7 +214,7 @@ class MonitorRun extends Command {
           void cleanupAndExit(0);
         },
         onScope: (nextScope) => {
-          scope = nextScope;
+          scope = resolveEffectiveScope(nextScope, {scopedXmlPath, scopedYamlPath});
           ui.update({scope, message: `Scope changed to ${scope}. Press r to refresh now.`});
         },
       });
@@ -221,6 +227,30 @@ class MonitorRun extends Command {
       this.error(error.message);
     }
   }
+}
+
+function resolveOptionalManifestPath(baseDir, manifestPath) {
+  if (!manifestPath) {
+    return undefined;
+  }
+  const resolved = path.resolve(baseDir, manifestPath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`No se encontró el manifest indicado: ${manifestPath}`);
+  }
+  return resolved;
+}
+
+function resolveEffectiveScope(defaultScope, {scopedXmlPath, scopedYamlPath}) {
+  if (scopedXmlPath && scopedYamlPath) {
+    return 'all';
+  }
+  if (scopedXmlPath) {
+    return 'salesforce';
+  }
+  if (scopedYamlPath) {
+    return 'vlocity';
+  }
+  return defaultScope;
 }
 
 function sortRecentChanges(left, right) {

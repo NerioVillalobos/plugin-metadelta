@@ -3,25 +3,31 @@ import path from 'node:path';
 import {commandExists, runProcess} from './process.js';
 import {isIgnoredMonitorFile, isSampleInputJsonError} from './ignore.js';
 
-export async function retrieveSalesforceCore(paths, orgAlias) {
+export async function retrieveSalesforceCore(paths, orgAlias, options = {}) {
+  const {manifestPath} = options;
   fs.mkdirSync(paths.manifest, {recursive: true});
   ensureSfdxProject(paths.orgRoot);
-  await runProcess(
-    'sf',
-    ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
-    {cwd: paths.orgRoot}
-  );
 
-  const generatedCandidates = [
-    path.join(paths.orgRoot, 'metadelta-backup.xml'),
-    path.join(paths.orgRoot, 'manifest', 'metadelta-backup.xml'),
-  ];
   const packageXml = path.join(paths.manifest, 'package.xml');
-  const generated = generatedCandidates.find((candidate) => fs.existsSync(candidate));
-  if (generated) {
-    fs.renameSync(generated, packageXml);
-  } else if (!fs.existsSync(packageXml)) {
-    throw new Error(`No se generó el manifest esperado para ${orgAlias}.`);
+  if (manifestPath) {
+    fs.copyFileSync(manifestPath, packageXml);
+  } else {
+    await runProcess(
+      'sf',
+      ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
+      {cwd: paths.orgRoot}
+    );
+
+    const generatedCandidates = [
+      path.join(paths.orgRoot, 'metadelta-backup.xml'),
+      path.join(paths.orgRoot, 'manifest', 'metadelta-backup.xml'),
+    ];
+    const generated = generatedCandidates.find((candidate) => fs.existsSync(candidate));
+    if (generated) {
+      fs.renameSync(generated, packageXml);
+    } else if (!fs.existsSync(packageXml)) {
+      throw new Error(`No se generó el manifest esperado para ${orgAlias}.`);
+    }
   }
 
   ensureSfdxProject(paths.salesforce);
@@ -31,7 +37,7 @@ export async function retrieveSalesforceCore(paths, orgAlias) {
 }
 
 export async function exportVlocity(paths, orgAlias, options = {}) {
-  const {required = false} = options;
+  const {required = false, jobPath: providedJobPath} = options;
   if (!commandExists('vlocity')) {
     const reason = 'El binario vlocity no está disponible en este ambiente.';
     if (required) {
@@ -40,11 +46,12 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
-  const jobPath = writeVlocityMonitorJob(paths);
+  const jobPath = providedJobPath ? writeScopedVlocityMonitorJob(paths, providedJobPath) : writeVlocityMonitorJob(paths);
+  const command = providedJobPath ? 'packExport' : 'packExportAllDefault';
   try {
     await runProcess(
       'vlocity',
-      ['-sfdx.username', orgAlias, '-job', jobPath, '--projectPath', paths.vlocity, 'packExportAllDefault'],
+      ['-sfdx.username', orgAlias, '-job', jobPath, '--projectPath', paths.vlocity, command],
       {cwd: paths.orgRoot}
     );
   } catch (error) {
@@ -90,6 +97,22 @@ function writeVlocityMonitorJob(paths) {
     '        Product2:',
     '            MaxDeploy: 1',
     '',
+  ].join('\n');
+  fs.writeFileSync(jobPath, yaml, 'utf8');
+  return jobPath;
+}
+
+function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
+  fs.mkdirSync(paths.manifest, {recursive: true});
+  const jobPath = path.join(paths.manifest, `monitor-${path.basename(sourceJobPath)}`);
+  const sourceYaml = fs.readFileSync(sourceJobPath, 'utf8');
+  const yamlWithoutProjectPath = sourceYaml
+    .split(/\r?\n/)
+    .filter((line) => !/^projectPath\s*:/i.test(line.trim()))
+    .join('\n');
+  const yaml = [
+    `projectPath: ${yamlScalar(paths.vlocity)}`,
+    yamlWithoutProjectPath,
   ].join('\n');
   fs.writeFileSync(jobPath, yaml, 'utf8');
   return jobPath;
