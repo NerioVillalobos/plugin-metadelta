@@ -9,7 +9,7 @@ import {initGit, hasBaseline, createBaseline, parseDiff, diffSummary, updateBase
 import {normalizeTree} from '../../../utils/monitor/normalizer.js';
 import {retrieveSalesforceCore, exportVlocity} from '../../../utils/monitor/retriever.js';
 import {enrichChanges} from '../../../utils/monitor/metadata.js';
-import {appendChangeLogEntries} from '../../../utils/monitor/changeLog.js';
+import {appendChangeLogEntries, appendSessionEnded, appendSessionStarted} from '../../../utils/monitor/changeLog.js';
 import {MonitorUi} from '../../../utils/monitor/ui.js';
 import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 
@@ -55,11 +55,29 @@ class MonitorRun extends Command {
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
     let displayScope = resolveDisplayScope(scope, {scopedXmlPath, scopedYamlPath});
+    const sessionStartedAt = new Date().toISOString();
+    appendSessionStarted(changeLogPath, {orgAlias, scope: displayScope, startedAt: sessionStartedAt});
     let ui;
     let timer;
     let refreshing = false;
     let exiting = false;
+    let sessionEndedLogged = false;
     const accumulatedChanges = new Map();
+
+    const logSessionEnded = (code, reason) => {
+      if (sessionEndedLogged) {
+        return;
+      }
+      sessionEndedLogged = true;
+      appendSessionEnded(changeLogPath, {
+        orgAlias,
+        scope: displayScope,
+        startedAt: sessionStartedAt,
+        endedAt: new Date().toISOString(),
+        exitCode: code,
+        reason,
+      });
+    };
 
     const scheduleNextRefresh = () => {
       if (flags.once || !ui || exiting) {
@@ -84,6 +102,7 @@ class MonitorRun extends Command {
         clearInterval(timer);
       }
       ui?.stop();
+      logSessionEnded(code, code === 0 ? 'USER_EXIT' : 'SIGNAL_EXIT');
       if (flags.once) {
         return;
       }
@@ -234,6 +253,7 @@ class MonitorRun extends Command {
       await refresh();
     } catch (error) {
       ui?.stop();
+      logSessionEnded(1, 'ERROR');
       this.error(error.message);
     }
   }
