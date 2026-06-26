@@ -1,4 +1,6 @@
 import {Command, Flags} from '@oclif/core';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   cleanupMonitorWorkspace,
   createMonitorWorkspace,
@@ -40,6 +42,9 @@ class MonitorRun extends Command {
   async run() {
     const {flags} = await this.parse(MonitorRun);
     const orgAlias = flags.org;
+    const commandRoot = path.join(process.cwd(), '.metadelta', 'monitor', orgAlias);
+    fs.mkdirSync(commandRoot, {recursive: true});
+    process.chdir(commandRoot);
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = flags.scope;
