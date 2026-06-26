@@ -53,6 +53,7 @@ class MonitorRun extends Command {
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
+    let displayScope = resolveDisplayScope(scope, {scopedXmlPath, scopedYamlPath});
     let ui;
     let timer;
     let refreshing = false;
@@ -108,18 +109,23 @@ class MonitorRun extends Command {
 
       try {
         resetCurrent(paths, scope);
+        let retrieveDurationMs = 0;
         if (scope === 'all' || scope === 'salesforce') {
           ui?.update({message: 'Retrieving Salesforce Core metadata...'});
+          const startedAt = Date.now();
           await retrieveSalesforceCore(paths, orgAlias, {manifestPath: scopedXmlPath});
+          retrieveDurationMs += Date.now() - startedAt;
         }
         let vlocityMessage = '';
         let vlocityWarning = '';
         if (scope === 'all' || scope === 'vlocity') {
           ui?.update({message: 'Exporting Vlocity DataPacks...'});
+          const startedAt = Date.now();
           const vlocityResult = await exportVlocity(paths, orgAlias, {
             required: scope === 'vlocity',
             jobPath: scopedYamlPath,
           });
+          retrieveDurationMs += Date.now() - startedAt;
           if (vlocityResult.skipped) {
             vlocityMessage = vlocityResult.reason;
           } else if (vlocityResult.warning) {
@@ -138,6 +144,7 @@ class MonitorRun extends Command {
             rows: [...accumulatedChanges.values()],
             status: 'BASELINE CREATED',
             lastRefreshAt,
+            retrieveDurationMs,
             message: vlocityMessage
               ? `${baselineMessage} Vlocity fue omitido; ver detalles abajo.`
               : vlocityWarning
@@ -162,6 +169,7 @@ class MonitorRun extends Command {
           rows: cumulativeRows,
           status: 'WATCHING',
           lastRefreshAt,
+          retrieveDurationMs,
           message: vlocityMessage
             ? `${rows.length} new change(s), ${cumulativeRows.length} cumulative. Vlocity fue omitido; ver detalles abajo.`
             : vlocityWarning
@@ -215,11 +223,12 @@ class MonitorRun extends Command {
         },
         onScope: (nextScope) => {
           scope = resolveEffectiveScope(nextScope, {scopedXmlPath, scopedYamlPath});
-          ui.update({scope, message: `Scope changed to ${scope}. Press r to refresh now.`});
+          displayScope = resolveDisplayScope(scope, {scopedXmlPath, scopedYamlPath});
+          ui.update({scope: displayScope, message: `Scope changed to ${displayScope}. Press r to refresh now.`});
         },
       });
       ui.start();
-      ui.update({scope});
+      ui.update({scope: displayScope});
       await refresh();
     } catch (error) {
       ui?.stop();
@@ -251,6 +260,19 @@ function resolveEffectiveScope(defaultScope, {scopedXmlPath, scopedYamlPath}) {
     return 'vlocity';
   }
   return defaultScope;
+}
+
+function resolveDisplayScope(scope, {scopedXmlPath, scopedYamlPath}) {
+  if (scopedXmlPath && scopedYamlPath) {
+    return 'all-custom';
+  }
+  if (scopedXmlPath) {
+    return 'salesforce-custom';
+  }
+  if (scopedYamlPath) {
+    return 'vlocity-custom';
+  }
+  return scope;
 }
 
 function sortRecentChanges(left, right) {
