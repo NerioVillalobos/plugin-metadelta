@@ -20,6 +20,7 @@ export class MonitorUi {
     this.autoPausedForDetail = false;
     this.lastRefreshAt = null;
     this.nextRefreshAt = null;
+    this.retrieveDurationMs = null;
     this.commandBuffer = '';
     this.keyHandler = this.handleKey.bind(this);
   }
@@ -163,7 +164,13 @@ export class MonitorUi {
     const title = color.cyan(color.bold(` METADELTA MONITOR `));
     lines.push(boxTop(width, title));
     lines.push(row(width, labelValue('ORG', this.orgAlias), labelValue('STATUS', colorStatus(this.status)), labelValue('SCOPE', colorScope(this.scope))));
-    lines.push(row(width, labelValue('INTERVAL', `${Math.round(this.intervalMs / 60000)} min`), labelValue('NEXT', colorNextTime(formatNextTime(this.nextRefreshAt), this.nextRefreshAt)), labelValue('LAST', formatTime(this.lastRefreshAt))));
+    lines.push(row(
+      width,
+      labelValue('INTERVAL', `${Math.round(this.intervalMs / 60000)} min`),
+      labelValue('RETRIEVE', formatDuration(this.retrieveDurationMs)),
+      labelValue('NEXT', colorNextTime(formatNextTime(this.nextRefreshAt), this.nextRefreshAt)),
+      labelValue('LAST', formatTime(this.lastRefreshAt))
+    ));
     lines.push(row(width, colorMessage(this.message || 'q/x/exit quit | r refresh | p pause | d detail | s/v/a scope', this.status), this.renderPaused ? color.yellow(color.bold('UI PAUSED')) : ''));
     lines.push(separator(width));
 
@@ -355,10 +362,10 @@ function colorStatus(status) {
 
 function colorScope(scope) {
   const normalized = String(scope ?? '').toUpperCase();
-  if (normalized === 'SALESFORCE') {
+  if (normalized === 'SALESFORCE' || normalized === 'SALESFORCE-CUSTOM') {
     return color.blue(color.bold(normalized));
   }
-  if (normalized === 'VLOCITY') {
+  if (normalized === 'VLOCITY' || normalized === 'VLOCITY-CUSTOM') {
     return color.magenta(color.bold(normalized));
   }
   return color.cyan(color.bold(normalized));
@@ -507,6 +514,16 @@ function formatTime(value) {
     return 'unknown';
   }
   return date.toTimeString().slice(0, 8);
+}
+
+function formatDuration(value) {
+  if (!Number.isFinite(value)) {
+    return 'pending';
+  }
+  const totalSeconds = Math.max(0, Math.round(value / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`;
 }
 
 function isMouseSequence(buffer) {
