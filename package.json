@@ -43,6 +43,10 @@
     "@oclif/core": "^4.8.0",
     "fast-xml-parser": "^5.3.2"
   },
+  "allowScripts": {
+    "@oclif/core": false,
+    "minimatch": false
+  },
   "devDependencies": {
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3"
