@@ -13,12 +13,11 @@
   ],
   "scripts": {
     "clean": "node -e \"import {rmSync} from 'node:fs';['lib','oclif.manifest.json'].forEach(p=>rmSync(p,{recursive:true,force:true}))\"",
-    "build": "npm run clean && tsc",
-    "postbuild": "node scripts/generate-manifest.mjs",
+    "compile": "npm run clean && tsc && npm run manifest",
     "test": "node --test",
     "manifest": "node scripts/generate-manifest.mjs",
-    "pack": "npm run build && npm pack",
-    "pack:tarball": "npm run build && mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
+    "pack": "npm run compile && npm pack",
+    "pack:tarball": "npm run compile && mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
   },
   "keywords": [
     "salesforce",

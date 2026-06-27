@@ -3,7 +3,9 @@
 
 # Include necessary files
 !lib/
+!lib/**
 !messages/
+!messages/**
 !oclif.manifest.json
 !package.json
 !README.md
