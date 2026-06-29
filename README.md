@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-26 — `@nervill/metadelta` 0.11.10
+> **Last update / Última actualización:** 2026-06-29 — `@nervill/metadelta` 0.11.11
 
 # Metadelta Salesforce CLI Plugin
 
@@ -16,7 +16,7 @@ Metadelta is a custom Salesforce CLI plugin that offers thirteen complementary c
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 * `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
-* `sf metadelta monitor run` starts a terminal monitor for Salesforce Core and Vlocity metadata drift using local filesystem snapshots, a local Git diff engine, optional XML/YAML scoped manifests, and a persistent JSONL change log.
+* `sf metadelta monitor run` starts a terminal monitor for Salesforce Core and Vlocity metadata drift using local filesystem snapshots, a local Git diff engine, optional XML/YAML scoped manifests, Vlocity modifier enrichment, a persistent JSONL change log, and optional CSV export.
 * `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with automatic recovery stabilizers, patched `.metadelta.*` playback, and orchestrated diagnostics.
 * `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 * `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
@@ -52,7 +52,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.10`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.11`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -65,7 +65,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run compile
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.10 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.11 (link)`.
 
 ### Usage
 
@@ -411,9 +411,12 @@ Options:
 | `--scope` | Metadata source to monitor: `all`, `salesforce`, or `vlocity`. | `all` |
 | `--scope-xml` | Path to a Salesforce Core `package.xml`. When present, the monitor retrieves and watches only the Core components listed in that manifest. | None |
 | `--scope-yaml` | Path to a Vlocity YAML job/manifest. When present, the monitor exports and watches only the DataPacks listed in that file. | None |
+| `--export-csv` | Path where the persistent `change-log.jsonl` should be exported as CSV when the monitor exits. The path is resolved from the directory where the command was started. | None |
 | `--once` | Run one refresh cycle and exit. Useful for validation. | `false` |
 
 The monitor first creates and enters `.metadelta/monitor/<orgAlias>/`. Inside that folder it maintains `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes or reuses a local-only Git repository as the diff engine, and refreshes every five minutes. `NEXT` shows the exact next refresh time instead of repainting a countdown, and `RETRIEVE` shows the last Salesforce Core + Vlocity retrieve/export duration. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Full errors and Vlocity warnings are wrapped in a detail section and automatically pause UI repainting so the text can be selected/copied.
+
+For Salesforce Core changes, the monitor queries the org metadata APIs to enrich each row with `LastModifiedBy.Name` and `LastModifiedDate`. For Vlocity changes, it now shares the Vlocity DataPack query catalog used by `sf metadelta find`, so paths such as `vlocity/Promotion/<GlobalKey>/...` are resolved against the parent DataPack record by `Name`, `Id`, or namespaced `GlobalKey__c` when available. This improves the modifier shown in the dashboard and in the change log instead of falling back to `N/A` for many Vlocity DataPack files.
 
 When `--scope-xml` or `--scope-yaml` is present, the dashboard scope label reflects the custom scope: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM`, or `ALL-CUSTOM`. The XML/YAML paths can use any filename and are resolved relative to the directory where you start the command, before the monitor changes into `.metadelta/monitor/<orgAlias>/`.
 
@@ -443,7 +446,13 @@ sf metadelta monitor run --org DEV --scope salesforce
 
 `RECENT CHANGES` is cumulative within the active terminal session. Across restarts, the Git baseline and snapshots are preserved under `.metadelta/monitor/<orgAlias>/.metadelta-monitor/`, so the next run continues from the last baseline instead of starting from scratch. A persistent append-only change log is written to `.metadelta/monitor/<orgAlias>/change-log.jsonl`. It records `SESSION_STARTED`, `CHANGE_DETECTED`, and `SESSION_ENDED` events with the component type, component name, action, detection time, last modified date, and modifier when available. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
 
-> **Monitor persistence and scoped manifests (v0.11.10):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest.
+To export the accumulated persistent log to CSV when the monitor exits, use `--export-csv`. The export includes session and change events in stable columns such as `event`, `org`, `scope`, `source`, `action`, `type`, `component`, `file`, `detectedAt`, `lastModifiedDate`, `lastModifiedBy`, `startedAt`, `endedAt`, `exitCode`, and `reason`.
+
+```bash
+sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
+```
+
+> **Monitor persistence, scoped manifests, Vlocity enrichment, and CSV export (v0.11.11):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits.
 
 ### `task record` / `task play` command
 
@@ -728,7 +737,7 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece trece familias
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 * `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
-* `sf metadelta monitor run` inicia un monitor de terminal para detectar drift de metadatos Salesforce Core y Vlocity usando snapshots locales, Git local como motor de diff, manifiestos XML/YAML opcionales para scope específico y un log persistente JSONL.
+* `sf metadelta monitor run` inicia un monitor de terminal para detectar drift de metadatos Salesforce Core y Vlocity usando snapshots locales, Git local como motor de diff, manifiestos XML/YAML opcionales para scope específico, enriquecimiento de modificador Vlocity, log persistente JSONL y exportación CSV opcional.
 * `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, estabilizadores automáticos de recuperación, reproducción sobre `.metadelta.*` y diagnósticos orquestados.
 * `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 * `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
@@ -1117,9 +1126,12 @@ Opciones:
 | `--scope` | Fuente de metadata a monitorear: `all`, `salesforce` o `vlocity`. | `all` |
 | `--scope-xml` | Ruta a un `package.xml` de Salesforce Core. Cuando se indica, el monitor recupera y observa solo los componentes Core listados en ese manifest. | Ninguno |
 | `--scope-yaml` | Ruta a un job/manifest YAML de Vlocity. Cuando se indica, el monitor exporta y observa solo los DataPacks listados en ese archivo. | Ninguno |
+| `--export-csv` | Ruta donde se debe exportar el `change-log.jsonl` persistente como CSV cuando el monitor sale. La ruta se resuelve desde el directorio donde se inició el comando. | Ninguno |
 | `--once` | Ejecuta un solo ciclo de refresh y sale. Útil para validación. | `false` |
 
 El monitor primero crea y entra en `.metadelta/monitor/<aliasOrg>/`. Dentro de esa carpeta mantiene `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa o reutiliza un repositorio Git local como motor de diff y refresca cada cinco minutos. `NEXT` muestra la hora exacta del próximo refresh en vez de repintar un countdown, y `RETRIEVE` muestra la duración del último retrieve/export Salesforce Core + Vlocity. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Los errores completos y avisos de Vlocity se muestran envueltos en una sección de detalle y pausan automáticamente el repintado de la UI para poder seleccionar/copiar el texto.
+
+Para cambios Salesforce Core, el monitor consulta las APIs de metadata del org para enriquecer cada fila con `LastModifiedBy.Name` y `LastModifiedDate`. Para cambios Vlocity, ahora comparte el catálogo de queries DataPack usado por `sf metadelta find`, por lo que rutas como `vlocity/Promotion/<GlobalKey>/...` se resuelven contra el DataPack padre por `Name`, `Id` o el campo namespaced `GlobalKey__c` cuando esté disponible. Esto mejora el modificador mostrado en el dashboard y en el log, evitando caer en `N/A` para muchos archivos DataPack Vlocity.
 
 Cuando `--scope-xml` o `--scope-yaml` está presente, el dashboard muestra el scope custom correspondiente: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM` o `ALL-CUSTOM`. Las rutas XML/YAML pueden tener cualquier nombre de archivo y se resuelven de forma relativa al directorio donde inicias el comando, antes de que el monitor cambie a `.metadelta/monitor/<aliasOrg>/`.
 
@@ -1149,7 +1161,13 @@ sf metadelta monitor run --org DEV --scope salesforce
 
 `RECENT CHANGES` es acumulativo dentro de la sesión activa de terminal. Entre ejecuciones, el baseline Git y los snapshots se preservan en `.metadelta/monitor/<aliasOrg>/.metadelta-monitor/`, por lo que el siguiente arranque continúa desde la última línea base en vez de iniciar desde cero. Además, se escribe un log persistente append-only en `.metadelta/monitor/<aliasOrg>/change-log.jsonl`. Este log registra eventos `SESSION_STARTED`, `CHANGE_DETECTED` y `SESSION_ENDED` con tipo de componente, nombre de componente, acción, hora de detección, fecha de última modificación y modificador cuando estén disponibles. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
 
-> **Persistencia y manifests con scope en monitor (v0.11.10):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity.
+Para exportar el log persistente acumulado a CSV cuando el monitor sale, usa `--export-csv`. La exportación incluye eventos de sesión y cambios en columnas estables como `event`, `org`, `scope`, `source`, `action`, `type`, `component`, `file`, `detectedAt`, `lastModifiedDate`, `lastModifiedBy`, `startedAt`, `endedAt`, `exitCode` y `reason`.
+
+```bash
+sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
+```
+
+> **Persistencia, manifests con scope, enriquecimiento Vlocity y exportación CSV en monitor (v0.11.11):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando.
 
 ### Comando `task record` / `task play`
 
