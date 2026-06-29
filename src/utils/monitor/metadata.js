@@ -120,6 +120,7 @@ const globalKeyTypes = new Set([
 ]);
 
 const codeTypes = new Set(['AttributeCategory', 'PriceList', 'PricingVariable']);
+const knownVlocityNamespaces = ['omnistudio', 'vlocity_cmt', 'vlocity_ins', 'vlocity_ps', 'vlocity'];
 
 export function classifyChange(file) {
   const normalized = file.split(path.sep).join('/');
@@ -225,18 +226,20 @@ async function queryVlocityMetadata(orgAlias, classified, filePath, context) {
     return context.metadataCache.get(cacheKey);
   }
 
-  const namespace = await detectVlocityNamespace(orgAlias, context);
-  const orgMetadata = namespace !== null ? await queryVlocityOrgMetadata(orgAlias, classified, namespace) : null;
+  const namespaces = await detectVlocityNamespaces(orgAlias, context);
+  const identifiers = collectVlocityIdentifiers(filePath, classified);
+  const orgMetadata = await queryVlocityOrgMetadata(orgAlias, classified, namespaces, identifiers);
   const metadata = orgMetadata ?? readVlocityMetadata(filePath);
   context.metadataCache.set(cacheKey, metadata);
   return metadata;
 }
 
-async function detectVlocityNamespace(orgAlias, context) {
-  if (context.namespace !== undefined) {
-    return context.namespace;
+async function detectVlocityNamespaces(orgAlias, context) {
+  if (context.namespaces !== undefined) {
+    return context.namespaces;
   }
-  for (const namespace of ['omnistudio', 'vlocity_cmt', 'vlocity_ins', 'vlocity_ps', 'vlocity']) {
+  const namespaces = [];
+  for (const namespace of knownVlocityNamespaces) {
     try {
       await runProcess('sf', [
         'data',
@@ -247,8 +250,7 @@ async function detectVlocityNamespace(orgAlias, context) {
         orgAlias,
         '--json',
       ]);
-      context.namespace = namespace;
-      return namespace;
+      namespaces.push(namespace);
     } catch {
       // Try the next known OmniStudio/Vlocity namespace.
     }
@@ -264,18 +266,19 @@ async function detectVlocityNamespace(orgAlias, context) {
         orgAlias,
         '--json',
       ]);
-      context.namespace = '';
-      return '';
+      namespaces.push('');
+      break;
     } catch {
       // No legacy namespace or modern OmniStudio objects were queryable.
     }
   }
-  context.namespace = null;
-  return null;
+  context.namespaces = Array.from(new Set(namespaces));
+  return context.namespaces;
 }
 
-async function queryVlocityOrgMetadata(orgAlias, classified, namespace) {
-  const queries = buildVlocityQueries(classified, namespace);
+async function queryVlocityOrgMetadata(orgAlias, classified, namespaces, identifiers) {
+  const namespaceCandidates = Array.from(new Set([...namespaces, ...knownVlocityNamespaces, '']));
+  const queries = namespaceCandidates.flatMap((namespace) => buildVlocityQueries(classified, namespace, identifiers));
   for (const query of queries) {
     try {
       const {stdout} = await runProcess('sf', ['data', 'query', '--query', query, '--target-org', orgAlias, '--json']);
@@ -296,7 +299,7 @@ async function queryVlocityOrgMetadata(orgAlias, classified, namespace) {
   return null;
 }
 
-function buildVlocityQueries(classified, namespace) {
+function buildVlocityQueries(classified, namespace, identifiers = [classified.memberName]) {
   const name = soql(classified.memberName);
   const ns = namespace ? `${namespace}__` : '';
   const omniNameParts = classified.memberName.split('_').map(soql);
@@ -304,7 +307,7 @@ function buildVlocityQueries(classified, namespace) {
   const subTypeValue = omniNameParts.slice(1, -1).join('_') || omniNameParts[1] || '';
   const languageValue = omniNameParts.at(-1) || '';
   const queries = [];
-  const findQuery = buildFindVlocityQuery(classified, namespace);
+  const findQuery = buildFindVlocityQuery(classified, namespace, identifiers);
 
   if (findQuery) {
     queries.push(findQuery);
@@ -355,7 +358,7 @@ function buildVlocityQueries(classified, namespace) {
   return Array.from(new Set(queries));
 }
 
-function buildFindVlocityQuery(classified, namespace) {
+function buildFindVlocityQuery(classified, namespace, identifiers = [classified.memberName]) {
   const template = vlocityDatapackQueries[classified.type];
   if (!template) {
     return null;
@@ -365,32 +368,48 @@ function buildFindVlocityQuery(classified, namespace) {
   }
 
   const query = template.replace(/%vlocity_namespace%/g, namespace);
-  const filters = buildFindVlocityFilters(classified, namespace);
+  const filters = buildFindVlocityFilters(classified, namespace, identifiers);
   if (filters.length === 0) {
-    return `${query} LIMIT 1`;
+    return null;
   }
   const operator = /\bwhere\b/i.test(query) ? 'AND' : 'WHERE';
   return `${query} ${operator} (${filters.join(' OR ')}) LIMIT 1`;
 }
 
-function buildFindVlocityFilters(classified, namespace) {
-  const name = soql(classified.memberName);
+function buildFindVlocityFilters(classified, namespace, identifiers = [classified.memberName]) {
   const ns = namespace ? `${namespace}__` : '';
-  const filters = classified.type === 'QueryBuilder'
-    ? [`Id = '${name}'`]
-    : [`Name = '${name}'`, `Id = '${name}'`];
+  const values = Array.from(new Set(identifiers.filter(Boolean).map((value) => String(value)))).slice(0, 25);
+  const filters = [];
 
-  if (globalKeyTypes.has(classified.type) && ns) {
-    filters.push(`${ns}GlobalKey__c = '${name}'`);
-  }
-  if (codeTypes.has(classified.type) && ns) {
-    filters.push(`${ns}Code__c = '${name}'`);
-  }
-  if (classified.type === 'Pricebook2' || classified.type === 'PricingPlan') {
-    filters.push(`Name = '${soql(classified.memberName.replace(/-/g, ' '))}'`);
+  for (const value of values) {
+    const name = soql(value);
+    if (classified.type === 'QueryBuilder') {
+      if (isSalesforceId(value)) {
+        filters.push(`Id = '${name}'`);
+      }
+    } else {
+      filters.push(`Name = '${name}'`);
+      if (isSalesforceId(value)) {
+        filters.push(`Id = '${name}'`);
+      }
+    }
+
+    if (globalKeyTypes.has(classified.type) && ns) {
+      filters.push(`${ns}GlobalKey__c = '${name}'`);
+    }
+    if (codeTypes.has(classified.type) && ns) {
+      filters.push(`${ns}Code__c = '${name}'`);
+    }
+    if (classified.type === 'Pricebook2' || classified.type === 'PricingPlan') {
+      filters.push(`Name = '${soql(value.replace(/-/g, ' '))}'`);
+    }
   }
 
   return Array.from(new Set(filters));
+}
+
+function isSalesforceId(value) {
+  return /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/.test(String(value ?? ''));
 }
 
 function soql(value) {
@@ -451,6 +470,65 @@ async function queryListMetadata(orgAlias, classified) {
   } catch {
     return null;
   }
+}
+
+function collectVlocityIdentifiers(filePath, classified) {
+  const identifiers = new Set([classified.memberName]);
+  const candidates = [filePath, ...siblingJsonFiles(filePath)];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+      for (const value of findVlocityIdentifierValues(parsed)) {
+        identifiers.add(value);
+        if (value.includes('/')) {
+          identifiers.add(value.split('/').at(-1));
+        }
+      }
+    } catch {
+      // Ignore unreadable exported DataPack JSON and keep folder-based identifiers.
+    }
+  }
+  return Array.from(identifiers)
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .slice(0, 25);
+}
+
+function findVlocityIdentifierValues(value) {
+  const values = [];
+  collectVlocityIdentifierValues(value, values);
+  return values;
+}
+
+function collectVlocityIdentifierValues(value, values) {
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectVlocityIdentifierValues(item, values);
+    }
+    return;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string' && isVlocityIdentifierKey(key)) {
+      values.push(entry);
+    }
+    if (entry && typeof entry === 'object') {
+      collectVlocityIdentifierValues(entry, values);
+    }
+  }
+}
+
+function isVlocityIdentifierKey(key) {
+  return key === 'Id'
+    || key === 'Name'
+    || key === 'VlocityDataPackKey'
+    || key === 'VlocityDataPackName'
+    || key === 'GlobalKey__c'
+    || key === 'Code__c'
+    || key.endsWith('__GlobalKey__c')
+    || key.endsWith('__Code__c');
 }
 
 function readVlocityMetadata(filePath) {
