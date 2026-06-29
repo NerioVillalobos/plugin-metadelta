@@ -691,6 +691,13 @@
           "multiple": false,
           "type": "option"
         },
+        "export-csv": {
+          "name": "export-csv",
+          "summary": "Export the persistent monitor change log to this CSV file when the command exits",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
         "once": {
           "name": "once",
           "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",
@@ -929,5 +936,5 @@
       ]
     }
   },
-  "version": "0.11.10"
+  "version": "0.11.11"
 }

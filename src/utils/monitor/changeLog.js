@@ -43,7 +43,64 @@ export function appendChangeLogEntries(logPath, rows, {orgAlias, detectedAt}) {
   fs.appendFileSync(logPath, `${entries.join('\n')}\n`, 'utf8');
 }
 
+export function exportChangeLogToCsv(logPath, csvPath) {
+  const entries = readChangeLogEntries(logPath);
+  const columns = [
+    'event',
+    'org',
+    'scope',
+    'source',
+    'action',
+    'type',
+    'component',
+    'file',
+    'previousFile',
+    'detectedAt',
+    'lastModifiedDate',
+    'lastModifiedBy',
+    'startedAt',
+    'endedAt',
+    'exitCode',
+    'reason',
+  ];
+  const lines = [
+    columns.join(','),
+    ...entries.map((entry) => columns.map((column) => csvValue(entry[column])).join(',')),
+  ];
+  fs.mkdirSync(path.dirname(csvPath), {recursive: true});
+  fs.writeFileSync(csvPath, `${lines.join('\n')}\n`, 'utf8');
+  return {entries: entries.length, csvPath};
+}
+
 function appendLogEntry(logPath, entry) {
   fs.mkdirSync(path.dirname(logPath), {recursive: true});
   fs.appendFileSync(logPath, `${JSON.stringify(entry)}\n`, 'utf8');
+}
+
+function readChangeLogEntries(logPath) {
+  if (!fs.existsSync(logPath)) {
+    return [];
+  }
+  return fs.readFileSync(logPath, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line)];
+      } catch {
+        return [];
+      }
+    });
+}
+
+function csvValue(value) {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  const text = String(value);
+  if (!/[",\r\n]/.test(text)) {
+    return text;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
 }

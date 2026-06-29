@@ -9,7 +9,7 @@ import {initGit, hasBaseline, createBaseline, parseDiff, diffSummary, updateBase
 import {normalizeTree} from '../../../utils/monitor/normalizer.js';
 import {retrieveSalesforceCore, exportVlocity} from '../../../utils/monitor/retriever.js';
 import {enrichChanges} from '../../../utils/monitor/metadata.js';
-import {appendChangeLogEntries, appendSessionEnded, appendSessionStarted} from '../../../utils/monitor/changeLog.js';
+import {appendChangeLogEntries, appendSessionEnded, appendSessionStarted, exportChangeLogToCsv} from '../../../utils/monitor/changeLog.js';
 import {MonitorUi} from '../../../utils/monitor/ui.js';
 import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 
@@ -38,6 +38,7 @@ class MonitorRun extends Command {
     }),
     'scope-xml': Flags.string({summary: 'Path to a Salesforce Core package.xml used to monitor only those components'}),
     'scope-yaml': Flags.string({summary: 'Path to a Vlocity YAML manifest used to monitor only those DataPacks'}),
+    'export-csv': Flags.string({summary: 'Export the persistent monitor change log to this CSV file when the command exits'}),
     once: Flags.boolean({summary: 'Run one refresh cycle and exit after cleanup. Useful for validation.'}),
   };
 
@@ -51,6 +52,7 @@ class MonitorRun extends Command {
     fs.mkdirSync(commandRoot, {recursive: true});
     process.chdir(commandRoot);
     const changeLogPath = path.join(commandRoot, 'change-log.jsonl');
+    const csvExportPath = flags['export-csv'] ? path.resolve(launchRoot, flags['export-csv']) : undefined;
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
@@ -77,6 +79,9 @@ class MonitorRun extends Command {
         exitCode: code,
         reason,
       });
+      if (csvExportPath) {
+        exportChangeLogToCsv(changeLogPath, csvExportPath);
+      }
     };
 
     const scheduleNextRefresh = () => {
