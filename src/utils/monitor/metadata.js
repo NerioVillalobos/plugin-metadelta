@@ -13,14 +13,48 @@ const pathTypeMap = [
   {pattern: /(^|\/)tabs\//, type: 'CustomTab', field: 'DeveloperName'},
   {pattern: /(^|\/)staticresources\//, type: 'StaticResource', field: 'Name'},
   {pattern: /(^|\/)labels\//, type: 'CustomLabels', field: 'Name'},
+  {pattern: /(^|\/)autoResponseRules\//, type: 'AutoResponseRules', field: 'Name'},
+  {pattern: /(^|\/)assignmentRules\//, type: 'AssignmentRules', field: 'Name'},
+  {pattern: /(^|\/)brandingSets\//, type: 'BrandingSet', field: 'DeveloperName'},
+  {pattern: /(^|\/)callCenters\//, type: 'CallCenter', field: 'Name'},
+  {pattern: /(^|\/)communities\//, type: 'Community', field: 'Name'},
+  {pattern: /(^|\/)connectedApps\//, type: 'ConnectedApp', field: 'Name'},
+  {pattern: /(^|\/)contentassets\//, type: 'ContentAsset', field: 'DeveloperName'},
+  {pattern: /(^|\/)corsWhitelistOrigins\//, type: 'CorsWhitelistOrigin', field: 'DeveloperName'},
+  {pattern: /(^|\/)customMetadata\//, type: 'CustomMetadata', field: 'DeveloperName'},
+  {pattern: /(^|\/)customPermissions\//, type: 'CustomPermission', field: 'DeveloperName'},
   {pattern: /(^|\/)quickActions\//, type: 'QuickAction', field: 'DeveloperName'},
   {pattern: /(^|\/)remoteSiteSettings\//, type: 'RemoteSiteSetting', field: 'Name'},
   {pattern: /(^|\/)settings\//, type: 'Settings', field: 'Name'},
   {pattern: /(^|\/)objectTranslations\//, type: 'CustomObjectTranslation', field: 'Name'},
   {pattern: /(^|\/)translations\//, type: 'Translations', field: 'Name'},
   {pattern: /(^|\/)standardValueSetTranslations\//, type: 'StandardValueSetTranslation', field: 'Name'},
+  {pattern: /(^|\/)standardValueSets\//, type: 'StandardValueSet', field: 'Name'},
+  {pattern: /(^|\/)dataSources\//, type: 'ExternalDataSource', field: 'DeveloperName'},
+  {pattern: /(^|\/)documents\//, type: 'Document', field: 'Name', member: 'nested'},
+  {pattern: /(^|\/)escalationRules\//, type: 'EscalationRules', field: 'Name'},
+  {pattern: /(^|\/)experiences\//, type: 'ExperienceBundle', field: 'DeveloperName'},
+  {pattern: /(^|\/)globalValueSets\//, type: 'GlobalValueSet', field: 'DeveloperName'},
+  {pattern: /(^|\/)homePageComponents\//, type: 'HomePageComponent', field: 'Name'},
+  {pattern: /(^|\/)homePageLayouts\//, type: 'HomePageLayout', field: 'Name'},
+  {pattern: /(^|\/)installedPackages\//, type: 'InstalledPackage', field: 'Name'},
+  {pattern: /(^|\/)letterhead\//, type: 'Letterhead', field: 'Name'},
+  {pattern: /(^|\/)managedTopics\//, type: 'ManagedTopics', field: 'Name'},
+  {pattern: /(^|\/)messageChannels\//, type: 'LightningMessageChannel', field: 'DeveloperName'},
+  {pattern: /(^|\/)namedCredentials\//, type: 'NamedCredential', field: 'DeveloperName'},
+  {pattern: /(^|\/)notificationtypes\//, type: 'CustomNotificationType', field: 'DeveloperName'},
+  {pattern: /(^|\/)pathAssistants\//, type: 'PathAssistant', field: 'DeveloperName'},
+  {pattern: /(^|\/)permissionsetgroups\//, type: 'PermissionSetGroup', field: 'DeveloperName'},
+  {pattern: /(^|\/)platformCachePartitions\//, type: 'PlatformCachePartition', field: 'DeveloperName'},
+  {pattern: /(^|\/)redirectWhitelistUrls\//, type: 'RedirectWhitelistUrl', field: 'DeveloperName'},
+  {pattern: /(^|\/)samlssoconfigs\//, type: 'SamlSsoConfig', field: 'DeveloperName'},
+  {pattern: /(^|\/)sharingRules\//, type: 'SharingRules', field: 'Name'},
+  {pattern: /(^|\/)sites\//, type: 'CustomSite', field: 'Name'},
+  {pattern: /(^|\/)territory2Models\//, type: 'Territory2Model', field: 'DeveloperName'},
+  {pattern: /(^|\/)weblinks\//, type: 'CustomPageWebLink', field: 'Name'},
   {pattern: /(^|\/)email\//, type: 'EmailTemplate', field: 'Name', member: 'nested'},
   {pattern: /(^|\/)workflows\//, type: 'Workflow', field: 'Name'},
+  {pattern: /(^|\/)roles\//, type: 'Role', field: 'Name'},
   {pattern: /(^|\/)groups\//, type: 'Group', field: 'DeveloperName'},
   {pattern: /(^|\/)queues\//, type: 'Queue', field: 'DeveloperName'},
   {pattern: /(^|\/)reports\//, type: 'Report', field: 'DeveloperName', member: 'nested'},
@@ -209,7 +243,7 @@ export async function enrichChanges(changes, orgAlias, gitRoot, getDiffSummary) 
     const classified = classifyChange(change.file);
     const metadata = classified.source === 'salesforce'
       ? await queryMetadata(orgAlias, classified)
-      : await queryVlocityMetadata(orgAlias, classified, path.join(gitRoot, change.file), context);
+      : await queryVlocityMetadata(orgAlias, classified, path.join(gitRoot, change.file), context, gitRoot, change.file);
     const summary = await getDiffSummary(gitRoot, change.file);
     rows.push({
       ...change,
@@ -223,16 +257,17 @@ export async function enrichChanges(changes, orgAlias, gitRoot, getDiffSummary) 
   return rows;
 }
 
-async function queryVlocityMetadata(orgAlias, classified, filePath, context) {
+async function queryVlocityMetadata(orgAlias, classified, filePath, context, gitRoot, relativeFile) {
   const cacheKey = `${classified.type}:${classified.memberName}`;
   if (context.metadataCache.has(cacheKey)) {
     return context.metadataCache.get(cacheKey);
   }
 
   const namespaces = await detectVlocityNamespaces(orgAlias, context);
-  const identifiers = collectVlocityIdentifiers(filePath, classified);
+  const deletedFileContent = await readGitHeadFile(gitRoot, relativeFile);
+  const identifiers = collectVlocityIdentifiers(filePath, classified, deletedFileContent);
   const orgMetadata = await queryVlocityOrgMetadata(orgAlias, classified, namespaces, identifiers);
-  const metadata = orgMetadata ?? readVlocityMetadata(filePath);
+  const metadata = orgMetadata ?? readVlocityMetadata(filePath, deletedFileContent);
   context.metadataCache.set(cacheKey, metadata);
   return metadata;
 }
@@ -475,12 +510,27 @@ async function queryListMetadata(orgAlias, classified) {
   }
 }
 
-function collectVlocityIdentifiers(filePath, classified) {
+async function readGitHeadFile(gitRoot, relativeFile) {
+  if (!gitRoot || !relativeFile) {
+    return null;
+  }
+  try {
+    const {stdout} = await runProcess('git', ['show', `HEAD:${relativeFile}`], {cwd: gitRoot});
+    return stdout;
+  } catch {
+    return null;
+  }
+}
+
+function collectVlocityIdentifiers(filePath, classified, deletedFileContent = null) {
   const identifiers = new Set([classified.memberName]);
-  const candidates = [filePath, ...siblingJsonFiles(filePath)];
+  const candidates = [
+    ...jsonContentCandidates(deletedFileContent),
+    ...[filePath, ...siblingJsonFiles(filePath)].map((candidate) => ({type: 'file', value: candidate})),
+  ];
   for (const candidate of candidates) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+      const parsed = JSON.parse(candidate.type === 'content' ? candidate.value : fs.readFileSync(candidate.value, 'utf8'));
       for (const value of findVlocityIdentifierValues(parsed)) {
         identifiers.add(value);
         if (value.includes('/')) {
@@ -495,6 +545,10 @@ function collectVlocityIdentifiers(filePath, classified) {
     .map((value) => String(value ?? '').trim())
     .filter(Boolean)
     .slice(0, 25);
+}
+
+function jsonContentCandidates(content) {
+  return content ? [{type: 'content', value: content}] : [];
 }
 
 function findVlocityIdentifierValues(value) {
@@ -534,10 +588,15 @@ function isVlocityIdentifierKey(key) {
     || key.endsWith('__Code__c');
 }
 
-function readVlocityMetadata(filePath) {
-  const candidates = [filePath, ...siblingJsonFiles(filePath)];
+function readVlocityMetadata(filePath, deletedFileContent = null) {
+  const candidates = [
+    ...jsonContentCandidates(deletedFileContent),
+    ...[filePath, ...siblingJsonFiles(filePath)].map((candidate) => ({type: 'file', value: candidate})),
+  ];
   for (const candidate of candidates) {
-    const metadata = readJsonMetadata(candidate);
+    const metadata = candidate.type === 'content'
+      ? readJsonMetadataContent(candidate.value, 'Git baseline')
+      : readJsonMetadata(candidate.value);
     if (metadata.user !== 'N/A' || metadata.lastModifiedDate) {
       return metadata;
     }
@@ -563,7 +622,15 @@ function siblingJsonFiles(filePath) {
 
 function readJsonMetadata(filePath) {
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return readJsonMetadataContent(fs.readFileSync(filePath, 'utf8'), path.basename(filePath));
+  } catch {
+    return {user: 'N/A', lastModifiedDate: null, query: `Could not parse ${path.basename(filePath)}`};
+  }
+}
+
+function readJsonMetadataContent(content, label) {
+  try {
+    const parsed = JSON.parse(content);
     const lastModifiedDate =
       findValue(parsed, ['LastModifiedDate', 'LastModifiedDate__c', 'lastModifiedDate']) ?? null;
     const user =
@@ -577,10 +644,10 @@ function readJsonMetadata(filePath) {
     return {
       user,
       lastModifiedDate,
-      query: `Read Vlocity metadata from ${path.basename(filePath)}`,
+      query: `Read Vlocity metadata from ${label}`,
     };
   } catch {
-    return {user: 'N/A', lastModifiedDate: null, query: `Could not parse ${path.basename(filePath)}`};
+    return {user: 'N/A', lastModifiedDate: null, query: `Could not parse ${label}`};
   }
 }
 
