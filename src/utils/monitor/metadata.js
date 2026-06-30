@@ -456,6 +456,12 @@ function soql(value) {
 
 async function queryMetadata(orgAlias, classified) {
   const escapedName = classified.memberName.replace(/'/g, "\\'");
+  const queryWithModifierId = [
+    'SELECT Id, Name, LastModifiedBy.Name, LastModifiedById, LastModifiedDate',
+    `FROM ${classified.type}`,
+    `WHERE ${classified.queryField} = '${escapedName}'`,
+    'LIMIT 1',
+  ].join(' ');
   const query = [
     'SELECT Id, Name, LastModifiedBy.Name, LastModifiedDate',
     `FROM ${classified.type}`,
@@ -464,6 +470,8 @@ async function queryMetadata(orgAlias, classified) {
   ].join(' ');
 
   for (const args of [
+    ['data', 'query', '--query', queryWithModifierId, '--target-org', orgAlias, '--use-tooling-api', '--json'],
+    ['data', 'query', '--query', queryWithModifierId, '--target-org', orgAlias, '--json'],
     ['data', 'query', '--query', query, '--target-org', orgAlias, '--use-tooling-api', '--json'],
     ['data', 'query', '--query', query, '--target-org', orgAlias, '--json'],
   ]) {
@@ -472,10 +480,11 @@ async function queryMetadata(orgAlias, classified) {
       const parsed = JSON.parse(stdout);
       const record = parsed.result?.records?.[0];
       if (record) {
+        const user = await resolveRecordModifierName(orgAlias, record);
         return {
-          user: record.LastModifiedBy?.Name ?? record.LastModifiedByName ?? 'Unknown',
+          user,
           lastModifiedDate: record.LastModifiedDate ?? null,
-          query,
+          query: args[3],
         };
       }
     } catch {
@@ -485,6 +494,25 @@ async function queryMetadata(orgAlias, classified) {
 
   const listMetadata = await queryListMetadata(orgAlias, classified);
   return listMetadata ?? {user: 'Unknown', lastModifiedDate: null, query};
+}
+
+async function resolveRecordModifierName(orgAlias, record) {
+  const directName = record.LastModifiedBy?.Name ?? record.LastModifiedByName;
+  if (directName) {
+    return directName;
+  }
+  if (!record.LastModifiedById || !isSalesforceId(record.LastModifiedById)) {
+    return 'Unknown';
+  }
+  const userId = soql(record.LastModifiedById);
+  const query = `SELECT Name FROM User WHERE Id = '${userId}' LIMIT 1`;
+  try {
+    const {stdout} = await runProcess('sf', ['data', 'query', '--query', query, '--target-org', orgAlias, '--json']);
+    const parsed = JSON.parse(stdout);
+    return parsed.result?.records?.[0]?.Name ?? 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
 }
 
 async function queryListMetadata(orgAlias, classified) {
