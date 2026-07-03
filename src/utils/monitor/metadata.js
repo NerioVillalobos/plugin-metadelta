@@ -138,7 +138,16 @@ const vlocityDatapackQueries = {
   VqResource: 'SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VqResource__c',
 };
 
+const vlocityChildDatapackQueries = {
+  Catalog: {
+    CatalogProductRelationships: [
+      'SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CatalogProductRelationship__c',
+    ],
+  },
+};
+
 const globalKeyTypes = new Set([
+  'Catalog',
   'ContextAction',
   'ContextDimension',
   'ContextScope',
@@ -175,6 +184,7 @@ export function classifyChange(file) {
     type,
     source,
     memberName: source === 'vlocity' ? (vlocityPathInfo?.memberName ?? baseName) : baseName,
+    datapackPart: source === 'vlocity' ? vlocityDatapackPart(normalized) : null,
     queryField: mapping?.field ?? 'Name',
   };
 }
@@ -224,6 +234,12 @@ function vlocityMemberName(file, type) {
     return parts[typeIndex + 1];
   }
   return path.basename(file).replace(/_AllRelationshipKeys\.json$/i, '').replace(/\.[^.]+$/i, '');
+}
+
+function vlocityDatapackPart(file) {
+  const baseName = path.basename(file).replace(/\.json$/i, '');
+  const match = baseName.match(/_([^_]+)$/);
+  return match?.[1] ?? null;
 }
 
 function getVlocityPathInfo(file) {
@@ -279,7 +295,7 @@ function normalizeAuditMetadata(metadata, source) {
 }
 
 async function queryVlocityMetadata(orgAlias, classified, filePath, context, gitRoot, relativeFile) {
-  const cacheKey = `${classified.type}:${classified.memberName}`;
+  const cacheKey = `${classified.type}:${classified.memberName}:${classified.datapackPart ?? 'datapack'}`;
   if (context.metadataCache.has(cacheKey)) {
     return context.metadataCache.get(cacheKey);
   }
@@ -369,7 +385,10 @@ function buildVlocityQueries(classified, namespace, identifiers = [classified.me
   const subTypeValue = omniNameParts.slice(1, -1).join('_') || omniNameParts[1] || '';
   const languageValue = omniNameParts.at(-1) || '';
   const queries = [];
+  const childQueries = buildVlocityChildDatapackQueries(classified, namespace, identifiers);
   const findQuery = buildFindVlocityQuery(classified, namespace, identifiers);
+
+  queries.push(...childQueries);
 
   if (findQuery) {
     queries.push(findQuery);
@@ -418,6 +437,36 @@ function buildVlocityQueries(classified, namespace, identifiers = [classified.me
   }
 
   return Array.from(new Set(queries));
+}
+
+function buildVlocityChildDatapackQueries(classified, namespace, identifiers = [classified.memberName]) {
+  const templates = vlocityChildDatapackQueries[classified.type]?.[classified.datapackPart] ?? [];
+  if (templates.length === 0 || !namespace) {
+    return [];
+  }
+  const filters = buildVlocityChildFilters(identifiers);
+  if (filters.length === 0) {
+    return [];
+  }
+  return templates.map((template) => {
+    const query = template.replace(/%vlocity_namespace%/g, namespace);
+    const operator = /\bwhere\b/i.test(query) ? 'AND' : 'WHERE';
+    return `${query} ${operator} (${filters.join(' OR ')}) LIMIT 1`;
+  });
+}
+
+function buildVlocityChildFilters(identifiers) {
+  const values = Array.from(new Set(identifiers.filter(Boolean).map((value) => String(value)))).slice(0, 25);
+  const filters = [];
+  for (const value of values) {
+    const name = soql(value);
+    if (isSalesforceId(value)) {
+      filters.push(`Id = '${name}'`);
+    } else if (!/_(DataPack|ParentKeys|PriceListEntries|PromotionItems|RuleAssignments|CatalogProductRelationships|SystemInterfaces)$/i.test(value)) {
+      filters.push(`Name = '${name}'`);
+    }
+  }
+  return Array.from(new Set(filters));
 }
 
 function buildFindVlocityQuery(classified, namespace, identifiers = [classified.memberName]) {
@@ -676,6 +725,9 @@ async function readGitHeadFile(gitRoot, relativeFile) {
 
 function collectVlocityIdentifiers(filePath, classified, deletedFileContent = null) {
   const identifiers = new Set(vlocityQueryValueVariants(classified.memberName, classified.type));
+  for (const variant of vlocityQueryValueVariants(path.basename(filePath).replace(/\.json$/i, ''), classified.type)) {
+    identifiers.add(variant);
+  }
   const candidates = [
     ...jsonContentCandidates(deletedFileContent),
     ...[filePath, ...siblingJsonFiles(filePath)].map((candidate) => ({type: 'file', value: candidate})),
@@ -732,6 +784,8 @@ function isVlocityIdentifierKey(key) {
     || key === 'Name'
     || key === 'VlocityDataPackKey'
     || key === 'VlocityDataPackName'
+    || key === 'VlocityLookupRecordSourceKey'
+    || key === 'VlocityRecordSourceKey'
     || key === 'GlobalKey__c'
     || key === 'Code__c'
     || key.endsWith('__GlobalKey__c')
