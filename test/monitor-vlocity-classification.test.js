@@ -11,3 +11,14 @@ test('classifyChange keeps generic Vlocity datapack folder type and member name'
   assert.equal(classified.type, 'CustomFieldMap');
   assert.equal(classified.memberName, 'CustomerFieldMap');
 });
+
+test('classifyChange identifies Vlocity child datapack part', () => {
+  const classified = classifyChange(
+    'DEV/current/vlocity/Catalog/Telefonia/Telefonia_CatalogProductRelationships.json'
+  );
+
+  assert.equal(classified.source, 'vlocity');
+  assert.equal(classified.type, 'Catalog');
+  assert.equal(classified.memberName, 'Telefonia');
+  assert.equal(classified.datapackPart, 'CatalogProductRelationships');
+});

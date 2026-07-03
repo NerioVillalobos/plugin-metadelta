@@ -138,7 +138,16 @@ const vlocityDatapackQueries = {
   VqResource: 'SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__VqResource__c',
 };
 
+const vlocityChildDatapackQueries = {
+  Catalog: {
+    CatalogProductRelationships: [
+      'SELECT Id, Name, LastModifiedDate, LastModifiedBy.Name FROM %vlocity_namespace%__CatalogProductRelationship__c',
+    ],
+  },
+};
+
 const globalKeyTypes = new Set([
+  'Catalog',
   'ContextAction',
   'ContextDimension',
   'ContextScope',
@@ -158,6 +167,7 @@ const globalKeyTypes = new Set([
 ]);
 
 const codeTypes = new Set(['AttributeCategory', 'PriceList', 'PricingVariable']);
+const hyphenNameFallbackTypes = new Set(['Pricebook2', 'PricingPlan', 'System']);
 const knownVlocityNamespaces = ['omnistudio', 'vlocity_cmt', 'vlocity_ins', 'vlocity_ps', 'vlocity'];
 
 export function classifyChange(file) {
@@ -174,6 +184,7 @@ export function classifyChange(file) {
     type,
     source,
     memberName: source === 'vlocity' ? (vlocityPathInfo?.memberName ?? baseName) : baseName,
+    datapackPart: source === 'vlocity' ? vlocityDatapackPart(normalized) : null,
     queryField: mapping?.field ?? 'Name',
   };
 }
@@ -223,6 +234,12 @@ function vlocityMemberName(file, type) {
     return parts[typeIndex + 1];
   }
   return path.basename(file).replace(/_AllRelationshipKeys\.json$/i, '').replace(/\.[^.]+$/i, '');
+}
+
+function vlocityDatapackPart(file) {
+  const baseName = path.basename(file).replace(/\.json$/i, '');
+  const match = baseName.match(/_([^_]+)$/);
+  return match?.[1] ?? null;
 }
 
 function getVlocityPathInfo(file) {
@@ -278,7 +295,7 @@ function normalizeAuditMetadata(metadata, source) {
 }
 
 async function queryVlocityMetadata(orgAlias, classified, filePath, context, gitRoot, relativeFile) {
-  const cacheKey = `${classified.type}:${classified.memberName}`;
+  const cacheKey = `${classified.type}:${classified.memberName}:${classified.datapackPart ?? 'datapack'}`;
   if (context.metadataCache.has(cacheKey)) {
     return context.metadataCache.get(cacheKey);
   }
@@ -368,7 +385,10 @@ function buildVlocityQueries(classified, namespace, identifiers = [classified.me
   const subTypeValue = omniNameParts.slice(1, -1).join('_') || omniNameParts[1] || '';
   const languageValue = omniNameParts.at(-1) || '';
   const queries = [];
+  const childQueries = buildVlocityChildDatapackQueries(classified, namespace, identifiers);
   const findQuery = buildFindVlocityQuery(classified, namespace, identifiers);
+
+  queries.push(...childQueries);
 
   if (findQuery) {
     queries.push(findQuery);
@@ -419,6 +439,36 @@ function buildVlocityQueries(classified, namespace, identifiers = [classified.me
   return Array.from(new Set(queries));
 }
 
+function buildVlocityChildDatapackQueries(classified, namespace, identifiers = [classified.memberName]) {
+  const templates = vlocityChildDatapackQueries[classified.type]?.[classified.datapackPart] ?? [];
+  if (templates.length === 0 || !namespace) {
+    return [];
+  }
+  const filters = buildVlocityChildFilters(identifiers);
+  if (filters.length === 0) {
+    return [];
+  }
+  return templates.map((template) => {
+    const query = template.replace(/%vlocity_namespace%/g, namespace);
+    const operator = /\bwhere\b/i.test(query) ? 'AND' : 'WHERE';
+    return `${query} ${operator} (${filters.join(' OR ')}) LIMIT 1`;
+  });
+}
+
+function buildVlocityChildFilters(identifiers) {
+  const values = Array.from(new Set(identifiers.filter(Boolean).map((value) => String(value)))).slice(0, 25);
+  const filters = [];
+  for (const value of values) {
+    const name = soql(value);
+    if (isSalesforceId(value)) {
+      filters.push(`Id = '${name}'`);
+    } else if (!/_(DataPack|ParentKeys|PriceListEntries|PromotionItems|RuleAssignments|CatalogProductRelationships|SystemInterfaces)$/i.test(value)) {
+      filters.push(`Name = '${name}'`);
+    }
+  }
+  return Array.from(new Set(filters));
+}
+
 function buildFindVlocityQuery(classified, namespace, identifiers = [classified.memberName]) {
   const template = vlocityDatapackQueries[classified.type];
   if (!template) {
@@ -443,30 +493,51 @@ function buildFindVlocityFilters(classified, namespace, identifiers = [classifie
   const filters = [];
 
   for (const value of values) {
-    const name = soql(value);
-    if (classified.type === 'QueryBuilder') {
-      if (isSalesforceId(value)) {
-        filters.push(`Id = '${name}'`);
+    for (const variant of vlocityQueryValueVariants(value, classified.type)) {
+      const name = soql(variant);
+      if (classified.type === 'QueryBuilder') {
+        if (isSalesforceId(variant)) {
+          filters.push(`Id = '${name}'`);
+        }
+      } else {
+        filters.push(`Name = '${name}'`);
+        if (isSalesforceId(variant)) {
+          filters.push(`Id = '${name}'`);
+        }
       }
-    } else {
-      filters.push(`Name = '${name}'`);
-      if (isSalesforceId(value)) {
-        filters.push(`Id = '${name}'`);
-      }
-    }
 
-    if (globalKeyTypes.has(classified.type) && ns) {
-      filters.push(`${ns}GlobalKey__c = '${name}'`);
-    }
-    if (codeTypes.has(classified.type) && ns) {
-      filters.push(`${ns}Code__c = '${name}'`);
-    }
-    if (classified.type === 'Pricebook2' || classified.type === 'PricingPlan') {
-      filters.push(`Name = '${soql(value.replace(/-/g, ' '))}'`);
+      if (globalKeyTypes.has(classified.type) && ns) {
+        filters.push(`${ns}GlobalKey__c = '${name}'`);
+      }
+      if (codeTypes.has(classified.type) && ns) {
+        filters.push(`${ns}Code__c = '${name}'`);
+      }
+      if (hyphenNameFallbackTypes.has(classified.type) && variant.includes('-')) {
+        filters.push(`Name = '${soql(variant.replace(/-/g, ' '))}'`);
+      }
     }
   }
 
   return Array.from(new Set(filters));
+}
+
+function vlocityQueryValueVariants(value, type) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return [];
+  }
+  const variants = new Set([raw]);
+  const suffixPattern = /_(DataPack|ParentKeys|PriceListEntries|PromotionItems|RuleAssignments|CatalogProductRelationships|SystemInterfaces)$/i;
+  if (suffixPattern.test(raw)) {
+    variants.add(raw.replace(suffixPattern, ''));
+  }
+  if (type && raw.endsWith(`_${type}`)) {
+    variants.add(raw.slice(0, -1 * (`_${type}`).length));
+  }
+  if (raw.includes('/')) {
+    variants.add(raw.split('/').at(-1));
+  }
+  return Array.from(variants).filter(Boolean);
 }
 
 function isSalesforceId(value) {
@@ -478,6 +549,13 @@ function soql(value) {
 }
 
 async function queryMetadata(orgAlias, classified) {
+  if (classified.type === 'CustomMetadata') {
+    const customMetadata = await queryCustomMetadata(orgAlias, classified);
+    if (customMetadata) {
+      return customMetadata;
+    }
+  }
+
   const escapedName = classified.memberName.replace(/'/g, "\\'");
   const queryWithModifierId = [
     'SELECT Id, Name, LastModifiedBy.Name, LastModifiedById, LastModifiedDate',
@@ -520,6 +598,56 @@ async function queryMetadata(orgAlias, classified) {
 
   const listMetadata = await queryListMetadata(orgAlias, classified);
   return listMetadata ?? {user: 'Unknown', lastModifiedDate: null, query};
+}
+
+async function queryCustomMetadata(orgAlias, classified) {
+  const queries = buildCustomMetadataQueries(classified);
+  for (const query of queries) {
+    for (const args of [
+      ['data', 'query', '--query', query, '--target-org', orgAlias, '--use-tooling-api', '--json'],
+      ['data', 'query', '--query', query, '--target-org', orgAlias, '--json'],
+    ]) {
+      try {
+        const {stdout} = await runProcess('sf', args);
+        const parsed = JSON.parse(stdout);
+        const record = parsed.result?.records?.[0];
+        if (!record) {
+          continue;
+        }
+        if (!isReliableAuditRecord(record)) {
+          continue;
+        }
+        const user = await resolveRecordModifierName(orgAlias, record);
+        return {
+          user,
+          lastModifiedDate: record.LastModifiedDate ?? null,
+          query,
+        };
+      } catch {
+        // CustomMetadata audit fields vary by API surface; try the next precise query.
+      }
+    }
+  }
+  return null;
+}
+
+function buildCustomMetadataQueries(classified) {
+  const fields = 'SELECT Id, DeveloperName, MasterLabel, LastModifiedBy.Name, LastModifiedById, LastModifiedDate';
+  const fullName = soql(classified.memberName);
+  const queries = [
+    `${fields} FROM CustomMetadata WHERE QualifiedApiName = '${fullName}' LIMIT 1`,
+    `${fields} FROM CustomMetadata WHERE FullName = '${fullName}' LIMIT 1`,
+  ];
+  const nameParts = String(classified.memberName ?? '').split('.');
+  if (nameParts.length > 1) {
+    const recordName = soql(nameParts.pop());
+    const typeName = soql(nameParts.join('.'));
+    const typeApiName = typeName.endsWith('__mdt') ? typeName : `${typeName}__mdt`;
+    queries.push(
+      `${fields} FROM CustomMetadata WHERE DeveloperName = '${recordName}' AND EntityDefinition.QualifiedApiName = '${typeApiName}' LIMIT 1`,
+    );
+  }
+  return queries;
 }
 
 async function resolveRecordModifierName(orgAlias, record) {
@@ -596,7 +724,10 @@ async function readGitHeadFile(gitRoot, relativeFile) {
 }
 
 function collectVlocityIdentifiers(filePath, classified, deletedFileContent = null) {
-  const identifiers = new Set([classified.memberName]);
+  const identifiers = new Set(vlocityQueryValueVariants(classified.memberName, classified.type));
+  for (const variant of vlocityQueryValueVariants(path.basename(filePath).replace(/\.json$/i, ''), classified.type)) {
+    identifiers.add(variant);
+  }
   const candidates = [
     ...jsonContentCandidates(deletedFileContent),
     ...[filePath, ...siblingJsonFiles(filePath)].map((candidate) => ({type: 'file', value: candidate})),
@@ -605,9 +736,8 @@ function collectVlocityIdentifiers(filePath, classified, deletedFileContent = nu
     try {
       const parsed = JSON.parse(candidate.type === 'content' ? candidate.value : fs.readFileSync(candidate.value, 'utf8'));
       for (const value of findVlocityIdentifierValues(parsed)) {
-        identifiers.add(value);
-        if (value.includes('/')) {
-          identifiers.add(value.split('/').at(-1));
+        for (const variant of vlocityQueryValueVariants(value, classified.type)) {
+          identifiers.add(variant);
         }
       }
     } catch {
@@ -619,7 +749,6 @@ function collectVlocityIdentifiers(filePath, classified, deletedFileContent = nu
     .filter(Boolean)
     .slice(0, 25);
 }
-
 function jsonContentCandidates(content) {
   return content ? [{type: 'content', value: content}] : [];
 }
@@ -655,6 +784,8 @@ function isVlocityIdentifierKey(key) {
     || key === 'Name'
     || key === 'VlocityDataPackKey'
     || key === 'VlocityDataPackName'
+    || key === 'VlocityLookupRecordSourceKey'
+    || key === 'VlocityRecordSourceKey'
     || key === 'GlobalKey__c'
     || key === 'Code__c'
     || key.endsWith('__GlobalKey__c')
