@@ -637,6 +637,49 @@
         "collect.js"
       ]
     },
+    "metadelta:monitor:deploy": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Opens an interactive terminal screen for reviewing deploy results with keyboard navigation.\n  This first version only provides the screen shell; deploy result collection will be added next.\n  ",
+      "examples": [
+        "sf metadelta monitor deploy --org DEV",
+        "sf metadelta monitor deploy --org DEV --once"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "once": {
+          "name": "once",
+          "summary": "Validate command wiring without opening the interactive terminal UI.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:monitor:deploy",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Review monitor deploy results in an interactive terminal screen.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "monitor",
+        "deploy.js"
+      ]
+    },
     "metadelta:monitor:run": {
       "aliases": [],
       "args": {},
