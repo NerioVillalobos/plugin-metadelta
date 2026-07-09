@@ -148,6 +148,7 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+   ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
 #### Output
 
