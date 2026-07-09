@@ -1,7 +1,7 @@
-import * as oclifCore from '@oclif/core';
+import * as commandModule from '@oclif/core/command';
+import * as flagsModule from '@oclif/core/flags';
+import * as runModule from '@oclif/core/run';
 
-const core = oclifCore.default ?? oclifCore;
-
-export const Command = oclifCore.Command ?? core.Command;
-export const Flags = oclifCore.Flags ?? core.Flags;
-export const run = oclifCore.run ?? core.run;
+export const Command = commandModule.Command ?? commandModule.default?.Command;
+export const Flags = flagsModule.Flags ?? flagsModule.default ?? flagsModule;
+export const run = runModule.run ?? runModule.default?.run;
