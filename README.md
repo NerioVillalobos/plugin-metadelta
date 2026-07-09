@@ -224,6 +224,7 @@ Vlocity outputs:
 | `--xml` | Existing destination `package.xml` to update with missing Core components. |
 | `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
 
+   ![Metadelta plugin find command example](images/metadelta-example-finddelta-command.gif)
 ---
 
 ### `postvalidate` command
