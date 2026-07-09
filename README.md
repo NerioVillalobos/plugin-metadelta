@@ -148,7 +148,7 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
-   ![Metadelta plugin installation example](images/metadelta-example-find-command.gif)
+   ![Metadelta plugin find command example](images/metadelta-example-find-command.gif)
 
 #### Output
 
@@ -176,7 +176,7 @@ The command runs `sf org display --target-org <alias> --json`, extracts `result.
 |------|-------------|---------|
 | `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
 
-
+   ![Metadelta plugin orgApiVersion command example](images/metadelta-example-orgApiVersion-command.gif)
 ---
 
 ### `finddelta` command
