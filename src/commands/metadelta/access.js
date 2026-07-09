@@ -102,16 +102,70 @@ class Access extends Command {
     );
   }
 
-  getSfdxAuthUrl(alias) {
+  getSfdxAuthUrl(alias, expectedUsername) {
     const data = this.runJSON('sf', ['org', 'display', '--target-org', alias, '--json', '--verbose'], {
       env: {...process.env, SF_TEMP_SHOW_SECRETS: 'true'}
     });
     const authUrl = data?.result?.sfdxAuthUrl;
-    if (!authUrl || !String(authUrl).startsWith('force://')) {
-      throw new Error(`No se pudo obtener sfdxAuthUrl para ${alias} usando sf org display --verbose con SF_TEMP_SHOW_SECRETS=true.`);
+    if (isUsableSfdxAuthUrl(authUrl)) {
+      return authUrl;
     }
 
-    return authUrl;
+    const username = data?.result?.username ?? expectedUsername;
+    const localAuth = this.findLocalAuth({alias, username});
+    const fallbackAuthUrl = buildSfdxAuthUrlFromLocalAuth(localAuth);
+    if (fallbackAuthUrl) {
+      return fallbackAuthUrl;
+    }
+
+    const authFileHint = localAuth?.filePath ? ` Archivo local revisado: ${localAuth.filePath}.` : '';
+    const authTypeHint = localAuth && !localAuth.refreshToken
+      ? ' La autenticación local no contiene refreshToken; normalmente esto ocurre con orgs autenticadas por JWT/privateKey o flujos que no son restaurables con sfdx-url.'
+      : '';
+    throw new Error(
+      `No se pudo obtener un sfdxAuthUrl restaurable para ${alias}. Salesforce CLI no devolvió sfdxAuthUrl y no se encontró refreshToken local para construirlo.${authFileHint}${authTypeHint}`
+    );
+  }
+
+  findLocalAuth({alias, username}) {
+    const aliases = this.readAliasMap();
+    const resolvedUsername = username ?? aliases[alias];
+    const authDirs = [path.join(os.homedir(), '.sf'), path.join(os.homedir(), '.sfdx')];
+    const candidates = [];
+    for (const dir of authDirs) {
+      try {
+        for (const name of fs.readdirSync(dir)) {
+          if (!name.endsWith('.json')) {
+            continue;
+          }
+          const filePath = path.join(dir, name);
+          try {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            candidates.push({filePath, data});
+          } catch {
+            // Ignore non-auth JSON files.
+          }
+        }
+      } catch {
+        // Older and newer Salesforce CLI versions use different auth folders.
+      }
+    }
+
+    const match = candidates.find(({data}) => data?.username && data.username === resolvedUsername);
+    return match ? {...match.data, filePath: match.filePath} : null;
+  }
+
+  readAliasMap() {
+    const aliasFiles = [path.join(os.homedir(), '.sf', 'alias.json'), path.join(os.homedir(), '.sfdx', 'alias.json')];
+    for (const filePath of aliasFiles) {
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        return data?.orgs ?? {};
+      } catch {
+        // Try the next CLI alias location.
+      }
+    }
+    return {};
   }
 
   ensureMfa(folder) {
@@ -222,9 +276,17 @@ class Access extends Command {
       }
 
       this.log(`Capturando: ${alias}`);
-      const authUrl = this.getSfdxAuthUrl(alias);
-      const encrypted = encryptValue(authUrl, passphrase);
-      newLines.push(`${alias};${username};${encrypted}`);
+      try {
+        const authUrl = this.getSfdxAuthUrl(alias, username);
+        const encrypted = encryptValue(authUrl, passphrase);
+        newLines.push(`${alias};${username};${encrypted}`);
+      } catch (error) {
+        this.warn(`No se pudo capturar ${alias}: ${error.message}`);
+      }
+    }
+
+    if (newLines.length === 0) {
+      this.error(`No se pudo capturar ningún acceso desde ${filePath}. Verifica que los aliases tengan refreshToken o que sf org display devuelva sfdxAuthUrl.`);
     }
 
     fs.writeFileSync(filePath, newLines.join('\n') + (newLines.length ? '\n' : ''), 'utf8');
@@ -332,6 +394,36 @@ class Access extends Command {
     }
 
     return value;
+  }
+}
+
+function isUsableSfdxAuthUrl(value) {
+  return Boolean(value) && String(value).startsWith('force://') && !String(value).includes('[REDACTED]');
+}
+
+function buildSfdxAuthUrlFromLocalAuth(auth) {
+  if (!auth) {
+    return null;
+  }
+  if (isUsableSfdxAuthUrl(auth.sfdxAuthUrl)) {
+    return auth.sfdxAuthUrl;
+  }
+  if (!auth.refreshToken || !auth.clientId || !auth.instanceUrl) {
+    return null;
+  }
+  const host = authHost(auth.instanceUrl);
+  if (!host) {
+    return null;
+  }
+  const clientSecret = auth.clientSecret ?? '';
+  return `force://${auth.clientId}:${clientSecret}:${auth.refreshToken}@${host}`;
+}
+
+function authHost(instanceUrl) {
+  try {
+    return new URL(instanceUrl).host;
+  } catch {
+    return String(instanceUrl ?? '').replace(/^https?:\/\//i, '').replace(/\/+$/u, '');
   }
 }
 
