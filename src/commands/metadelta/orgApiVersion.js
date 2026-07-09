@@ -1,4 +1,4 @@
-import {Command, Flags} from '@oclif/core';
+import {Command, Flags} from '../../utils/oclif.js';
 import {spawnSync} from 'node:child_process';
 
 export const fetchOrgApiVersion = (targetOrg) => {

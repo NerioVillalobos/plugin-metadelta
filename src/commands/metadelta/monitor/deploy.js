@@ -1,4 +1,4 @@
-import {Command, Flags} from '@oclif/core';
+import {Command, Flags} from '../../../utils/oclif.js';
 import {runProcess} from '../../../utils/monitor/process.js';
 
 class MonitorDeploy extends Command {

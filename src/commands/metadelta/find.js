@@ -4,7 +4,7 @@ Fecha : 8/04/2025
 */
 
 
-import {Command, Flags} from '@oclif/core';
+import {Command, Flags} from '../../utils/oclif.js';
 import {spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
