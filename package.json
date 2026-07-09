@@ -4,7 +4,12 @@
   "description": "Salesforce CLI plugin to find recent metadata changes in an org",
   "type": "module",
   "main": "lib/index.js",
-  "exports": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./lib/*": "./lib/*",
+    "./oclif.manifest.json": "./oclif.manifest.json",
+    "./package.json": "./package.json"
+  },
   "files": [
     "lib/",
     "messages/",
@@ -40,15 +45,15 @@
   },
   "dependencies": {
     "@oclif/core": "^4.8.0",
-    "fast-xml-parser": "^5.3.2"
+    "fast-xml-parser": "^5.3.2",
+    "typescript": "^5.6.3"
   },
   "allowScripts": {
     "@oclif/core": false,
     "minimatch": false
   },
   "devDependencies": {
-    "@types/node": "^22.9.0",
-    "typescript": "^5.6.3"
+    "@types/node": "^22.9.0"
   },
   "oclif": {
     "bin": "sf",
