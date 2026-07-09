@@ -12,6 +12,8 @@ const BACKUP_FILE = 'accessbackup.dat';
 const TEMP_AUTH_FILE = 'auth';
 const OTP_WINDOW_SECONDS = 30;
 const OTP_DIGITS = 6;
+const OTP_VALIDATION_WINDOW = 4;
+const MFA_MAX_ATTEMPTS = 3;
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 class Access extends Command {
@@ -252,8 +254,8 @@ class Access extends Command {
 
   async capture(folder, passphrase) {
     const secret = this.verifyMfa(folder);
-    if (!(await this.readAndValidateMfa(secret))) {
-      this.error('Código MFA inválido.');
+    if (!(await this.readAndValidateMfa(secret, folder))) {
+      this.error(this.mfaFailureMessage(folder));
     }
 
     const filePath = path.join(folder, BACKUP_FILE);
@@ -295,8 +297,8 @@ class Access extends Command {
 
   async addAccess(folder, passphrase) {
     const secret = this.verifyMfa(folder);
-    if (!(await this.readAndValidateMfa(secret))) {
-      this.error('Código MFA inválido.');
+    if (!(await this.readAndValidateMfa(secret, folder))) {
+      this.error(this.mfaFailureMessage(folder));
     }
 
     const filePath = path.join(folder, BACKUP_FILE);
@@ -370,20 +372,38 @@ class Access extends Command {
     }
   }
 
-  async readAndValidateMfa(secret) {
-    const otp = await this.readMfaCode();
-    return verifyTotp({secret, token: otp, window: 1});
+  async readAndValidateMfa(secret, folder) {
+    for (let attempt = 1; attempt <= MFA_MAX_ATTEMPTS; attempt++) {
+      const otp = await this.readMfaCode({attempt});
+      if (verifyTotp({secret, token: otp, window: OTP_VALIDATION_WINDOW})) {
+        return true;
+      }
+      if (attempt < MFA_MAX_ATTEMPTS) {
+        this.warn(`Código MFA inválido. Verifica que estás usando el Authenticator del backup "${path.basename(folder)}" e intenta con el código vigente.`);
+      }
+    }
+    return false;
   }
 
-  async readMfaCode() {
+  async readMfaCode({attempt} = {}) {
     const rl = readline.createInterface({input, output});
-    const code = await rl.question('MFA code: ');
+    const suffix = attempt ? ` (${attempt}/${MFA_MAX_ATTEMPTS})` : '';
+    const code = await rl.question(`MFA code${suffix}: `);
     rl.close();
     if (!code) {
       this.error('Debes ingresar un código MFA.');
     }
 
     return code.trim();
+  }
+
+  mfaFailureMessage(folder) {
+    const mfaPath = path.join(folder, MFA_FILE);
+    return [
+      'Código MFA inválido.',
+      `Archivo MFA usado: ${mfaPath}.`,
+      'Verifica que el código pertenezca a ese backup, que no haya expirado y que la hora de Windows/teléfono esté sincronizada automáticamente.',
+    ].join(' ');
   }
 
   generateBase32Secret(length) {
