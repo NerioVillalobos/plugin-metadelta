@@ -54,6 +54,8 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.11`.
 
+   ![Metadelta plugin installation example](images/metadelta-example-install.gif)
+
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
    git clone <repo-url>
@@ -781,6 +783,8 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    sf plugins link .
    ```
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
+
+   ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
 
 ### Uso
 
