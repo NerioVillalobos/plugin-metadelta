@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-29 — `@nervill/metadelta` 0.11.12
+> **Last update / Última actualización:** 2026-06-29 — `@nervill/metadelta` 0.11.13
 
 # Metadelta Salesforce CLI Plugin
 
@@ -52,7 +52,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.12`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -67,7 +67,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run compile
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.12 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13 (link)`.
 
 ---
 
@@ -504,7 +504,7 @@ To export the accumulated persistent log to CSV when the monitor exits, use `--e
 sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
-> **Monitor persistence, scoped manifests, Vlocity enrichment, and CSV export (v0.11.12):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits.
+> **Monitor persistence, scoped manifests, Vlocity enrichment, and CSV export (v0.11.13):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits.
 
 ---
 
@@ -1313,7 +1313,7 @@ Para exportar el log persistente acumulado a CSV cuando el monitor sale, usa `--
 sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
-> **Persistencia, manifests con scope, enriquecimiento Vlocity y exportación CSV en monitor (v0.11.12):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando.
+> **Persistencia, manifests con scope, enriquecimiento Vlocity y exportación CSV en monitor (v0.11.13):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando.
 
 ---
 
