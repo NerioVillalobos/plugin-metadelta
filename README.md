@@ -69,6 +69,8 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.11 (link)`.
 
+---
+
 ### Usage
 
 Run the command from any directory after linking:
@@ -147,6 +149,8 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
 
 The `find` command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory. If the command runs inside a Git repository, the manifest filename uses the current branch name; otherwise it falls back to the provided org alias. Existing files are preserved by adding incremental `-v1`, `-v2`, … suffixes.
 
+---
+
 ### `orgApiVersion` command
 
 Print the API version reported by a target org:
@@ -163,6 +167,8 @@ Flags:
 |------|-------------|---------|
 | `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
 
+
+---
 
 ### `finddelta` command
 
@@ -202,6 +208,8 @@ Flags:
 | `--to` | **Required.** Base branch for comparison. |
 | `--xml` | Existing destination `package.xml` to update with missing Core components. |
 | `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
+
+---
 
 ### `postvalidate` command
 
@@ -243,6 +251,8 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
   ```
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
+
+---
 
 ### `access` command
 
@@ -307,6 +317,8 @@ By using `metadelta access` and all other commands in this plugin, you acknowled
 - The maintainers/authors are not responsible for misuse, credential leakage, or operational impact caused by incorrect handling.
 
 Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
+
+---
 
 ### `security users` command
 
@@ -373,6 +385,8 @@ This workflow mirrors the original Python utility and is designed for controlled
   sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
+---
+
 ### `initspace` command
 
 Create the recommended workspace scaffold in your current directory:
@@ -395,6 +409,8 @@ What the command creates:
   - `package.xml` (Metadata API version `66.0`)
 
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
+
+---
 
 ### `monitor run` command
 
@@ -455,6 +471,8 @@ sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
 > **Monitor persistence, scoped manifests, Vlocity enrichment, and CSV export (v0.11.11):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits.
+
+---
 
 ### `task record` / `task play` command
 
@@ -534,6 +552,8 @@ Diagnostics + collaboration:
 
 > Please report new failures using the **`task play bug report`** template so issues can be triaged publicly and prioritized incrementally.
 
+---
+
 ### `cleanps` command
 
 Generate a trimmed permission-set file with:
@@ -562,6 +582,8 @@ The default output file follows the pattern `<PermissionSet>_<prefix>_filtered.p
 | `--exclude`, `-e` | Path to a newline-delimited text file containing exact values that must always be kept. | None |
 | `--output`, `-o` | Name of the XML file written under `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
 | `--project-dir` | Optional root directory that holds `sfdx-project.json`. When omitted, the command walks up from the current working directory. | Auto-detected |
+
+---
 
 ### `findtest` command
 
@@ -642,6 +664,8 @@ Every run starts with a summary line detailing how many classes came from the ma
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
 
+---
+
 ### `manual collect` command
 
 Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
@@ -680,6 +704,8 @@ If no qualifying files remain in the requested range the command stops with a fr
 | `--base-branch` | Base branch used to compute the diff range when `--partial` is active. | `master` |
 | `--order-by` | Source for the ordering timestamp. Use `git` to rely on commit dates instead of file modification times. | `mtime` |
 
+---
+
 ### `merge` command
 
 Combine multiple manifest fragments into a single package with:
@@ -717,6 +743,8 @@ To restrict the merge to manifests that have not been merged back into `master` 
 sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
 
+---
+
 ### Uninstalling
 
 To unlink the plugin from your Salesforce CLI:
@@ -727,6 +755,8 @@ sf plugins unlink @nervill/metadelta
 ### License
 
 This project is released under the [ISC License](LICENSE).
+
+---
 
 ## Español
 
@@ -785,6 +815,8 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
 
    ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
+
+---
 
 ### Uso
 
@@ -864,6 +896,8 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
 
 El comando `find` imprime cada componente coincidente con su tipo, nombre completo, fecha de última modificación y usuario modificador. Cuando se establecen `--xml` o `--yaml`, los archivos de manifiesto correspondientes se crean dentro del directorio `manifest/`. Si el comando se ejecuta dentro de un repositorio Git, el nombre del archivo utiliza la rama actual; en caso contrario, emplea el alias de la org. Los archivos existentes se conservan agregando sufijos incrementales `-v1`, `-v2`, etc.
 
+---
+
 ### Comando `orgApiVersion`
 
 Imprime la versión de API reportada por una org de destino:
@@ -880,6 +914,8 @@ Banderas:
 |---------|-------------|-------------------|
 | `--org`, `-o` | **Requerida.** Alias o usuario de la org destino. | N/A |
 
+
+---
 
 ### Comando `finddelta`
 
@@ -919,6 +955,8 @@ Banderas:
 | `--to` | **Requerida.** Rama base para la comparación. |
 | `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
 | `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
+
+---
 
 ### Comando `postvalidate`
 
@@ -960,6 +998,8 @@ Valida un despliegue recuperando nuevamente los manifiestos usados (`package.xml
   ```
 
 Ejecuta el comando desde la raíz del proyecto Salesforce para que los retrieves Core coincidan con la estructura de `packageDirectories`. Los datapacks se resuelven primero de forma relativa al directorio actual y luego contra `--vlocity-dir`.
+
+---
 
 ### Comando `access`
 
@@ -1024,6 +1064,8 @@ Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
 - Los autores/mantenedores no se responsabilizan por mal uso, fuga de credenciales o impactos operativos por manejo incorrecto.
 
 Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
+
+---
 
 ### Comando `security users`
 
@@ -1090,6 +1132,8 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
   sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
+---
+
 ### Comando `initspace`
 
 Crea la estructura recomendada del workspace en el directorio actual:
@@ -1112,6 +1156,8 @@ Qué crea el comando:
   - `package.xml` (versión Metadata API `66.0`)
 
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
+
+---
 
 ### Comando `monitor run`
 
@@ -1172,6 +1218,8 @@ sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
 > **Persistencia, manifests con scope, enriquecimiento Vlocity y exportación CSV en monitor (v0.11.11):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando.
+
+---
 
 ### Comando `task record` / `task play`
 
@@ -1251,6 +1299,8 @@ Diagnóstico + colaboración:
 
 > Para reportar errores usa el template **`task play bug report`** y así acelerar un triage público, segmentado e incremental.
 
+---
+
 ### Comando `cleanps`
 
 Genera una versión depurada de un permission set con:
@@ -1279,6 +1329,8 @@ El archivo de salida predeterminado sigue el patrón `<PermissionSet>_<prefix>_f
 | `--exclude`, `-e` | Ruta a un archivo de texto (un valor por línea) con los nombres exactos que deben conservarse siempre. | Ninguno |
 | `--output`, `-o` | Nombre del XML generado dentro de `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
 | `--project-dir` | Directorio raíz opcional que contiene `sfdx-project.json`. Si se omite, el comando recorre los padres del directorio actual hasta encontrarlo. | Detectado automáticamente |
+
+---
 
 ### Comando `findtest`
 
@@ -1355,6 +1407,8 @@ Cada ejecución inicia con una línea resumen indicando cuántas clases proviene
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
+---
+
 ### Comando `manual collect`
 
 Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
@@ -1393,6 +1447,8 @@ Si el rango solicitado no contiene archivos válidos, el comando se detiene con 
 | `--base-branch` | Rama base utilizada para calcular el diff cuando `--partial` está activo. | `master` |
 | `--order-by` | Fuente de la fecha utilizada para ordenar (`mtime` o `git`). | `mtime` |
 
+---
+
 ### Comando `merge`
 
 Combina múltiples fragmentos de manifiesto en un solo paquete con:
@@ -1429,6 +1485,8 @@ Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 ```bash
 sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
+
+---
 
 ### Desinstalación
 
