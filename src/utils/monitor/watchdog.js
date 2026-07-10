@@ -93,6 +93,7 @@ export function normalizeConfig(config = {}) {
   return {
     webhookUrl: config.webhookUrl,
     webhookUrlEnv: config.webhookUrlEnv || DEFAULT_WEBHOOK_ENV,
+    controlLanguage: normalizeControlLanguage(config.controlLanguage),
     devopsAllowlist: Array.isArray(config.devopsAllowlist) ? config.devopsAllowlist : [],
     ignoreEvents: Array.isArray(config.ignoreEvents) ? config.ignoreEvents : ['SESSION_STARTED', 'SESSION_ENDED'],
     stateFile: resolveUserPath(config.stateFile || DEFAULT_STATE_PATH),
@@ -173,6 +174,13 @@ export function updateWatchTarget(configPath, orgAlias, updates = {}) {
   config.watchTargets[index] = normalizeTarget(next);
   saveWatchdogConfig(configPath, config);
   return {target: config.watchTargets[index], config};
+}
+
+export function updateControlLanguage(configPath, language) {
+  const config = ensureWatchdogConfig(configPath);
+  config.controlLanguage = normalizeControlLanguage(language);
+  saveWatchdogConfig(configPath, config);
+  return config;
 }
 
 export function readNewEntries(filePath, previousOffset) {
@@ -380,6 +388,11 @@ function saveJsonAtomic(filePath, data) {
 
 function normalizeName(name) {
   return String(name || '').trim().toLowerCase();
+}
+
+function normalizeControlLanguage(language) {
+  const normalized = String(language || 'es').trim().toLowerCase();
+  return normalized === 'en' ? 'en' : 'es';
 }
 
 function isToday(dateString, nowValue = new Date()) {

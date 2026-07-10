@@ -7,8 +7,10 @@ import {
   addWatchTarget,
   buildMessageCard,
   buildMonitorRunArgs,
+  ensureWatchdogConfig,
   processWatchTarget,
   readNewEntries,
+  updateControlLanguage,
   updateWatchTarget,
 } from '../src/utils/monitor/watchdog.js';
 
@@ -117,5 +119,34 @@ test('watch target config stores custom XML and YAML scopes for monitor command 
     yamlPath,
     '--export-csv',
     path.join(os.homedir(), '.metadelta', 'Telecentro-qa-metadelta-monitor.csv'),
+  ]);
+});
+
+test('watchdog config stores control language as es or en only', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-watchdog-'));
+  const configPath = path.join(tmp, 'watchdog.config.json');
+
+  assert.equal(ensureWatchdogConfig(configPath).controlLanguage, 'es');
+  assert.equal(updateControlLanguage(configPath, 'en').controlLanguage, 'en');
+  assert.equal(updateControlLanguage(configPath, 'fr').controlLanguage, 'es');
+});
+
+test('watch target interval can be updated and is used by monitor command generation', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-watchdog-'));
+  const configPath = path.join(tmp, 'watchdog.config.json');
+
+  addWatchTarget(configPath, 'Telecentro-demo', {interval: 5});
+  const {target} = updateWatchTarget(configPath, 'Telecentro-demo', {interval: 12});
+  const args = buildMonitorRunArgs(target);
+
+  assert.equal(target.interval, 12);
+  assert.deepEqual(args.slice(0, 7), [
+    'metadelta',
+    'monitor',
+    'run',
+    '--org',
+    'Telecentro-demo',
+    '--interval',
+    '12',
   ]);
 });

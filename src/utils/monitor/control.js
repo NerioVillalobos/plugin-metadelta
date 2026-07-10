@@ -10,6 +10,7 @@ import {
   listWatchTargets,
   removeWatchTarget,
   runWatchdogOnce,
+  updateControlLanguage,
   updateWatchTarget,
 } from './watchdog.js';
 
@@ -32,9 +33,12 @@ export async function runMonitorControl(options = {}) {
 
   try {
     for (;;) {
-      const actions = buildMainActions();
-      const selected = await ui.navigate('Metadelta Monitor - Control', actions.map((action) => action.label), {
-        hint: 'Up/Down navegar   Enter seleccionar   Ctrl+C salir',
+      context.language = ensureWatchdogConfig(configPath).controlLanguage || 'es';
+      context.t = getText(context.language);
+      ui.pauseText = context.t.pauseText;
+      const actions = buildMainActions(context);
+      const selected = await ui.navigate(context.t.title, actions.map((action) => action.label), {
+        hint: context.t.mainHint,
       });
       if (selected === -1 || actions[selected]?.id === 'exit') {
         ui.clear();
@@ -53,22 +57,25 @@ export async function runMonitorControl(options = {}) {
   }
 }
 
-function buildMainActions() {
+function buildMainActions(context) {
+  const {t} = context;
   const actions = [
-    {id: 'watchdog-once', label: 'Ejecutar una pasada del watchdog'},
-    {id: 'list', label: 'Listar monitores configurados'},
-    {id: 'add', label: 'Agregar un monitor al watchdog'},
-    {id: 'remove', label: 'Quitar un monitor del watchdog'},
-    {id: 'scope', label: 'Agregar/modificar/eliminar scope XML/YAML'},
-    {id: 'start-one', label: 'Iniciar un monitor'},
-    {id: 'start-all-bg', label: 'Iniciar todos los monitores - Background'},
-    {id: 'stop-bg', label: 'Detener monitores iniciados por Metadelta'},
+    {id: 'watchdog-once', label: t.watchdogOnce},
+    {id: 'list', label: t.list},
+    {id: 'add', label: t.add},
+    {id: 'remove', label: t.remove},
+    {id: 'scope', label: t.scope},
+    {id: 'interval', label: t.interval},
+    {id: 'language', label: t.language},
+    {id: 'start-one', label: t.startOne},
+    {id: 'start-all-bg', label: t.startAllBg},
+    {id: 'stop-bg', label: t.stopBg},
   ];
   if (isTmuxAvailable()) {
-    actions.splice(6, 0, {id: 'start-all-tmux', label: 'Iniciar todos los monitores - TUI tmux'});
+    actions.splice(8, 0, {id: 'start-all-tmux', label: t.startAllTmux});
   }
-  actions.push({id: 'automation-help', label: 'Ver ayuda de automatizacion'});
-  actions.push({id: 'exit', label: 'Salir'});
+  actions.push({id: 'automation-help', label: t.automationHelp});
+  actions.push({id: 'exit', label: t.exit});
   return actions;
 }
 
@@ -88,6 +95,12 @@ async function runAction(actionId, context) {
       return;
     case 'scope':
       await doConfigureScope(context);
+      return;
+    case 'interval':
+      await doChangeInterval(context);
+      return;
+    case 'language':
+      await doChangeLanguage(context);
       return;
     case 'start-one':
       await doStartOne(context);
@@ -109,30 +122,30 @@ async function runAction(actionId, context) {
   }
 }
 
-async function doWatchdogOnce({configPath, webhookUrl, ui}) {
+async function doWatchdogOnce({configPath, webhookUrl, ui, t}) {
   ui.clear();
   try {
     const result = await runWatchdogOnce(configPath, {webhookUrl});
-    ui.writeLine(`Watchdog completado: ${result.alerts} alerta(s), ${result.errors} error(es).`);
+    ui.writeLine(t.watchdogDone(result.alerts, result.errors));
     ui.writeLine(`State file: ${result.stateFile}`);
   } catch (error) {
-    ui.writeLine(`Error ejecutando watchdog: ${error.message}`);
+    ui.writeLine(t.watchdogError(error.message));
   }
   await ui.pause();
 }
 
-async function doListTargets({configPath, ui}) {
+async function doListTargets({configPath, ui, t}) {
   const targets = listWatchTargets(configPath);
   ui.clear();
-  ui.writeLine('Monitores configurados:');
+  ui.writeLine(t.configuredMonitors);
   ui.writeLine('');
   if (targets.length === 0) {
-    ui.writeLine('No hay monitores configurados.');
+    ui.writeLine(t.noMonitors);
   } else {
     for (const target of targets) {
       ui.writeLine(`- ${target.org}`);
       ui.writeLine(`  log: ${target.logPath}`);
-      ui.writeLine(`  interval: ${target.interval || 'default'}`);
+      ui.writeLine(`  interval: ${target.interval || t.defaultValue}`);
       ui.writeLine(`  scopeXml: ${target.scopeXml || '-'}`);
       ui.writeLine(`  scopeYaml: ${target.scopeYaml || '-'}`);
       ui.writeLine(`  exportCsv: ${target.exportCsv || '-'}`);
@@ -142,56 +155,56 @@ async function doListTargets({configPath, ui}) {
   await ui.pause();
 }
 
-async function doAddTarget({configPath, interval, ui}) {
+async function doAddTarget({configPath, interval, ui, t}) {
   ui.clear();
-  const org = await ui.prompt('Alias sf-cli del ambiente');
+  const org = await ui.prompt(t.aliasPrompt);
   if (!org) {
     return;
   }
   const result = addWatchTarget(configPath, org, {interval});
-  ui.writeLine(result.status === 'exists' ? `'${org}' ya existe.` : `'${org}' agregado.`);
+  ui.writeLine(result.status === 'exists' ? t.alreadyExists(org) : t.added(org));
   ui.writeLine(`Log: ${result.target.logPath}`);
   await ui.pause();
 }
 
-async function doRemoveTarget({configPath, ui}) {
-  const target = await chooseTarget(configPath, ui, 'Quitar un monitor del watchdog');
+async function doRemoveTarget({configPath, ui, t}) {
+  const target = await chooseTarget(configPath, ui, t.removeTitle, t);
   if (!target) {
     return;
   }
   const result = removeWatchTarget(configPath, target.org);
   ui.clear();
-  ui.writeLine(result.removed > 0 ? `'${target.org}' quitado.` : `No se quito '${target.org}'.`);
+  ui.writeLine(result.removed > 0 ? t.removed(target.org) : t.notRemoved(target.org));
   await ui.pause();
 }
 
-async function doConfigureScope({configPath, ui}) {
-  const target = await chooseTarget(configPath, ui, 'Configurar scope XML/YAML');
+async function doConfigureScope({configPath, ui, t}) {
+  const target = await chooseTarget(configPath, ui, t.scopeTitle, t);
   if (!target) {
     return;
   }
   for (;;) {
     const selected = await ui.navigate(`Scope - ${target.org}`, [
-      `XML actual: ${target.scopeXml || '-'}`,
-      `YAML actual: ${target.scopeYaml || '-'}`,
-      'Agregar/modificar XML',
-      'Agregar/modificar YAML',
-      'Eliminar XML',
-      'Eliminar YAML',
-      'Volver',
-    ], {hint: 'Up/Down navegar   Enter seleccionar   Ctrl+C volver'});
+      `${t.currentXml}: ${target.scopeXml || '-'}`,
+      `${t.currentYaml}: ${target.scopeYaml || '-'}`,
+      t.setXml,
+      t.setYaml,
+      t.clearXml,
+      t.clearYaml,
+      t.back,
+    ], {hint: t.backHint});
     if (selected === -1 || selected === 6) {
       return;
     }
     if (selected === 2) {
-      const nextXml = await promptManifestPath(ui, 'Ruta archivo XML', '.xml');
+      const nextXml = await promptManifestPath(ui, t.xmlPathPrompt, '.xml', t);
       if (nextXml !== undefined) {
         target.scopeXml = nextXml;
         updateWatchTarget(configPath, target.org, {scopeXml: nextXml});
       }
     }
     if (selected === 3) {
-      const nextYaml = await promptManifestPath(ui, 'Ruta archivo YAML', ['.yaml', '.yml']);
+      const nextYaml = await promptManifestPath(ui, t.yamlPathPrompt, ['.yaml', '.yml'], t);
       if (nextYaml !== undefined) {
         target.scopeYaml = nextYaml;
         updateWatchTarget(configPath, target.org, {scopeYaml: nextYaml});
@@ -208,14 +221,48 @@ async function doConfigureScope({configPath, ui}) {
   }
 }
 
+async function doChangeInterval({configPath, ui, t}) {
+  const target = await chooseTarget(configPath, ui, t.intervalTitle, t);
+  if (!target) {
+    return;
+  }
+  ui.clear();
+  ui.writeLine(t.currentInterval(target.interval || t.defaultValue));
+  const input = await ui.prompt(t.intervalPrompt);
+  if (!input) {
+    return;
+  }
+  const interval = Number(input);
+  if (!Number.isInteger(interval) || interval < 1) {
+    ui.writeLine(t.invalidInterval);
+    await ui.pause();
+    return;
+  }
+  updateWatchTarget(configPath, target.org, {interval});
+  ui.writeLine(t.intervalUpdated(target.org, interval));
+  await ui.pause();
+}
+
+async function doChangeLanguage({configPath, ui, t}) {
+  const selected = await ui.navigate(t.languageTitle, ['Español', 'English'], {hint: t.backHint});
+  if (selected === -1) {
+    return;
+  }
+  const language = selected === 1 ? 'en' : 'es';
+  updateControlLanguage(configPath, language);
+  ui.clear();
+  ui.writeLine(language === 'en' ? 'Language changed to English.' : 'Idioma cambiado a Español.');
+  await ui.pause();
+}
+
 async function doStartOne(context) {
-  const target = await chooseTarget(context.configPath, context.ui, 'Iniciar un monitor');
+  const target = await chooseTarget(context.configPath, context.ui, context.t.startOne, context.t);
   if (!target) {
     return;
   }
   startBackgroundMonitor(target, context);
   context.ui.clear();
-  context.ui.writeLine(`Monitor ${target.org} iniciado en background.`);
+  context.ui.writeLine(context.t.monitorStartedBg(target.org));
   await context.ui.pause();
 }
 
@@ -223,13 +270,13 @@ async function doStartAllBackground(context) {
   const targets = listWatchTargets(context.configPath);
   context.ui.clear();
   if (targets.length === 0) {
-    context.ui.writeLine('No hay monitores configurados.');
+    context.ui.writeLine(context.t.noMonitors);
     await context.ui.pause();
     return;
   }
   for (const target of targets) {
     startBackgroundMonitor(target, context);
-    context.ui.writeLine(`Monitor ${target.org} iniciado en background.`);
+    context.ui.writeLine(context.t.monitorStartedBg(target.org));
   }
   await context.ui.pause();
 }
@@ -238,12 +285,12 @@ async function doStartAllTmux(context) {
   const targets = listWatchTargets(context.configPath);
   context.ui.clear();
   if (targets.length === 0) {
-    context.ui.writeLine('No hay monitores configurados.');
+    context.ui.writeLine(context.t.noMonitors);
     await context.ui.pause();
     return;
   }
   if (!isTmuxAvailable()) {
-    context.ui.writeLine('tmux no esta disponible en este ambiente.');
+    context.ui.writeLine(context.t.tmuxUnavailable);
     await context.ui.pause();
     return;
   }
@@ -262,11 +309,11 @@ async function doStartAllTmux(context) {
   spawnSync('tmux', ['attach', '-t', TMUX_SESSION], {stdio: 'inherit'});
 }
 
-async function doStopBackground({ui}) {
+async function doStopBackground({ui, t}) {
   const state = loadProcessState();
   ui.clear();
   if (state.processes.length === 0) {
-    ui.writeLine('No hay procesos registrados por Metadelta.');
+    ui.writeLine(t.noRegisteredProcesses);
     await ui.pause();
     return;
   }
@@ -274,7 +321,7 @@ async function doStopBackground({ui}) {
   for (const processInfo of state.processes) {
     try {
       process.kill(processInfo.pid);
-      ui.writeLine(`Detenido ${processInfo.org} (PID ${processInfo.pid}).`);
+      ui.writeLine(t.stopped(processInfo.org, processInfo.pid));
     } catch {
       remaining.push(processInfo);
     }
@@ -283,49 +330,49 @@ async function doStopBackground({ui}) {
   await ui.pause();
 }
 
-async function doAutomationHelp({ui}) {
+async function doAutomationHelp({ui, t}) {
   ui.clear();
   if (process.platform === 'win32') {
-    ui.writeLine('Windows: usa Task Scheduler para ejecutar periodicamente:');
+    ui.writeLine(t.windowsScheduler);
     ui.writeLine('sf metadelta monitor run --watchdog-once --watchdog-config <ruta>');
   } else {
-    ui.writeLine('Linux/WSL/macOS: puedes programar cron con:');
+    ui.writeLine(t.unixCron);
     ui.writeLine('*/5 * * * * sf metadelta monitor run --watchdog-once --watchdog-config <ruta>');
     ui.writeLine('');
-    ui.writeLine('Si tmux esta instalado, el menu puede abrir todos los monitores en una sesion TUI.');
+    ui.writeLine(t.tmuxHelp);
   }
   await ui.pause();
 }
 
-async function chooseTarget(configPath, ui, title) {
+async function chooseTarget(configPath, ui, title, t) {
   const targets = listWatchTargets(configPath);
   if (targets.length === 0) {
     ui.clear();
-    ui.writeLine('No hay monitores configurados.');
+    ui.writeLine(t.noMonitors);
     await ui.pause();
     return null;
   }
   const selected = await ui.navigate(title, targets.map((target) => target.org), {
-    hint: 'Up/Down navegar   Enter seleccionar   Ctrl+C cancelar',
+    hint: t.cancelHint,
   });
   return selected === -1 ? null : targets[selected];
 }
 
-async function promptManifestPath(ui, label, extensions) {
+async function promptManifestPath(ui, label, extensions, t) {
   ui.clear();
-  const input = await ui.prompt(`${label} (vacio para cancelar)`);
+  const input = await ui.prompt(`${label} (${t.emptyToCancel})`);
   if (!input) {
     return undefined;
   }
   const resolved = path.resolve(input.replace(/^~(?=$|[\\/])/, os.homedir()));
   const allowed = Array.isArray(extensions) ? extensions : [extensions];
   if (!allowed.some((extension) => resolved.toLowerCase().endsWith(extension))) {
-    ui.writeLine(`La ruta debe terminar en ${allowed.join(' o ')}.`);
+    ui.writeLine(t.invalidExtension(allowed));
     await ui.pause();
     return undefined;
   }
   if (!fs.existsSync(resolved)) {
-    ui.writeLine(`No se encontro el archivo: ${resolved}`);
+    ui.writeLine(t.fileNotFound(resolved));
     await ui.pause();
     return undefined;
   }
@@ -517,7 +564,7 @@ class ControlTerminal {
   }
 
   async pause() {
-    process.stdout.write('\n  Presiona cualquier tecla para continuar...');
+    process.stdout.write(`\n  ${this.pauseText || 'Presiona cualquier tecla para continuar...'} `);
     if (!process.stdin.isTTY) {
       process.stdout.write('\n');
       return;
@@ -554,6 +601,126 @@ function visibleLength(text) {
 
 function padRight(text, width) {
   return `${text}${' '.repeat(Math.max(0, width - visibleLength(text)))}`;
+}
+
+function getText(language) {
+  if (language === 'en') {
+    return {
+      title: 'Metadelta Monitor - Control',
+      mainHint: 'Up/Down navigate   Enter select   Ctrl+C exit',
+      cancelHint: 'Up/Down navigate   Enter select   Ctrl+C cancel',
+      backHint: 'Up/Down navigate   Enter select   Ctrl+C back',
+      watchdogOnce: 'Run one watchdog cycle',
+      list: 'List configured monitors',
+      add: 'Add a monitor to watchdog',
+      remove: 'Remove a monitor from watchdog',
+      scope: 'Add/modify/remove XML/YAML scope',
+      interval: 'Change monitor interval',
+      language: 'Change language',
+      startOne: 'Start one monitor',
+      startAllTmux: 'Start all monitors - TUI tmux',
+      startAllBg: 'Start all monitors - Background',
+      stopBg: 'Stop monitors started by Metadelta',
+      automationHelp: 'View automation help',
+      exit: 'Exit',
+      configuredMonitors: 'Configured monitors:',
+      noMonitors: 'No monitors configured.',
+      defaultValue: 'default',
+      aliasPrompt: 'sf-cli alias for the environment',
+      alreadyExists: (org) => `'${org}' already exists.`,
+      added: (org) => `'${org}' added.`,
+      removeTitle: 'Remove a monitor from watchdog',
+      removed: (org) => `'${org}' removed.`,
+      notRemoved: (org) => `'${org}' was not removed.`,
+      scopeTitle: 'Configure XML/YAML scope',
+      currentXml: 'Current XML',
+      currentYaml: 'Current YAML',
+      setXml: 'Add/modify XML',
+      setYaml: 'Add/modify YAML',
+      clearXml: 'Remove XML',
+      clearYaml: 'Remove YAML',
+      back: 'Back',
+      xmlPathPrompt: 'XML file path',
+      yamlPathPrompt: 'YAML file path',
+      emptyToCancel: 'empty to cancel',
+      invalidExtension: (allowed) => `The path must end in ${allowed.join(' or ')}.`,
+      fileNotFound: (filePath) => `File not found: ${filePath}`,
+      intervalTitle: 'Change monitor interval',
+      currentInterval: (value) => `Current interval: ${value}`,
+      intervalPrompt: 'New interval in minutes',
+      invalidInterval: 'The interval must be an integer greater than or equal to 1.',
+      intervalUpdated: (org, interval) => `'${org}' interval changed to ${interval} minute(s).`,
+      languageTitle: 'Language',
+      watchdogDone: (alerts, errors) => `Watchdog completed: ${alerts} alert(s), ${errors} error(s).`,
+      watchdogError: (message) => `Watchdog error: ${message}`,
+      monitorStartedBg: (org) => `Monitor ${org} started in background.`,
+      tmuxUnavailable: 'tmux is not available in this environment.',
+      noRegisteredProcesses: 'No processes registered by Metadelta.',
+      stopped: (org, pid) => `Stopped ${org} (PID ${pid}).`,
+      windowsScheduler: 'Windows: use Task Scheduler to run periodically:',
+      unixCron: 'Linux/WSL/macOS: you can schedule cron with:',
+      tmuxHelp: 'If tmux is installed, the menu can open all monitors in one TUI session.',
+      pauseText: 'Press any key to continue...',
+    };
+  }
+
+  return {
+    title: 'Metadelta Monitor - Control',
+    mainHint: 'Up/Down navegar   Enter seleccionar   Ctrl+C salir',
+    cancelHint: 'Up/Down navegar   Enter seleccionar   Ctrl+C cancelar',
+    backHint: 'Up/Down navegar   Enter seleccionar   Ctrl+C volver',
+    watchdogOnce: 'Ejecutar una pasada del watchdog',
+    list: 'Listar monitores configurados',
+    add: 'Agregar un monitor al watchdog',
+    remove: 'Quitar un monitor del watchdog',
+    scope: 'Agregar/modificar/eliminar scope XML/YAML',
+    interval: 'Cambiar intervalo de un monitor',
+    language: 'Cambiar idioma',
+    startOne: 'Iniciar un monitor',
+    startAllTmux: 'Iniciar todos los monitores - TUI tmux',
+    startAllBg: 'Iniciar todos los monitores - Background',
+    stopBg: 'Detener monitores iniciados por Metadelta',
+    automationHelp: 'Ver ayuda de automatizacion',
+    exit: 'Salir',
+    configuredMonitors: 'Monitores configurados:',
+    noMonitors: 'No hay monitores configurados.',
+    defaultValue: 'default',
+    aliasPrompt: 'Alias sf-cli del ambiente',
+    alreadyExists: (org) => `'${org}' ya existe.`,
+    added: (org) => `'${org}' agregado.`,
+    removeTitle: 'Quitar un monitor del watchdog',
+    removed: (org) => `'${org}' quitado.`,
+    notRemoved: (org) => `No se quito '${org}'.`,
+    scopeTitle: 'Configurar scope XML/YAML',
+    currentXml: 'XML actual',
+    currentYaml: 'YAML actual',
+    setXml: 'Agregar/modificar XML',
+    setYaml: 'Agregar/modificar YAML',
+    clearXml: 'Eliminar XML',
+    clearYaml: 'Eliminar YAML',
+    back: 'Volver',
+    xmlPathPrompt: 'Ruta archivo XML',
+    yamlPathPrompt: 'Ruta archivo YAML',
+    emptyToCancel: 'vacio para cancelar',
+    invalidExtension: (allowed) => `La ruta debe terminar en ${allowed.join(' o ')}.`,
+    fileNotFound: (filePath) => `No se encontro el archivo: ${filePath}`,
+    intervalTitle: 'Cambiar intervalo de un monitor',
+    currentInterval: (value) => `Intervalo actual: ${value}`,
+    intervalPrompt: 'Nuevo intervalo en minutos',
+    invalidInterval: 'El intervalo debe ser un numero entero mayor o igual a 1.',
+    intervalUpdated: (org, interval) => `'${org}' cambio a intervalo de ${interval} minuto(s).`,
+    languageTitle: 'Idioma',
+    watchdogDone: (alerts, errors) => `Watchdog completado: ${alerts} alerta(s), ${errors} error(es).`,
+    watchdogError: (message) => `Error ejecutando watchdog: ${message}`,
+    monitorStartedBg: (org) => `Monitor ${org} iniciado en background.`,
+    tmuxUnavailable: 'tmux no esta disponible en este ambiente.',
+    noRegisteredProcesses: 'No hay procesos registrados por Metadelta.',
+    stopped: (org, pid) => `Detenido ${org} (PID ${pid}).`,
+    windowsScheduler: 'Windows: usa Task Scheduler para ejecutar periodicamente:',
+    unixCron: 'Linux/WSL/macOS: puedes programar cron con:',
+    tmuxHelp: 'Si tmux esta instalado, el menu puede abrir todos los monitores en una sesion TUI.',
+    pauseText: 'Presiona cualquier tecla para continuar...',
+  };
 }
 
 function findNewlineIndex(text) {
