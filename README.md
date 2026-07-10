@@ -458,12 +458,16 @@ sf metadelta monitor run --org DEV
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--org`, `-o` | Alias or username of the target org. | Required |
+| `--org`, `-o` | Alias or username of the target org. Required for the normal monitor mode. | Required unless `--control` or `--watchdog-once` is used |
 | `--interval` | Refresh interval in minutes. Values below `1` are normalized to `1`. | `5` |
 | `--scope` | Metadata source to monitor: `all`, `salesforce`, or `vlocity`. | `all` |
 | `--scope-xml` | Path to a Salesforce Core `package.xml`. When present, the monitor retrieves and watches only the Core components listed in that manifest. | None |
 | `--scope-yaml` | Path to a Vlocity YAML job/manifest. When present, the monitor exports and watches only the DataPacks listed in that file. | None |
 | `--export-csv` | Path where the persistent `change-log.jsonl` should be exported as CSV when the monitor exits. The path is resolved from the directory where the command was started. | None |
+| `--control` | Opens the portable Metadelta Monitor control menu for watchdog targets and monitor launches. | `false` |
+| `--watchdog-once` | Runs one Teams watchdog cycle using `change-log.jsonl` targets from the watchdog config, then exits. | `false` |
+| `--watchdog-config` | Path to the watchdog config JSON. | `~/.metadelta/monitor/watchdog.config.json` |
+| `--teams-webhook-url` | Microsoft Teams webhook URL for `--watchdog-once`. Prefer `METADELTA_TEAMS_WEBHOOK_URL` for secrets. | Environment/config |
 | `--once` | Run one refresh cycle and exit. Useful for validation. | `false` |
 
 The monitor first creates and enters `.metadelta/monitor/<orgAlias>/`. Inside that folder it maintains `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes or reuses a local-only Git repository as the diff engine, and refreshes every five minutes. `NEXT` shows the exact next refresh time instead of repainting a countdown, and `RETRIEVE` shows the last Salesforce Core + Vlocity retrieve/export duration. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Full errors and Vlocity warnings are wrapped in a detail section and automatically pause UI repainting so the text can be selected/copied.
@@ -506,7 +510,33 @@ To export the accumulated persistent log to CSV when the monitor exits, use `--e
 sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
-> **Monitor persistence, scoped manifests, Vlocity enrichment, and CSV export (v0.11.13):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits.
+The complementary watchdog mode reads the persistent `change-log.jsonl` files and sends Microsoft Teams alerts when a `CHANGE_DETECTED` event was touched by a user outside the configured DevOps allowlist. It is incremental and stores byte offsets in a local state file, so repeated scheduled executions do not resend already processed events. Put the webhook URL in `METADELTA_TEAMS_WEBHOOK_URL` or pass it explicitly only in secure local environments.
+
+```bash
+sf metadelta monitor run --watchdog-once
+sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
+```
+
+The control menu is a portable companion for managing watchdog targets and monitor launches without editing JSON by hand. It can add/remove org targets, configure or clear per-target `scopeXml` and `scopeYaml`, run one watchdog cycle, start monitors in background, and use `tmux` for a multi-monitor TUI when available on Linux/WSL/macOS. On Windows it keeps to portable actions and shows scheduling guidance for Task Scheduler.
+
+```bash
+sf metadelta monitor run --control
+```
+
+Watchdog target entries can include custom manifests per org:
+
+```json
+{
+  "org": "Telecentro-qa",
+  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "scopeXml": "/absolute/path/Release.xml",
+  "scopeYaml": "/absolute/path/Release.yaml",
+  "interval": 8,
+  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+}
+```
+
+> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.11.13):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 
 ---
 
@@ -1267,12 +1297,16 @@ sf metadelta monitor run --org DEV
 
 | Flag | Descripción | Valor por defecto |
 | --- | --- | --- |
-| `--org`, `-o` | Alias o username del org destino. | Requerido |
+| `--org`, `-o` | Alias o username del org destino. Requerido para el modo normal del monitor. | Requerido salvo con `--control` o `--watchdog-once` |
 | `--interval` | Intervalo de refresh en minutos. Los valores menores a `1` se normalizan a `1`. | `5` |
 | `--scope` | Fuente de metadata a monitorear: `all`, `salesforce` o `vlocity`. | `all` |
 | `--scope-xml` | Ruta a un `package.xml` de Salesforce Core. Cuando se indica, el monitor recupera y observa solo los componentes Core listados en ese manifest. | Ninguno |
 | `--scope-yaml` | Ruta a un job/manifest YAML de Vlocity. Cuando se indica, el monitor exporta y observa solo los DataPacks listados en ese archivo. | Ninguno |
 | `--export-csv` | Ruta donde se debe exportar el `change-log.jsonl` persistente como CSV cuando el monitor sale. La ruta se resuelve desde el directorio donde se inició el comando. | Ninguno |
+| `--control` | Abre el menu portable de control de Metadelta Monitor para targets del watchdog y arranque de monitores. | `false` |
+| `--watchdog-once` | Ejecuta un ciclo de watchdog Teams usando los targets `change-log.jsonl` del config y sale. | `false` |
+| `--watchdog-config` | Ruta al JSON de configuracion del watchdog. | `~/.metadelta/monitor/watchdog.config.json` |
+| `--teams-webhook-url` | Webhook URL de Microsoft Teams para `--watchdog-once`. Se recomienda `METADELTA_TEAMS_WEBHOOK_URL` para secretos. | Ambiente/config |
 | `--once` | Ejecuta un solo ciclo de refresh y sale. Útil para validación. | `false` |
 
 El monitor primero crea y entra en `.metadelta/monitor/<aliasOrg>/`. Dentro de esa carpeta mantiene `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa o reutiliza un repositorio Git local como motor de diff y refresca cada cinco minutos. `NEXT` muestra la hora exacta del próximo refresh en vez de repintar un countdown, y `RETRIEVE` muestra la duración del último retrieve/export Salesforce Core + Vlocity. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Los errores completos y avisos de Vlocity se muestran envueltos en una sección de detalle y pausan automáticamente el repintado de la UI para poder seleccionar/copiar el texto.
@@ -1315,7 +1349,33 @@ Para exportar el log persistente acumulado a CSV cuando el monitor sale, usa `--
 sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
 ```
 
-> **Persistencia, manifests con scope, enriquecimiento Vlocity y exportación CSV en monitor (v0.11.13):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o YAML Vlocity. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando.
+El modo complementario watchdog lee los `change-log.jsonl` persistentes y envia alertas a Microsoft Teams cuando un evento `CHANGE_DETECTED` fue tocado por un usuario fuera del allowlist DevOps configurado. Es incremental y guarda offsets de bytes en un archivo de estado local, por lo que las ejecuciones programadas repetidas no reenvian eventos ya procesados. Coloca el webhook en `METADELTA_TEAMS_WEBHOOK_URL` o pasalo explicitamente solo en ambientes locales seguros.
+
+```bash
+sf metadelta monitor run --watchdog-once
+sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
+```
+
+El menu de control es un complemento portable para administrar targets del watchdog y arranques de monitores sin editar JSON a mano. Permite agregar/quitar orgs, configurar o limpiar `scopeXml` y `scopeYaml` por target, ejecutar un ciclo del watchdog, iniciar monitores en background y usar `tmux` para una TUI multi-monitor cuando este disponible en Linux/WSL/macOS. En Windows mantiene acciones portables y muestra guia para Task Scheduler.
+
+```bash
+sf metadelta monitor run --control
+```
+
+Los targets del watchdog pueden incluir manifests custom por org:
+
+```json
+{
+  "org": "Telecentro-qa",
+  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "scopeXml": "/absolute/path/Release.xml",
+  "scopeYaml": "/absolute/path/Release.yaml",
+  "interval": 8,
+  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+}
+```
+
+> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.11.13):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 
 ---
 

@@ -12,6 +12,8 @@ import {enrichChanges} from '../../../utils/monitor/metadata.js';
 import {appendChangeLogEntries, appendSessionEnded, appendSessionStarted, exportChangeLogToCsv} from '../../../utils/monitor/changeLog.js';
 import {MonitorUi} from '../../../utils/monitor/ui.js';
 import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
+import {runMonitorControl} from '../../../utils/monitor/control.js';
+import {getDefaultWatchdogConfigPath, runWatchdogOnce} from '../../../utils/monitor/watchdog.js';
 
 class MonitorRun extends Command {
   static id = 'metadelta:monitor:run';
@@ -29,7 +31,7 @@ class MonitorRun extends Command {
   ];
 
   static flags = {
-    org: Flags.string({char: 'o', summary: 'Alias or username of the target org', required: true}),
+    org: Flags.string({char: 'o', summary: 'Alias or username of the target org'}),
     interval: Flags.integer({summary: 'Refresh interval in minutes', default: 5}),
     scope: Flags.string({
       summary: 'Metadata source to monitor: all, salesforce, or vlocity',
@@ -39,11 +41,36 @@ class MonitorRun extends Command {
     'scope-xml': Flags.string({summary: 'Path to a Salesforce Core package.xml used to monitor only those components'}),
     'scope-yaml': Flags.string({summary: 'Path to a Vlocity YAML manifest used to monitor only those DataPacks'}),
     'export-csv': Flags.string({summary: 'Export the persistent monitor change log to this CSV file when the command exits'}),
+    control: Flags.boolean({summary: 'Open the portable Metadelta Monitor control menu.'}),
+    'watchdog-once': Flags.boolean({summary: 'Run one Teams watchdog cycle using the monitor watchdog config and exit.'}),
+    'watchdog-config': Flags.string({summary: 'Path to the monitor watchdog config JSON. Defaults to ~/.metadelta/monitor/watchdog.config.json.'}),
+    'teams-webhook-url': Flags.string({summary: 'Microsoft Teams webhook URL for --watchdog-once. Prefer METADELTA_TEAMS_WEBHOOK_URL for secrets.'}),
     once: Flags.boolean({summary: 'Run one refresh cycle and exit after cleanup. Useful for validation.'}),
   };
 
   async run() {
     const {flags} = await this.parse(MonitorRun);
+    const watchdogConfigPath = flags['watchdog-config'] || getDefaultWatchdogConfigPath();
+    if (flags.control) {
+      await runMonitorControl({
+        configPath: watchdogConfigPath,
+        webhookUrl: flags['teams-webhook-url'],
+        interval: flags.interval,
+      });
+      return;
+    }
+    if (flags['watchdog-once']) {
+      const result = await runWatchdogOnce(watchdogConfigPath, {webhookUrl: flags['teams-webhook-url']});
+      this.log(`WATCHDOG: ${result.alerts} alerta(s), ${result.errors} error(es).`);
+      this.log(`STATE: ${result.stateFile}`);
+      if (result.errors > 0) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+    if (!flags.org) {
+      this.error('El flag --org es requerido para ejecutar el monitor. Usa --control o --watchdog-once para modos sin org.');
+    }
     const orgAlias = flags.org;
     const launchRoot = process.cwd();
     const scopedXmlPath = resolveOptionalManifestPath(launchRoot, flags['scope-xml']);

@@ -693,7 +693,6 @@
         "org": {
           "char": "o",
           "name": "org",
-          "required": true,
           "summary": "Alias or username of the target org",
           "hasDynamicHelp": false,
           "multiple": false,
@@ -737,6 +736,32 @@
         "export-csv": {
           "name": "export-csv",
           "summary": "Export the persistent monitor change log to this CSV file when the command exits",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "control": {
+          "name": "control",
+          "summary": "Open the portable Metadelta Monitor control menu.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "watchdog-once": {
+          "name": "watchdog-once",
+          "summary": "Run one Teams watchdog cycle using the monitor watchdog config and exit.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "watchdog-config": {
+          "name": "watchdog-config",
+          "summary": "Path to the monitor watchdog config JSON. Defaults to ~/.metadelta/monitor/watchdog.config.json.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "teams-webhook-url": {
+          "name": "teams-webhook-url",
+          "summary": "Microsoft Teams webhook URL for --watchdog-once. Prefer METADELTA_TEAMS_WEBHOOK_URL for secrets.",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
