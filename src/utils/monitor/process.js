@@ -4,6 +4,7 @@ export function commandExists(command) {
   return getCommandCandidates(command).some((candidate) => {
     const result = spawnSync(candidate, ['--version'], {
       encoding: 'utf8',
+      shell: shouldUseShell(),
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     return result.status === 0;
@@ -27,7 +28,7 @@ export function runProcess(command, args, options = {}) {
         child = spawn(candidate, args, {
           cwd,
           env,
-          shell: false,
+          shell: shouldUseShell(),
           stdio: [stdin, 'pipe', 'pipe'],
         });
       } catch (error) {
@@ -74,6 +75,10 @@ export function runProcess(command, args, options = {}) {
 
 function isRetryableSpawnError(error) {
   return ['ENOENT', 'EINVAL'].includes(error?.code);
+}
+
+export function shouldUseShell(platform = process.platform) {
+  return platform === 'win32';
 }
 
 export function getCommandCandidates(command, platform = process.platform) {
