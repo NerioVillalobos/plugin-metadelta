@@ -13,6 +13,7 @@ import {
   updateControlLanguage,
   updateWatchTarget,
 } from '../src/utils/monitor/watchdog.js';
+import {buildWindowsMonitorCommand} from '../src/utils/monitor/control.js';
 
 test('readNewEntries processes only complete JSONL lines and preserves incomplete tail', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-watchdog-'));
@@ -149,4 +150,19 @@ test('watch target interval can be updated and is used by monitor command genera
     '--interval',
     '12',
   ]);
+});
+
+test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', () => {
+  const command = buildWindowsMonitorCommand(
+    {
+      org: 'Telecentro qa',
+      interval: 8,
+      scopeXml: 'C:\\Manifests\\Release File.xml',
+      scopeYaml: 'C:\\Manifests\\Release.yaml',
+      exportCsv: 'C:\\Reports\\monitor qa.csv',
+    },
+    {command: 'sf'}
+  );
+
+  assert.equal(command, "sf metadelta monitor run --org 'Telecentro qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
 });

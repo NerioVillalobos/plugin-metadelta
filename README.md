@@ -517,7 +517,7 @@ sf metadelta monitor run --watchdog-once
 sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
 ```
 
-The control menu is a portable companion for managing watchdog targets and monitor launches without editing JSON by hand. It can add/remove org targets, configure or clear per-target `scopeXml` and `scopeYaml`, change each monitor interval, switch the menu language between English and Spanish, run one watchdog cycle, start monitors in background, and use `tmux` for a multi-monitor TUI when available on Linux/WSL/macOS. On Windows it keeps to portable actions and shows scheduling guidance for Task Scheduler.
+The control menu is a portable companion for managing watchdog targets and monitor launches without editing JSON by hand. It can add/remove org targets, configure or clear per-target `scopeXml` and `scopeYaml`, change each monitor interval, switch the menu language between English and Spanish, run one watchdog cycle, start monitors in background, use `tmux` for a multi-monitor TUI when available on Linux/WSL/macOS, and open all monitors as Windows Terminal tabs when `wt.exe` is available.
 
 ```bash
 sf metadelta monitor run --control
@@ -1356,7 +1356,7 @@ sf metadelta monitor run --watchdog-once
 sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
 ```
 
-El menu de control es un complemento portable para administrar targets del watchdog y arranques de monitores sin editar JSON a mano. Permite agregar/quitar orgs, configurar o limpiar `scopeXml` y `scopeYaml` por target, cambiar el intervalo de cada monitor, alternar el idioma del menu entre Espanol e Ingles, ejecutar un ciclo del watchdog, iniciar monitores en background y usar `tmux` para una TUI multi-monitor cuando este disponible en Linux/WSL/macOS. En Windows mantiene acciones portables y muestra guia para Task Scheduler.
+El menu de control es un complemento portable para administrar targets del watchdog y arranques de monitores sin editar JSON a mano. Permite agregar/quitar orgs, configurar o limpiar `scopeXml` y `scopeYaml` por target, cambiar el intervalo de cada monitor, alternar el idioma del menu entre Espanol e Ingles, ejecutar un ciclo del watchdog, iniciar monitores en background, usar `tmux` para una TUI multi-monitor cuando este disponible en Linux/WSL/macOS y abrir todos los monitores como pestanas de Windows Terminal cuando `wt.exe` este disponible.
 
 ```bash
 sf metadelta monitor run --control

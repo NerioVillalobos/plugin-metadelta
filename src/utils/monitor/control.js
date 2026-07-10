@@ -74,6 +74,9 @@ function buildMainActions(context) {
   if (isTmuxAvailable()) {
     actions.splice(8, 0, {id: 'start-all-tmux', label: t.startAllTmux});
   }
+  if (isWindowsTerminalAvailable()) {
+    actions.splice(8, 0, {id: 'start-all-wt', label: t.startAllWindowsTerminal});
+  }
   actions.push({id: 'automation-help', label: t.automationHelp});
   actions.push({id: 'exit', label: t.exit});
   return actions;
@@ -110,6 +113,9 @@ async function runAction(actionId, context) {
       return;
     case 'start-all-tmux':
       await doStartAllTmux(context);
+      return;
+    case 'start-all-wt':
+      await doStartAllWindowsTerminal(context);
       return;
     case 'stop-bg':
       await doStopBackground(context);
@@ -309,6 +315,42 @@ async function doStartAllTmux(context) {
   spawnSync('tmux', ['attach', '-t', TMUX_SESSION], {stdio: 'inherit'});
 }
 
+async function doStartAllWindowsTerminal(context) {
+  const targets = listWatchTargets(context.configPath);
+  context.ui.clear();
+  if (targets.length === 0) {
+    context.ui.writeLine(context.t.noMonitors);
+    await context.ui.pause();
+    return;
+  }
+  if (!isWindowsTerminalAvailable()) {
+    context.ui.writeLine(context.t.windowsTerminalUnavailable);
+    await context.ui.pause();
+    return;
+  }
+
+  const args = [];
+  targets.forEach((target, index) => {
+    if (index > 0) {
+      args.push(';');
+    }
+    args.push('new-tab', '--title', windowNameForOrg(target.org), 'powershell.exe', '-NoExit', '-Command', buildWindowsMonitorCommand(target, context));
+  });
+
+  const result = spawnSync('wt.exe', args, {
+    detached: true,
+    shell: false,
+    stdio: 'ignore',
+    windowsHide: false,
+  });
+  if (result.error || result.status) {
+    context.ui.writeLine(context.t.windowsTerminalLaunchFailed(result.error?.message || result.status));
+  } else {
+    context.ui.writeLine(context.t.windowsTerminalStarted(targets.length));
+  }
+  await context.ui.pause();
+}
+
 async function doStopBackground({ui, t}) {
   const state = loadProcessState();
   ui.clear();
@@ -403,6 +445,13 @@ function isTmuxAvailable() {
   return spawnSync('tmux', ['-V'], {stdio: 'ignore'}).status === 0;
 }
 
+function isWindowsTerminalAvailable() {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+  return spawnSync('where.exe', ['wt.exe'], {stdio: 'ignore'}).status === 0;
+}
+
 function setupTmuxStyle() {
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'status', 'on'], {stdio: 'ignore'});
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'status-position', 'top'], {stdio: 'ignore'});
@@ -452,6 +501,20 @@ function shellJoin(parts) {
       return text;
     }
     return `'${text.replace(/'/g, "'\\''")}'`;
+  }).join(' ');
+}
+
+export function buildWindowsMonitorCommand(target, context) {
+  return powershellJoin([context.command, ...buildMonitorRunArgs(target, {interval: context.interval})]);
+}
+
+function powershellJoin(parts) {
+  return parts.map((part) => {
+    const text = String(part);
+    if (/^[a-zA-Z0-9_./:=@-]+$/.test(text)) {
+      return text;
+    }
+    return `'${text.replace(/'/g, "''")}'`;
   }).join(' ');
 }
 
@@ -645,6 +708,7 @@ function getText(language) {
       language: 'Change language',
       startOne: 'Start one monitor',
       startAllTmux: 'Start all monitors - TUI tmux',
+      startAllWindowsTerminal: 'Start all monitors - Windows Terminal tabs',
       startAllBg: 'Start all monitors - Background',
       stopBg: 'Stop monitors started by Metadelta',
       automationHelp: 'View automation help',
@@ -681,6 +745,9 @@ function getText(language) {
       watchdogError: (message) => `Watchdog error: ${message}`,
       monitorStartedBg: (org) => `Monitor ${org} started in background.`,
       tmuxUnavailable: 'tmux is not available in this environment.',
+      windowsTerminalUnavailable: 'Windows Terminal wt.exe is not available in this environment.',
+      windowsTerminalStarted: (count) => `${count} monitor tab(s) opened in Windows Terminal.`,
+      windowsTerminalLaunchFailed: (detail) => `Windows Terminal could not be opened: ${detail}`,
       noRegisteredProcesses: 'No processes registered by Metadelta.',
       stopped: (org, pid) => `Stopped ${org} (PID ${pid}).`,
       windowsScheduler: 'Windows: use Task Scheduler to run periodically:',
@@ -704,6 +771,7 @@ function getText(language) {
     language: 'Cambiar idioma',
     startOne: 'Iniciar un monitor',
     startAllTmux: 'Iniciar todos los monitores - TUI tmux',
+    startAllWindowsTerminal: 'Iniciar todos los monitores - Windows Terminal tabs',
     startAllBg: 'Iniciar todos los monitores - Background',
     stopBg: 'Detener monitores iniciados por Metadelta',
     automationHelp: 'Ver ayuda de automatizacion',
@@ -740,6 +808,9 @@ function getText(language) {
     watchdogError: (message) => `Error ejecutando watchdog: ${message}`,
     monitorStartedBg: (org) => `Monitor ${org} iniciado en background.`,
     tmuxUnavailable: 'tmux no esta disponible en este ambiente.',
+    windowsTerminalUnavailable: 'Windows Terminal wt.exe no esta disponible en este ambiente.',
+    windowsTerminalStarted: (count) => `${count} pestana(s) de monitor abiertas en Windows Terminal.`,
+    windowsTerminalLaunchFailed: (detail) => `No se pudo abrir Windows Terminal: ${detail}`,
     noRegisteredProcesses: 'No hay procesos registrados por Metadelta.',
     stopped: (org, pid) => `Detenido ${org} (PID ${pid}).`,
     windowsScheduler: 'Windows: usa Task Scheduler para ejecutar periodicamente:',
