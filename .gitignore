@@ -5,3 +5,4 @@ manifest/
 .vscode
 /dist/
 *.tgz
+codex.txt
