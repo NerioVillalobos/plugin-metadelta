@@ -15,6 +15,8 @@ import {
 
 const PROCESS_STATE_PATH = path.join(os.homedir(), '.metadelta', 'monitor', 'control-processes.json');
 const TMUX_SESSION = 'metadelta';
+const CONTROL_EXIT = Symbol('CONTROL_EXIT');
+const pendingKeys = [];
 
 export async function runMonitorControl(options = {}) {
   const configPath = options.configPath || getDefaultWatchdogConfigPath();
@@ -40,8 +42,14 @@ export async function runMonitorControl(options = {}) {
       }
       await runAction(actions[selected].id, context);
     }
+  } catch (error) {
+    if (error === CONTROL_EXIT) {
+      ui.clear();
+      return;
+    }
+    throw error;
   } finally {
-    ui.showCursor();
+    ui.close();
   }
 }
 
@@ -389,6 +397,14 @@ function saveProcessState(state) {
 }
 
 class ControlTerminal {
+  close() {
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.stdin.pause();
+    this.showCursor();
+  }
+
   clear() {
     process.stdout.write('\x1b[2J\x1b[H');
   }
@@ -456,9 +472,34 @@ class ControlTerminal {
     process.stdout.write(`  ${label}: `);
     return new Promise((resolve) => {
       let buffer = '';
+      const drainPendingKeys = () => {
+        while (pendingKeys.length > 0) {
+          const key = pendingKeys.shift();
+          if (key === '\u0003') {
+            return CONTROL_EXIT;
+          }
+          if (key === '\n' || key === '\r') {
+            return buffer.trim();
+          }
+          buffer += key;
+        }
+        return undefined;
+      };
+      const pendingValue = drainPendingKeys();
+      if (pendingValue !== undefined) {
+        resolve(pendingValue);
+        return;
+      }
       const onData = (chunk) => {
         const text = chunk.toString();
-        if (text.includes('\n') || text.includes('\r')) {
+        if (text.includes('\u0003')) {
+          process.stdin.off('data', onData);
+          resolve(CONTROL_EXIT);
+          return;
+        }
+        const newlineIndex = findNewlineIndex(text);
+        if (newlineIndex !== -1) {
+          buffer += text.slice(0, newlineIndex);
           process.stdin.off('data', onData);
           resolve(buffer.trim());
           return;
@@ -467,6 +508,11 @@ class ControlTerminal {
       };
       process.stdin.on('data', onData);
       process.stdin.resume();
+    }).then((value) => {
+      if (value === CONTROL_EXIT) {
+        throw CONTROL_EXIT;
+      }
+      return value;
     });
   }
 
@@ -478,20 +524,24 @@ class ControlTerminal {
     }
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    await readKey();
+    const key = await readKey();
     process.stdin.setRawMode(false);
+    if (key === '\u0003') {
+      throw CONTROL_EXIT;
+    }
   }
 }
 
 function readKey() {
+  if (pendingKeys.length > 0) {
+    return Promise.resolve(pendingKeys.shift());
+  }
   return new Promise((resolve) => {
     const onData = (chunk) => {
       process.stdin.off('data', onData);
-      const key = chunk.toString();
-      if (key === '\x1B') {
-        resolve(key);
-        return;
-      }
+      const keys = splitKeyChunk(chunk.toString());
+      pendingKeys.push(...keys.slice(1));
+      const key = keys[0] ?? '';
       resolve(key);
     };
     process.stdin.on('data', onData);
@@ -504,4 +554,30 @@ function visibleLength(text) {
 
 function padRight(text, width) {
   return `${text}${' '.repeat(Math.max(0, width - visibleLength(text)))}`;
+}
+
+function findNewlineIndex(text) {
+  const lineFeed = text.indexOf('\n');
+  const carriageReturn = text.indexOf('\r');
+  if (lineFeed === -1) {
+    return carriageReturn;
+  }
+  if (carriageReturn === -1) {
+    return lineFeed;
+  }
+  return Math.min(lineFeed, carriageReturn);
+}
+
+function splitKeyChunk(text) {
+  const keys = [];
+  for (let index = 0; index < text.length;) {
+    if (text.startsWith('\x1B[A', index) || text.startsWith('\x1B[B', index)) {
+      keys.push(text.slice(index, index + 3));
+      index += 3;
+      continue;
+    }
+    keys.push(text[index]);
+    index += 1;
+  }
+  return keys;
 }
