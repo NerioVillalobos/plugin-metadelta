@@ -22,12 +22,22 @@ export function runProcess(command, args, options = {}) {
         reject(lastError);
         return;
       }
-      const child = spawn(candidate, args, {
-        cwd,
-        env,
-        shell: false,
-        stdio: [stdin, 'pipe', 'pipe'],
-      });
+      let child;
+      try {
+        child = spawn(candidate, args, {
+          cwd,
+          env,
+          shell: false,
+          stdio: [stdin, 'pipe', 'pipe'],
+        });
+      } catch (error) {
+        if (isRetryableSpawnError(error) && index < candidates.length) {
+          tryNext(error);
+          return;
+        }
+        reject(error);
+        return;
+      }
       let stdout = '';
       let stderr = '';
 
@@ -38,7 +48,7 @@ export function runProcess(command, args, options = {}) {
         stderr += chunk.toString();
       });
       child.on('error', (error) => {
-        if (error.code === 'ENOENT' && index < candidates.length) {
+        if (isRetryableSpawnError(error) && index < candidates.length) {
           tryNext(error);
           return;
         }
@@ -60,6 +70,10 @@ export function runProcess(command, args, options = {}) {
 
     tryNext();
   });
+}
+
+function isRetryableSpawnError(error) {
+  return ['ENOENT', 'EINVAL'].includes(error?.code);
 }
 
 export function getCommandCandidates(command, platform = process.platform) {
