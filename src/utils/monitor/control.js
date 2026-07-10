@@ -415,13 +415,30 @@ function setupTmuxStyle() {
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'window-status-format', '#[fg=colour240]  ○  #W  '], {stdio: 'ignore'});
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'window-status-current-format', '#[bold,fg=colour214]  ●  #W  #[default]'], {stdio: 'ignore'});
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'window-status-separator', '#[fg=colour240]│'], {stdio: 'ignore'});
-  spawnSync('tmux', ['setw', '-t', `${TMUX_SESSION}:`, 'allow-rename', 'off'], {stdio: 'ignore'});
-  spawnSync('tmux', ['setw', '-t', `${TMUX_SESSION}:`, 'automatic-rename', 'off'], {stdio: 'ignore'});
   spawnSync('tmux', ['set', '-t', TMUX_SESSION, 'visual-activity', 'off'], {stdio: 'ignore'});
-  spawnSync('tmux', ['setw', '-t', `${TMUX_SESSION}:`, 'monitor-activity', 'off'], {stdio: 'ignore'});
+  applyTmuxWindowStyleToAllWindows();
   spawnSync('tmux', ['bind-key', '-n', 'Right', 'next-window'], {stdio: 'ignore'});
   spawnSync('tmux', ['bind-key', '-n', 'Left', 'previous-window'], {stdio: 'ignore'});
   spawnSync('tmux', ['bind-key', '-n', 'C-x', 'run-shell', `tmux unbind-key -n Right 2>/dev/null; tmux unbind-key -n Left 2>/dev/null; tmux unbind-key -n C-x 2>/dev/null; tmux kill-session -t ${TMUX_SESSION} 2>/dev/null`], {stdio: 'ignore'});
+}
+
+function applyTmuxWindowStyleToAllWindows() {
+  const result = spawnSync('tmux', ['list-windows', '-t', TMUX_SESSION, '-F', '#{window_index}'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const indexes = result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const index of indexes) {
+    const target = `${TMUX_SESSION}:${index}`;
+    spawnSync('tmux', ['setw', '-t', target, 'window-status-format', '#[fg=colour240]  ○  #W  '], {stdio: 'ignore'});
+    spawnSync('tmux', ['setw', '-t', target, 'window-status-current-format', '#[bold,fg=colour214]  ●  #W  #[default]'], {stdio: 'ignore'});
+    spawnSync('tmux', ['setw', '-t', target, 'allow-rename', 'off'], {stdio: 'ignore'});
+    spawnSync('tmux', ['setw', '-t', target, 'automatic-rename', 'off'], {stdio: 'ignore'});
+    spawnSync('tmux', ['setw', '-t', target, 'monitor-activity', 'off'], {stdio: 'ignore'});
+  }
 }
 
 function windowNameForOrg(org) {
