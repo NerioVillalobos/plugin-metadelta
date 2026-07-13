@@ -83,7 +83,7 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
   return {skipped: false};
 }
 
-function writeVlocityMonitorJob(paths) {
+export function writeVlocityMonitorJob(paths) {
   fs.mkdirSync(paths.manifest, {recursive: true});
   const jobPath = path.join(paths.manifest, 'monitor-vlocity-export.yaml');
   const yaml = [
@@ -92,6 +92,8 @@ function writeVlocityMonitorJob(paths) {
     'compileOnBuild: false',
     'maxDepth: 0',
     'autoUpdateSettings: true',
+    '',
+    'manifest: []',
     '',
     'OverrideSettings:',
     '    DataPacks:',
