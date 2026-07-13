@@ -31,15 +31,15 @@ export function prepareOrgTree(paths) {
 
 export function resetCurrent(paths, scope) {
   if (scope === 'all' || scope === 'salesforce') {
-    removeDirectory(paths.salesforce);
     fs.mkdirSync(paths.salesforce, {recursive: true});
+    clearDirectory(paths.salesforce);
   }
   if (scope === 'all' || scope === 'vlocity') {
-    removeDirectory(paths.vlocity);
     fs.mkdirSync(paths.vlocity, {recursive: true});
+    clearDirectory(paths.vlocity);
   }
-  removeDirectory(paths.temp);
   fs.mkdirSync(paths.temp, {recursive: true});
+  clearDirectory(paths.temp);
 }
 
 export function cleanupMonitorWorkspace(paths) {
@@ -65,6 +65,15 @@ function removeDirectory(dir) {
     }
     makeWritable(dir);
     fs.rmSync(dir, {recursive: true, force: true, maxRetries: 15, retryDelay: 300});
+  }
+}
+
+function clearDirectory(dir) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    removeDirectory(path.join(dir, entry.name));
   }
 }
 
