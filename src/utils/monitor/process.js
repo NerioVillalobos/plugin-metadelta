@@ -15,6 +15,7 @@ export function runProcess(command, args, options = {}) {
   const {cwd = process.cwd(), env = process.env, stdin = 'ignore'} = options;
   const candidates = getCommandCandidates(command);
   let index = 0;
+  const useShell = shouldUseShell();
 
   return new Promise((resolve, reject) => {
     const tryNext = (lastError) => {
@@ -25,10 +26,12 @@ export function runProcess(command, args, options = {}) {
       }
       let child;
       try {
-        child = spawn(candidate, args, {
+        const spawnCommand = useShell ? buildShellCommand(candidate, args) : candidate;
+        const spawnArgs = useShell ? [] : args;
+        child = spawn(spawnCommand, spawnArgs, {
           cwd,
           env,
-          shell: shouldUseShell(),
+          shell: useShell,
           stdio: [stdin, 'pipe', 'pipe'],
         });
       } catch (error) {
@@ -75,6 +78,20 @@ export function runProcess(command, args, options = {}) {
 
 function isRetryableSpawnError(error) {
   return ['ENOENT', 'EINVAL'].includes(error?.code);
+}
+
+export function buildShellCommand(command, args, platform = process.platform) {
+  return [command, ...args].map((value) => quoteShellArg(value, platform)).join(' ');
+}
+
+function quoteShellArg(value, platform) {
+  const text = String(value);
+  if (text.length === 0) return '""';
+  if (!/[\s"'&|<>()[\]{}^;,%!]/.test(text)) return text;
+  if (platform === 'win32') {
+    return `"${text.replace(/"/g, '\\"')}"`;
+  }
+  return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
 export function shouldUseShell(platform = process.platform) {
