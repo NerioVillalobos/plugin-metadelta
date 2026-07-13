@@ -26,6 +26,10 @@ test('writeVlocityMonitorJob includes parser-safe defaults', () => {
     assert.match(yaml, /^continueAfterError: true$/m);
     assert.match(yaml, /^manifest: \[\]$/m);
     assert.match(yaml, /^OverrideSettings:$/m);
+    assert.match(yaml, /^  DataPacks:$/m);
+    assert.match(yaml, /^    Catalog: \{\}$/m);
+    assert.match(yaml, /^    Product2:$/m);
+    assert.match(yaml, /^      MaxDeploy: 1$/m);
   } finally {
     fs.rmSync(orgRoot, {recursive: true, force: true});
   }

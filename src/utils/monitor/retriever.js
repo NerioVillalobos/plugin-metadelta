@@ -96,10 +96,10 @@ export function writeVlocityMonitorJob(paths) {
     'manifest: []',
     '',
     'OverrideSettings:',
-    '    DataPacks:',
-    '        Catalog:',
-    '        Product2:',
-    '            MaxDeploy: 1',
+    '  DataPacks:',
+    '    Catalog: {}',
+    '    Product2:',
+    '      MaxDeploy: 1',
     '',
   ].join('\n');
   fs.writeFileSync(jobPath, yaml, 'utf8');
