@@ -10,6 +10,7 @@ import {
   ensureWatchdogConfig,
   processWatchTarget,
   readNewEntries,
+  resolveUserPath,
   updateControlLanguage,
   updateWatchTarget,
 } from '../src/utils/monitor/watchdog.js';
@@ -165,4 +166,9 @@ test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', 
   );
 
   assert.equal(command, "sf metadelta monitor run --org 'Telecentro qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
+});
+
+test('resolveUserPath preserves Windows absolute paths and resolves relative paths from base dir', () => {
+  assert.equal(resolveUserPath('C:\\Users\\Nerio\\manifest\\Release.xml', '/tmp/base'), 'C:\\Users\\Nerio\\manifest\\Release.xml');
+  assert.equal(resolveUserPath('manifest/Release.xml', '/tmp/base'), path.join('/tmp/base', 'manifest/Release.xml'));
 });

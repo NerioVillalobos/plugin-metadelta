@@ -13,7 +13,7 @@ import {appendChangeLogEntries, appendSessionEnded, appendSessionStarted, export
 import {MonitorUi} from '../../../utils/monitor/ui.js';
 import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 import {runMonitorControl} from '../../../utils/monitor/control.js';
-import {getDefaultWatchdogConfigPath, runWatchdogOnce} from '../../../utils/monitor/watchdog.js';
+import {getDefaultWatchdogConfigPath, resolveUserPath, runWatchdogOnce} from '../../../utils/monitor/watchdog.js';
 
 class MonitorRun extends Command {
   static id = 'metadelta:monitor:run';
@@ -79,7 +79,7 @@ class MonitorRun extends Command {
     fs.mkdirSync(commandRoot, {recursive: true});
     process.chdir(commandRoot);
     const changeLogPath = path.join(commandRoot, 'change-log.jsonl');
-    const csvExportPath = flags['export-csv'] ? path.resolve(launchRoot, flags['export-csv']) : undefined;
+    const csvExportPath = flags['export-csv'] ? resolveUserPath(flags['export-csv'], launchRoot) : undefined;
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
     const paths = createMonitorWorkspace(process.cwd(), orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
@@ -295,7 +295,7 @@ function resolveOptionalManifestPath(baseDir, manifestPath) {
   if (!manifestPath) {
     return undefined;
   }
-  const resolved = path.resolve(baseDir, manifestPath);
+  const resolved = resolveUserPath(manifestPath, baseDir);
   if (!fs.existsSync(resolved)) {
     throw new Error(`No se encontró el manifest indicado: ${manifestPath}`);
   }
