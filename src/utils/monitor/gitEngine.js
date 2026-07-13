@@ -1,10 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {runProcess} from './process.js';
 
 export async function initGit(root) {
-  await runProcess('git', ['init'], {cwd: root});
-  await runProcess('git', ['config', 'user.email', 'metadelta-monitor@local'], {cwd: root});
-  await runProcess('git', ['config', 'user.name', 'Metadelta Monitor'], {cwd: root});
-  await runProcess('git', ['config', 'commit.gpgsign', 'false'], {cwd: root});
+  if (!hasGitMetadata(root)) {
+    await runProcess('git', ['init'], {cwd: root});
+  }
+  await ensureGitConfig(root, 'user.email', 'metadelta-monitor@local');
+  await ensureGitConfig(root, 'user.name', 'Metadelta Monitor');
+  await ensureGitConfig(root, 'commit.gpgsign', 'false');
 }
 
 export async function hasBaseline(root) {
@@ -55,5 +59,29 @@ export async function updateBaseline(root) {
     await runProcess('git', ['commit', '--allow-empty', '-m', `metadelta monitor refresh ${new Date().toISOString()}`], {cwd: root});
   } catch {
     // Nothing to commit is harmless for a monitor refresh.
+  }
+}
+
+function hasGitMetadata(root) {
+  return fs.existsSync(path.join(root, '.git'));
+}
+
+async function ensureGitConfig(root, key, value) {
+  const current = await getGitConfigValues(root, key);
+  if (current.length === 1 && current[0] === value) return;
+  const args =
+    current.length === 0 ? ['config', '--local', key, value] : ['config', '--local', '--replace-all', key, value];
+  await runProcess('git', args, {cwd: root});
+}
+
+async function getGitConfigValues(root, key) {
+  try {
+    const {stdout} = await runProcess('git', ['config', '--local', '--get-all', key], {cwd: root});
+    return stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
   }
 }
