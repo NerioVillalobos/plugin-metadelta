@@ -11,6 +11,20 @@ test('toVlocityRelativePath uses portable relative paths for Vlocity CLI', () =>
   assert.equal(toVlocityRelativePath(orgRoot, jobPath), 'manifest/monitor-vlocity-export.yaml');
 });
 
+test('toVlocityRelativePath points to custom YAML outside monitor workspace', () => {
+  const userRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-monitor-user-'));
+  try {
+    const orgRoot = path.join(userRoot, '.metadelta', 'monitor', 'Telecentro-demo');
+    const jobPath = path.join(userRoot, 'Documents', 'DevOps', 'manifest-test', 'Release.yaml');
+    assert.equal(
+      toVlocityRelativePath(orgRoot, jobPath),
+      '../../../Documents/DevOps/manifest-test/Release.yaml'
+    );
+  } finally {
+    fs.rmSync(userRoot, {recursive: true, force: true});
+  }
+});
+
 test('buildVlocityEnv exposes sf auth secrets for Vlocity CLI session refresh', () => {
   const env = buildVlocityEnv({PATH: 'C:\\bin', SF_TEMP_SHOW_SECRETS: 'false'});
   assert.equal(env.PATH, 'C:\\bin');

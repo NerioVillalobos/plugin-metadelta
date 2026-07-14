@@ -45,7 +45,7 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
   }
 
   const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeVlocityMonitorJob(paths);
-  const vlocityJobPath = providedJobPath ? jobPath : toVlocityRelativePath(paths.orgRoot, jobPath);
+  const vlocityJobPath = toVlocityRelativePath(paths.orgRoot, jobPath);
   const vlocityProjectPath = toVlocityRelativePath(paths.orgRoot, paths.vlocity);
   const command = providedJobPath ? 'packExport' : 'packExportAllDefault';
   try {
