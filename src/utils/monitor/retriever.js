@@ -8,10 +8,8 @@ export async function retrieveSalesforceCore(paths, orgAlias, options = {}) {
   fs.mkdirSync(paths.manifest, {recursive: true});
   ensureSfdxProject(paths.orgRoot);
 
-  const packageXml = path.join(paths.manifest, 'package.xml');
-  if (manifestPath) {
-    fs.copyFileSync(manifestPath, packageXml);
-  } else {
+  const packageXml = manifestPath ? path.resolve(manifestPath) : path.join(paths.manifest, 'package.xml');
+  if (!manifestPath) {
     await runProcess(
       'sf',
       ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
@@ -46,8 +44,8 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
-  const jobPath = providedJobPath ? writeScopedVlocityMonitorJob(paths, providedJobPath) : writeVlocityMonitorJob(paths);
-  const vlocityJobPath = toVlocityRelativePath(paths.orgRoot, jobPath);
+  const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeVlocityMonitorJob(paths);
+  const vlocityJobPath = providedJobPath ? jobPath : toVlocityRelativePath(paths.orgRoot, jobPath);
   const vlocityProjectPath = toVlocityRelativePath(paths.orgRoot, paths.vlocity);
   const command = providedJobPath ? 'packExport' : 'packExportAllDefault';
   try {
@@ -104,36 +102,6 @@ export function writeVlocityMonitorJob(paths) {
   ].join('\n');
   fs.writeFileSync(jobPath, yaml, 'utf8');
   return jobPath;
-}
-
-export function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
-  fs.mkdirSync(paths.manifest, {recursive: true});
-  const jobPath = path.join(paths.manifest, `monitor-${path.basename(sourceJobPath)}`);
-  const sourceYaml = fs.readFileSync(sourceJobPath, 'utf8');
-  const yamlWithoutProjectPath = sourceYaml
-    .split(/\r?\n/)
-    .filter((line) => !/^projectPath\s*:/i.test(line.trim()))
-    .join('\n');
-  const yaml = [
-    `projectPath: ${yamlScalar(toVlocityRelativePath(paths.orgRoot, paths.vlocity))}`,
-    ...missingScopedJobDefaults(yamlWithoutProjectPath),
-    '',
-    yamlWithoutProjectPath.trim(),
-  ].join('\n');
-  fs.writeFileSync(jobPath, yaml, 'utf8');
-  return jobPath;
-}
-
-function missingScopedJobDefaults(yaml) {
-  const defaults = [
-    ['continueAfterError', 'true'],
-    ['compileOnBuild', 'false'],
-    ['maxDepth', '0'],
-    ['autoUpdateSettings', 'true'],
-  ];
-  return defaults
-    .filter(([key]) => !new RegExp(`^\\s*${key}\\s*:`, 'im').test(yaml))
-    .map(([key, value]) => `${key}: ${value}`);
 }
 
 function yamlScalar(value) {

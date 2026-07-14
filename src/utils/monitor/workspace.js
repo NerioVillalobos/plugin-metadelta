@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export function createMonitorWorkspace(projectRoot, orgAlias) {
-  const root = path.join(projectRoot, '.metadelta-monitor');
-  const orgRoot = path.join(root, orgAlias);
+export function createMonitorWorkspace(monitorRoot, orgAlias) {
+  const root = monitorRoot;
+  const orgRoot = monitorRoot;
   const paths = {
     root,
     lock: path.join(root, '.lock'),
@@ -47,8 +47,8 @@ export function cleanupMonitorWorkspace(paths) {
     return;
   }
   fs.rmSync(path.join(paths.root, '.git'), {recursive: true, force: true});
-  if (paths.orgRoot) {
-    fs.rmSync(paths.orgRoot, {recursive: true, force: true});
+  for (const dir of [paths.current, paths.manifest, paths.temp]) {
+    fs.rmSync(dir, {recursive: true, force: true});
   }
   if (paths.lock) {
     fs.rmSync(paths.lock, {force: true});

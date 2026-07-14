@@ -9,6 +9,9 @@ test('resetCurrent keeps base directories and clears their contents', () => {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-monitor-workspace-'));
   try {
     const paths = createMonitorWorkspace(projectRoot, 'DEV');
+    assert.equal(paths.root, projectRoot);
+    assert.equal(paths.orgRoot, projectRoot);
+    assert.equal(paths.current, path.join(projectRoot, 'current'));
     fs.mkdirSync(path.join(paths.salesforce, 'nested'), {recursive: true});
     fs.writeFileSync(path.join(paths.salesforce, 'nested', 'component.xml'), '<xml />');
     fs.writeFileSync(path.join(paths.vlocity, 'datapack.json'), '{}');

@@ -1,5 +1,6 @@
 import {Command, Flags} from '../../../utils/oclif.js';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {
   createMonitorWorkspace,
@@ -21,7 +22,7 @@ class MonitorRun extends Command {
   static id = 'metadelta:monitor:run';
   static summary = 'Run a temporary local Salesforce/Vlocity metadata drift monitor.';
   static description = `
-  Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,
+  Creates or reuses a ~/.metadelta/monitor/<org> workspace, retrieves Salesforce Core and Vlocity metadata,
   tracks drift with a local Git repository, and renders an interactive terminal monitor.
   Snapshots, Git baseline, and change logs are preserved under .metadelta/monitor/<org>.
   `;
@@ -77,13 +78,13 @@ class MonitorRun extends Command {
     const launchRoot = process.cwd();
     const scopedXmlPath = resolveOptionalManifestPath(launchRoot, flags['scope-xml']);
     const scopedYamlPath = resolveOptionalManifestPath(launchRoot, flags['scope-yaml']);
-    const commandRoot = path.join(launchRoot, '.metadelta', 'monitor', orgAlias);
+    const commandRoot = path.join(os.homedir(), '.metadelta', 'monitor', orgAlias);
     fs.mkdirSync(commandRoot, {recursive: true});
     process.chdir(commandRoot);
     const changeLogPath = path.join(commandRoot, 'change-log.jsonl');
     const csvExportPath = flags['export-csv'] ? resolveUserPath(flags['export-csv'], launchRoot) : undefined;
     const intervalMs = Math.max(1, flags.interval) * 60 * 1000;
-    const paths = createMonitorWorkspace(process.cwd(), orgAlias);
+    const paths = createMonitorWorkspace(commandRoot, orgAlias);
     let scope = resolveEffectiveScope(flags.scope, {scopedXmlPath, scopedYamlPath});
     let displayScope = resolveDisplayScope(scope, {scopedXmlPath, scopedYamlPath});
     const sessionStartedAt = new Date().toISOString();
@@ -210,7 +211,7 @@ class MonitorRun extends Command {
           return;
         }
 
-        const currentPrefix = `${orgAlias}/current/`;
+        const currentPrefix = 'current/';
         ui?.update({message: 'Comparing snapshot with previous baseline...'});
         const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix) && !isIgnoredMonitorFile(change.file));
         if (accumulatedChanges.size === 0 && rawChanges.length > LARGE_INITIAL_DIFF_THRESHOLD) {

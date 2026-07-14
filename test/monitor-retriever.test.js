@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildVlocityEnv, toVlocityRelativePath, writeScopedVlocityMonitorJob, writeVlocityMonitorJob} from '../src/utils/monitor/retriever.js';
+import {buildVlocityEnv, toVlocityRelativePath, writeVlocityMonitorJob} from '../src/utils/monitor/retriever.js';
 
 test('toVlocityRelativePath uses portable relative paths for Vlocity CLI', () => {
   const orgRoot = path.join('C:', 'Users', 'Nerio', '.metadelta', 'monitor', 'Telecentro-demo');
@@ -36,41 +36,6 @@ test('writeVlocityMonitorJob includes parser-safe defaults', () => {
     assert.match(yaml, /^    Catalog: \{\}$/m);
     assert.match(yaml, /^    Product2:$/m);
     assert.match(yaml, /^      MaxDeploy: 1$/m);
-  } finally {
-    fs.rmSync(orgRoot, {recursive: true, force: true});
-  }
-});
-
-test('writeScopedVlocityMonitorJob injects missing defaults and preserves custom manifest', () => {
-  const orgRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-monitor-retriever-'));
-  try {
-    const paths = {
-      orgRoot,
-      manifest: path.join(orgRoot, 'manifest'),
-      vlocity: path.join(orgRoot, 'current', 'vlocity'),
-    };
-    const sourceJobPath = path.join(orgRoot, 'Release.yaml');
-    fs.writeFileSync(sourceJobPath, [
-      'projectPath: ./old',
-      'compileOnBuild: true',
-      'manifest:',
-      '- IntegrationProcedure/TC_ExternalServiceAssets',
-      '- Promotion/Promo-Test',
-      '',
-    ].join('\n'));
-
-    const jobPath = writeScopedVlocityMonitorJob(paths, sourceJobPath);
-    const yaml = fs.readFileSync(jobPath, 'utf8');
-
-    assert.match(yaml, /^projectPath: 'current\/vlocity'$/m);
-    assert.match(yaml, /^continueAfterError: true$/m);
-    assert.match(yaml, /^compileOnBuild: true$/m);
-    assert.match(yaml, /^maxDepth: 0$/m);
-    assert.match(yaml, /^autoUpdateSettings: true$/m);
-    assert.match(yaml, /^manifest:$/m);
-    assert.match(yaml, /^- IntegrationProcedure\/TC_ExternalServiceAssets$/m);
-    assert.equal((yaml.match(/^compileOnBuild:/gm) ?? []).length, 1);
-    assert.doesNotMatch(yaml, /projectPath: \.\/old/);
   } finally {
     fs.rmSync(orgRoot, {recursive: true, force: true});
   }
