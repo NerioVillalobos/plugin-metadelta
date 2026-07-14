@@ -165,7 +165,7 @@ test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', 
     {command: 'sf', launchRoot: 'C:\\Users\\Nerio\\Documents\\DevOps\\plugin-metadelta'}
   );
 
-  assert.equal(command, "Set-Location -LiteralPath 'C:\\Users\\Nerio\\Documents\\DevOps\\plugin-metadelta'; sf metadelta monitor run --org 'Telecentro qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
+  assert.equal(command, "sf metadelta monitor run --org 'Telecentro qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
 });
 
 test('resolveUserPath preserves Windows absolute paths and resolves relative paths from base dir', () => {

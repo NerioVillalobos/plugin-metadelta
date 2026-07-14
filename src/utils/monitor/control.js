@@ -516,11 +516,7 @@ function shellJoin(parts) {
 }
 
 export function buildWindowsMonitorCommand(target, context) {
-  const monitorCommand = powershellJoin([context.command, ...buildMonitorRunArgs(target, {interval: context.interval})]);
-  if (!context.launchRoot) {
-    return monitorCommand;
-  }
-  return `Set-Location -LiteralPath ${powershellQuote(context.launchRoot)}; ${monitorCommand}`;
+  return powershellJoin([context.command, ...buildMonitorRunArgs(target, {interval: context.interval})]);
 }
 
 function powershellJoin(parts) {
@@ -531,14 +527,6 @@ function powershellJoin(parts) {
     }
     return `'${text.replace(/'/g, "''")}'`;
   }).join(' ');
-}
-
-function powershellQuote(value) {
-  const text = String(value);
-  if (/^[a-zA-Z0-9_./:=@-]+$/.test(text)) {
-    return text;
-  }
-  return `'${text.replace(/'/g, "''")}'`;
 }
 
 function loadProcessState() {
