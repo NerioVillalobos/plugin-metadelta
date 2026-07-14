@@ -274,7 +274,7 @@ export class MonitorUi {
   }
 
   hasVisibleDetail() {
-    return Boolean(this.errorDetail || this.noticeDetail);
+    return Boolean(this.errorDetail);
   }
 }
 
