@@ -106,7 +106,7 @@ export function writeVlocityMonitorJob(paths) {
   return jobPath;
 }
 
-function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
+export function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
   fs.mkdirSync(paths.manifest, {recursive: true});
   const jobPath = path.join(paths.manifest, `monitor-${path.basename(sourceJobPath)}`);
   const sourceYaml = fs.readFileSync(sourceJobPath, 'utf8');
@@ -116,10 +116,24 @@ function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
     .join('\n');
   const yaml = [
     `projectPath: ${yamlScalar(toVlocityRelativePath(paths.orgRoot, paths.vlocity))}`,
-    yamlWithoutProjectPath,
+    ...missingScopedJobDefaults(yamlWithoutProjectPath),
+    '',
+    yamlWithoutProjectPath.trim(),
   ].join('\n');
   fs.writeFileSync(jobPath, yaml, 'utf8');
   return jobPath;
+}
+
+function missingScopedJobDefaults(yaml) {
+  const defaults = [
+    ['continueAfterError', 'true'],
+    ['compileOnBuild', 'false'],
+    ['maxDepth', '0'],
+    ['autoUpdateSettings', 'true'],
+  ];
+  return defaults
+    .filter(([key]) => !new RegExp(`^\\s*${key}\\s*:`, 'im').test(yaml))
+    .map(([key, value]) => `${key}: ${value}`);
 }
 
 function yamlScalar(value) {
