@@ -184,11 +184,13 @@ class MonitorRun extends Command {
           }
         }
 
-        ui?.update({message: 'Normalizing and comparing snapshots...'});
+        ui?.update({message: 'Normalizing snapshot files...'});
         normalizeTree(paths.orgRoot);
+        ui?.update({message: 'Checking monitor Git baseline...'});
         const baselineExists = await hasBaseline(paths.root);
         const lastRefreshAt = Date.now();
         if (!baselineExists) {
+          ui?.update({message: 'Creating initial monitor baseline...'});
           await createBaseline(paths.root);
           const baselineMessage = 'Initial baseline snapshot created.';
           ui?.update({
@@ -207,7 +209,9 @@ class MonitorRun extends Command {
         }
 
         const currentPrefix = `${orgAlias}/current/`;
+        ui?.update({message: 'Comparing snapshot with previous baseline...'});
         const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix) && !isIgnoredMonitorFile(change.file));
+        ui?.update({message: `Resolving audit data for ${rawChanges.length} change(s)...`});
         const rows = await enrichChanges(rawChanges, orgAlias, paths.root, diffSummary);
         const detectedAt = new Date(lastRefreshAt).toISOString();
         for (const row of rows) {
@@ -230,6 +234,7 @@ class MonitorRun extends Command {
               : `${rows.length} new change(s), ${cumulativeRows.length} cumulative. Baseline updated for next refresh.`,
           noticeDetail: vlocityMessage,
         });
+        ui?.update({message: 'Updating monitor baseline...'});
         await updateBaseline(paths.root);
       } catch (error) {
         ui?.update({

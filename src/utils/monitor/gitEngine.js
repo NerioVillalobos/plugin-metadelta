@@ -2,9 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {runProcess} from './process.js';
 
+const GIT_TIMEOUT_MS = 10 * 60 * 1000;
+
 export async function initGit(root) {
   if (!hasGitMetadata(root)) {
-    await runProcess('git', ['init'], {cwd: root});
+    await runGit(root, ['init']);
   }
   await ensureGitConfig(root, 'user.email', 'metadelta-monitor@local');
   await ensureGitConfig(root, 'user.name', 'Metadelta Monitor');
@@ -13,7 +15,7 @@ export async function initGit(root) {
 
 export async function hasBaseline(root) {
   try {
-    await runProcess('git', ['rev-parse', '--verify', 'HEAD'], {cwd: root});
+    await runGit(root, ['rev-parse', '--verify', 'HEAD']);
     return true;
   } catch {
     return false;
@@ -21,12 +23,12 @@ export async function hasBaseline(root) {
 }
 
 export async function createBaseline(root, message = 'metadelta monitor baseline') {
-  await runProcess('git', ['add', '--all'], {cwd: root});
-  await runProcess('git', ['commit', '--allow-empty', '-m', message], {cwd: root});
+  await runGit(root, ['add', '--all']);
+  await runGit(root, ['commit', '--allow-empty', '-m', message]);
 }
 
 export async function parseDiff(root) {
-  const {stdout} = await runProcess('git', ['diff', '--name-status', '--find-renames', 'HEAD', '--'], {cwd: root});
+  const {stdout} = await runGit(root, ['diff', '--name-status', '--find-renames', 'HEAD', '--']);
   return stdout
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -43,7 +45,7 @@ export async function parseDiff(root) {
 
 export async function diffSummary(root, file) {
   try {
-    const {stdout} = await runProcess('git', ['diff', '--', file], {cwd: root});
+    const {stdout} = await runGit(root, ['diff', '--', file]);
     return stdout
       .split(/\r?\n/)
       .filter((line) => /^[+-][^+-]/.test(line))
@@ -54,9 +56,9 @@ export async function diffSummary(root, file) {
 }
 
 export async function updateBaseline(root) {
-  await runProcess('git', ['add', '--all'], {cwd: root});
+  await runGit(root, ['add', '--all']);
   try {
-    await runProcess('git', ['commit', '--allow-empty', '-m', `metadelta monitor refresh ${new Date().toISOString()}`], {cwd: root});
+    await runGit(root, ['commit', '--allow-empty', '-m', `metadelta monitor refresh ${new Date().toISOString()}`]);
   } catch {
     // Nothing to commit is harmless for a monitor refresh.
   }
@@ -71,12 +73,12 @@ async function ensureGitConfig(root, key, value) {
   if (current.length === 1 && current[0] === value) return;
   const args =
     current.length === 0 ? ['config', '--local', key, value] : ['config', '--local', '--replace-all', key, value];
-  await runProcess('git', args, {cwd: root});
+  await runGit(root, args);
 }
 
 async function getGitConfigValues(root, key) {
   try {
-    const {stdout} = await runProcess('git', ['config', '--local', '--get-all', key], {cwd: root});
+    const {stdout} = await runGit(root, ['config', '--local', '--get-all', key]);
     return stdout
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -84,4 +86,8 @@ async function getGitConfigValues(root, key) {
   } catch {
     return [];
   }
+}
+
+function runGit(root, args) {
+  return runProcess('git', args, {cwd: root, timeoutMs: GIT_TIMEOUT_MS});
 }

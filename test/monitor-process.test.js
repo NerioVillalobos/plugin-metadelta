@@ -34,3 +34,10 @@ test('runProcess rejects cleanly when command cannot be spawned', async () => {
     /ENOENT|spawn/
   );
 });
+
+test('runProcess rejects when a command exceeds timeoutMs', async () => {
+  await assert.rejects(
+    () => runProcess(process.execPath, ['-e', 'setTimeout(() => {}, 1000)'], {timeoutMs: 50}),
+    /timed out/
+  );
+});

@@ -12,7 +12,7 @@ export function commandExists(command) {
 }
 
 export function runProcess(command, args, options = {}) {
-  const {cwd = process.cwd(), env = process.env, stdin = 'ignore'} = options;
+  const {cwd = process.cwd(), env = process.env, stdin = 'ignore', timeoutMs = 0} = options;
   const candidates = getCommandCandidates(command);
   let index = 0;
   const useShell = shouldUseShell();
@@ -44,6 +44,16 @@ export function runProcess(command, args, options = {}) {
       }
       let stdout = '';
       let stderr = '';
+      let settled = false;
+      const timeout = timeoutMs > 0 ? setTimeout(() => {
+        settled = true;
+        child.kill('SIGTERM');
+        const error = new Error(`${candidate} ${args.join(' ')} timed out after ${timeoutMs}ms`);
+        error.stdout = stdout;
+        error.stderr = stderr;
+        error.code = 'ETIMEDOUT';
+        reject(error);
+      }, timeoutMs) : null;
 
       child.stdout.on('data', (chunk) => {
         stdout += chunk.toString();
@@ -52,6 +62,13 @@ export function runProcess(command, args, options = {}) {
         stderr += chunk.toString();
       });
       child.on('error', (error) => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        if (settled) {
+          return;
+        }
+        settled = true;
         if (isRetryableSpawnError(error) && index < candidates.length) {
           tryNext(error);
           return;
@@ -59,6 +76,13 @@ export function runProcess(command, args, options = {}) {
         reject(error);
       });
       child.on('close', (code) => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        if (settled) {
+          return;
+        }
+        settled = true;
         if (code !== 0) {
           const detail = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n');
           const error = new Error(`${candidate} ${args.join(' ')} failed with code ${code}${detail ? `\n${detail}` : ''}`);
