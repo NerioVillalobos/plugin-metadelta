@@ -15,6 +15,8 @@ import {isIgnoredMonitorFile} from '../../../utils/monitor/ignore.js';
 import {runMonitorControl} from '../../../utils/monitor/control.js';
 import {getDefaultWatchdogConfigPath, resolveUserPath, runWatchdogOnce} from '../../../utils/monitor/watchdog.js';
 
+const LARGE_INITIAL_DIFF_THRESHOLD = 1000;
+
 class MonitorRun extends Command {
   static id = 'metadelta:monitor:run';
   static summary = 'Run a temporary local Salesforce/Vlocity metadata drift monitor.';
@@ -211,6 +213,19 @@ class MonitorRun extends Command {
         const currentPrefix = `${orgAlias}/current/`;
         ui?.update({message: 'Comparing snapshot with previous baseline...'});
         const rawChanges = (await parseDiff(paths.root)).filter((change) => change.file.startsWith(currentPrefix) && !isIgnoredMonitorFile(change.file));
+        if (accumulatedChanges.size === 0 && rawChanges.length > LARGE_INITIAL_DIFF_THRESHOLD) {
+          ui?.update({message: `Large initial diff detected (${rawChanges.length} files). Resetting monitor baseline...`});
+          await updateBaseline(paths.root);
+          ui?.update({
+            rows: [],
+            status: 'BASELINE RESET',
+            lastRefreshAt,
+            retrieveDurationMs,
+            message: `Large initial diff detected (${rawChanges.length} files). Baseline reset; changes will appear in the next refresh.`,
+            noticeDetail: vlocityMessage,
+          });
+          return;
+        }
         ui?.update({message: `Resolving audit data for ${rawChanges.length} change(s)...`});
         const rows = await enrichChanges(rawChanges, orgAlias, paths.root, diffSummary);
         const detectedAt = new Date(lastRefreshAt).toISOString();
