@@ -28,6 +28,7 @@ export async function runMonitorControl(options = {}) {
     interval: options.interval,
     webhookUrl: options.webhookUrl,
     command: options.command || 'sf',
+    launchRoot: process.cwd(),
     ui,
   };
 
@@ -334,7 +335,17 @@ async function doStartAllWindowsTerminal(context) {
     if (index > 0) {
       args.push(';');
     }
-    args.push('new-tab', '--title', windowNameForOrg(target.org), 'powershell.exe', '-NoExit', '-Command', buildWindowsMonitorCommand(target, context));
+    args.push(
+      'new-tab',
+      '--title',
+      windowNameForOrg(target.org),
+      '--startingDirectory',
+      context.launchRoot,
+      'powershell.exe',
+      '-NoExit',
+      '-Command',
+      buildWindowsMonitorCommand(target, context)
+    );
   });
 
   const result = spawnSync('wt.exe', args, {
@@ -505,7 +516,11 @@ function shellJoin(parts) {
 }
 
 export function buildWindowsMonitorCommand(target, context) {
-  return powershellJoin([context.command, ...buildMonitorRunArgs(target, {interval: context.interval})]);
+  const monitorCommand = powershellJoin([context.command, ...buildMonitorRunArgs(target, {interval: context.interval})]);
+  if (!context.launchRoot) {
+    return monitorCommand;
+  }
+  return `Set-Location -LiteralPath ${powershellQuote(context.launchRoot)}; ${monitorCommand}`;
 }
 
 function powershellJoin(parts) {
@@ -516,6 +531,14 @@ function powershellJoin(parts) {
     }
     return `'${text.replace(/'/g, "''")}'`;
   }).join(' ');
+}
+
+function powershellQuote(value) {
+  const text = String(value);
+  if (/^[a-zA-Z0-9_./:=@-]+$/.test(text)) {
+    return text;
+  }
+  return `'${text.replace(/'/g, "''")}'`;
 }
 
 function loadProcessState() {
