@@ -3,12 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {toVlocityRelativePath, writeScopedVlocityMonitorJob, writeVlocityMonitorJob} from '../src/utils/monitor/retriever.js';
+import {buildVlocityEnv, toVlocityRelativePath, writeScopedVlocityMonitorJob, writeVlocityMonitorJob} from '../src/utils/monitor/retriever.js';
 
 test('toVlocityRelativePath uses portable relative paths for Vlocity CLI', () => {
   const orgRoot = path.join('C:', 'Users', 'Nerio', '.metadelta', 'monitor', 'Telecentro-demo');
   const jobPath = path.join(orgRoot, 'manifest', 'monitor-vlocity-export.yaml');
   assert.equal(toVlocityRelativePath(orgRoot, jobPath), 'manifest/monitor-vlocity-export.yaml');
+});
+
+test('buildVlocityEnv exposes sf auth secrets for Vlocity CLI session refresh', () => {
+  const env = buildVlocityEnv({PATH: 'C:\\bin', SF_TEMP_SHOW_SECRETS: 'false'});
+  assert.equal(env.PATH, 'C:\\bin');
+  assert.equal(env.SF_TEMP_SHOW_SECRETS, 'true');
 });
 
 test('writeVlocityMonitorJob includes parser-safe defaults', () => {

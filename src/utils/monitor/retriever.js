@@ -54,7 +54,7 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     await runProcess(
       'vlocity',
       ['-sfdx.username', orgAlias, '-job', vlocityJobPath, '--projectPath', vlocityProjectPath, command],
-      {cwd: paths.orgRoot}
+      {cwd: paths.orgRoot, env: buildVlocityEnv()}
     );
   } catch (error) {
     removeIgnoredMonitorFiles(paths.vlocity);
@@ -143,6 +143,10 @@ function yamlScalar(value) {
 export function toVlocityRelativePath(from, target) {
   const relative = path.relative(from, target) || '.';
   return relative.split(path.sep).join('/');
+}
+
+export function buildVlocityEnv(baseEnv = process.env) {
+  return {...baseEnv, SF_TEMP_SHOW_SECRETS: 'true'};
 }
 
 function hasMonitorFiles(root) {
