@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-29 — `@nervill/metadelta` 0.11.13
+> **Last update / Última actualización:** 2026-07-28 — `@nervill/metadelta` 0.11.14
 
 # Metadelta Salesforce CLI Plugin
 
@@ -48,26 +48,38 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    npm install --global @salesforce/cli@2.102.6
    ```
-2. Install the plugin directly from GitHub using the Salesforce CLI:
+2. Install the latest published version from npm using the Salesforce CLI (recommended):
+   ```bash
+   sf plugins install @nervill/metadelta
+   ```
+   To install this exact release instead, pin the version:
+   ```bash
+   sf plugins install @nervill/metadelta@0.11.14
+   ```
+   > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
+
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.14`.
+
+3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13`.
+   Confirm installation with `sf plugins`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
-3. (Optional, for local development) Clone this repository and install dependencies:
+4. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
    git clone <repo-url>
    cd plugin-metadelta
    npm install
    ```
-4. Link the plugin to your local Salesforce CLI:
+5. Link the plugin to your local Salesforce CLI:
    ```bash
    npm run compile
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.14 (link)`.
 
 ---
 
@@ -865,20 +877,38 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    npm install --global @salesforce/cli@2.102.6
    ```
-2. Clona este repositorio e instala las dependencias:
+2. Instala la última versión publicada en npm mediante Salesforce CLI (recomendado):
+   ```bash
+   sf plugins install @nervill/metadelta
+   ```
+   Para instalar específicamente esta versión:
+   ```bash
+   sf plugins install @nervill/metadelta@0.11.14
+   ```
+   > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
+
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.11.14`.
+
+3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
+   ```bash
+   sf plugins install github:NerioVillalobos/plugin-metadelta.git
+   ```
+   Confirma la instalación con `sf plugins`.
+
+   ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
+
+4. (Opcional, para desarrollo local) Clona este repositorio e instala las dependencias:
    ```bash
    git clone <repo-url>
    cd plugin-metadelta
    npm install
    ```
-3. Vincula el plugin con tu Salesforce CLI local:
+5. Vincula el plugin con tu Salesforce CLI local:
    ```bash
    npm run compile
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
-
-   ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.11.14 (link)`.
 
 ---
 
