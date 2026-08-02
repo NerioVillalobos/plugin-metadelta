@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-29 — `@nervill/metadelta` 0.11.13
+> **Last update / Última actualización:** 2026-08-02 — `@nervill/metadelta` 0.15.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -52,7 +52,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.15.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -67,7 +67,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run compile
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.13 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.15.0 (link)`.
 
 ---
 
@@ -474,7 +474,7 @@ The monitor stores its runtime state under `~/.metadelta/monitor/<orgAlias>/`. I
 
 For Salesforce Core changes, the monitor queries the org metadata APIs to enrich each row with `LastModifiedBy.Name` and `LastModifiedDate`. For Vlocity changes, it now shares the Vlocity DataPack query catalog used by `sf metadelta find`, so paths such as `vlocity/Promotion/<GlobalKey>/...` are resolved against the parent DataPack record by `Name`, `Id`, or namespaced `GlobalKey__c` when available. This improves the modifier shown in the dashboard and in the change log instead of falling back to `N/A` for many Vlocity DataPack files.
 
-When `--scope-xml` or `--scope-yaml` is present, the dashboard scope label reflects the custom scope: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM`, or `ALL-CUSTOM`. The XML/YAML paths can use any filename and are resolved relative to the directory where you start the command, before the monitor changes into `.metadelta/monitor/<orgAlias>/`.
+When `--scope-xml` or `--scope-yaml` is present, the dashboard scope label reflects the custom scope: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM`, or `ALL-CUSTOM`. The XML/YAML paths can use any filename and are resolved relative to the directory where you start the command, before the monitor changes into `~/.metadelta/monitor/<orgAlias>/`.
 
 #### Examples
 
@@ -536,7 +536,7 @@ Watchdog target entries can include custom manifests per org:
 }
 ```
 
-> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.11.13):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
+> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.15.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 
 ---
 
@@ -1313,7 +1313,7 @@ El monitor guarda su estado de ejecución en `~/.metadelta/monitor/<aliasOrg>/`.
 
 Para cambios Salesforce Core, el monitor consulta las APIs de metadata del org para enriquecer cada fila con `LastModifiedBy.Name` y `LastModifiedDate`. Para cambios Vlocity, ahora comparte el catálogo de queries DataPack usado por `sf metadelta find`, por lo que rutas como `vlocity/Promotion/<GlobalKey>/...` se resuelven contra el DataPack padre por `Name`, `Id` o el campo namespaced `GlobalKey__c` cuando esté disponible. Esto mejora el modificador mostrado en el dashboard y en el log, evitando caer en `N/A` para muchos archivos DataPack Vlocity.
 
-Cuando `--scope-xml` o `--scope-yaml` está presente, el dashboard muestra el scope custom correspondiente: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM` o `ALL-CUSTOM`. Las rutas XML/YAML pueden tener cualquier nombre de archivo y se resuelven de forma relativa al directorio donde inicias el comando, antes de que el monitor cambie a `.metadelta/monitor/<aliasOrg>/`.
+Cuando `--scope-xml` o `--scope-yaml` está presente, el dashboard muestra el scope custom correspondiente: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM` o `ALL-CUSTOM`. Las rutas XML/YAML pueden tener cualquier nombre de archivo y se resuelven de forma relativa al directorio donde inicias el comando, antes de que el monitor cambie a `~/.metadelta/monitor/<aliasOrg>/`.
 
 #### Ejemplos
 
@@ -1375,7 +1375,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 }
 ```
 
-> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.11.13):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
+> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.15.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 
 ---
 
