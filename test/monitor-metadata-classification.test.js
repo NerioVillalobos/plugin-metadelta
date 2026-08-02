@@ -101,3 +101,13 @@ test('classifyChange includes object name for object child metadata', () => {
     assert.equal(classified.memberName, memberName, relativePath);
   }
 });
+
+test('classifyChange treats Salesforce OmniStudio integration procedure files as Vlocity audit targets', () => {
+  const classified = classifyChange(
+    'DEV/current/salesforce/force-app/main/default/omniIntegrationProcedures/TC_ExternalServiceAssets.omniIntegrationProcedure-meta.xml'
+  );
+
+  assert.equal(classified.type, 'IntegrationProcedure');
+  assert.equal(classified.source, 'vlocity');
+  assert.equal(classified.memberName, 'TC_ExternalServiceAssets');
+});

@@ -637,135 +637,6 @@
         "collect.js"
       ]
     },
-    "metadelta:monitor:deploy": {
-      "aliases": [],
-      "args": {},
-      "description": "\n  Opens an interactive terminal screen for reviewing deploy results with keyboard navigation.\n  This first version only provides the screen shell; deploy result collection will be added next.\n  ",
-      "examples": [
-        "sf metadelta monitor deploy --org DEV",
-        "sf metadelta monitor deploy --org DEV --once"
-      ],
-      "flags": {
-        "org": {
-          "char": "o",
-          "name": "org",
-          "required": true,
-          "summary": "Alias or username of the target org",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "once": {
-          "name": "once",
-          "summary": "Validate command wiring without opening the interactive terminal UI.",
-          "allowNo": false,
-          "type": "boolean"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:monitor:deploy",
-      "pluginAlias": "@nervill/metadelta",
-      "pluginName": "@nervill/metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "summary": "Review monitor deploy results in an interactive terminal screen.",
-      "enableJsonFlag": false,
-      "isESM": true,
-      "relativePath": [
-        "lib",
-        "commands",
-        "metadelta",
-        "monitor",
-        "deploy.js"
-      ]
-    },
-    "metadelta:monitor:run": {
-      "aliases": [],
-      "args": {},
-      "description": "\n  Creates a temporary .metadelta-monitor workspace, retrieves Salesforce Core and Vlocity metadata,\n  tracks drift with a local Git repository, and renders an interactive terminal monitor.\n  Snapshots, Git baseline, and change logs are preserved under .metadelta/monitor/<org>.\n  ",
-      "examples": [
-        "sf metadelta monitor run --org DEV",
-        "sf metadelta monitor run --org devNervill-2 --scope salesforce",
-        "sf metadelta monitor run --org vlocitySandbox --scope vlocity"
-      ],
-      "flags": {
-        "org": {
-          "char": "o",
-          "name": "org",
-          "required": true,
-          "summary": "Alias or username of the target org",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "interval": {
-          "name": "interval",
-          "summary": "Refresh interval in minutes",
-          "default": 5,
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "scope": {
-          "name": "scope",
-          "summary": "Metadata source to monitor: all, salesforce, or vlocity",
-          "default": "all",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "options": [
-            "all",
-            "salesforce",
-            "vlocity"
-          ],
-          "type": "option"
-        },
-        "scope-xml": {
-          "name": "scope-xml",
-          "summary": "Path to a Salesforce Core package.xml used to monitor only those components",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "scope-yaml": {
-          "name": "scope-yaml",
-          "summary": "Path to a Vlocity YAML manifest used to monitor only those DataPacks",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "export-csv": {
-          "name": "export-csv",
-          "summary": "Export the persistent monitor change log to this CSV file when the command exits",
-          "hasDynamicHelp": false,
-          "multiple": false,
-          "type": "option"
-        },
-        "once": {
-          "name": "once",
-          "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",
-          "allowNo": false,
-          "type": "boolean"
-        }
-      },
-      "hasDynamicHelp": false,
-      "hiddenAliases": [],
-      "id": "metadelta:monitor:run",
-      "pluginAlias": "@nervill/metadelta",
-      "pluginName": "@nervill/metadelta",
-      "pluginType": "core",
-      "strict": true,
-      "summary": "Run a temporary local Salesforce/Vlocity metadata drift monitor.",
-      "enableJsonFlag": false,
-      "isESM": true,
-      "relativePath": [
-        "lib",
-        "commands",
-        "metadelta",
-        "monitor",
-        "run.js"
-      ]
-    },
     "metadelta:security:users": {
       "aliases": [],
       "args": {},
@@ -844,6 +715,160 @@
         "metadelta",
         "security",
         "users.js"
+      ]
+    },
+    "metadelta:monitor:deploy": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Opens an interactive terminal screen for reviewing deploy results with keyboard navigation.\n  This first version only provides the screen shell; deploy result collection will be added next.\n  ",
+      "examples": [
+        "sf metadelta monitor deploy --org DEV",
+        "sf metadelta monitor deploy --org DEV --once"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "required": true,
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "once": {
+          "name": "once",
+          "summary": "Validate command wiring without opening the interactive terminal UI.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:monitor:deploy",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Review monitor deploy results in an interactive terminal screen.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "monitor",
+        "deploy.js"
+      ]
+    },
+    "metadelta:monitor:run": {
+      "aliases": [],
+      "args": {},
+      "description": "\n  Creates or reuses a ~/.metadelta/monitor/<org> workspace, retrieves Salesforce Core and Vlocity metadata,\n  tracks drift with a local Git repository, and renders an interactive terminal monitor.\n  Snapshots, Git baseline, and change logs are preserved under .metadelta/monitor/<org>.\n  ",
+      "examples": [
+        "sf metadelta monitor run --org DEV",
+        "sf metadelta monitor run --org devNervill-2 --scope salesforce",
+        "sf metadelta monitor run --org vlocitySandbox --scope vlocity"
+      ],
+      "flags": {
+        "org": {
+          "char": "o",
+          "name": "org",
+          "summary": "Alias or username of the target org",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "interval": {
+          "name": "interval",
+          "summary": "Refresh interval in minutes",
+          "default": 5,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "scope": {
+          "name": "scope",
+          "summary": "Metadata source to monitor: all, salesforce, or vlocity",
+          "default": "all",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "all",
+            "salesforce",
+            "vlocity"
+          ],
+          "type": "option"
+        },
+        "scope-xml": {
+          "name": "scope-xml",
+          "summary": "Path to a Salesforce Core package.xml used to monitor only those components",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "scope-yaml": {
+          "name": "scope-yaml",
+          "summary": "Path to a Vlocity YAML manifest used to monitor only those DataPacks",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "export-csv": {
+          "name": "export-csv",
+          "summary": "Export the persistent monitor change log to this CSV file when the command exits",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "control": {
+          "name": "control",
+          "summary": "Open the portable Metadelta Monitor control menu.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "watchdog-once": {
+          "name": "watchdog-once",
+          "summary": "Run one Teams watchdog cycle using the monitor watchdog config and exit.",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "watchdog-config": {
+          "name": "watchdog-config",
+          "summary": "Path to the monitor watchdog config JSON. Defaults to ~/.metadelta/monitor/watchdog.config.json.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "teams-webhook-url": {
+          "name": "teams-webhook-url",
+          "summary": "Microsoft Teams webhook URL for --watchdog-once. Prefer METADELTA_TEAMS_WEBHOOK_URL for secrets.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "once": {
+          "name": "once",
+          "summary": "Run one refresh cycle and exit after cleanup. Useful for validation.",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "metadelta:monitor:run",
+      "pluginAlias": "@nervill/metadelta",
+      "pluginName": "@nervill/metadelta",
+      "pluginType": "core",
+      "strict": true,
+      "summary": "Run a temporary local Salesforce/Vlocity metadata drift monitor.",
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "lib",
+        "commands",
+        "metadelta",
+        "monitor",
+        "run.js"
       ]
     },
     "metadelta:task:play": {
@@ -979,5 +1004,5 @@
       ]
     }
   },
-  "version": "0.11.13"
+  "version": "0.15.0"
 }

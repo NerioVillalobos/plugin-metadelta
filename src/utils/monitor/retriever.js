@@ -8,10 +8,8 @@ export async function retrieveSalesforceCore(paths, orgAlias, options = {}) {
   fs.mkdirSync(paths.manifest, {recursive: true});
   ensureSfdxProject(paths.orgRoot);
 
-  const packageXml = path.join(paths.manifest, 'package.xml');
-  if (manifestPath) {
-    fs.copyFileSync(manifestPath, packageXml);
-  } else {
+  const packageXml = manifestPath ? path.resolve(manifestPath) : path.join(paths.manifest, 'package.xml');
+  if (!manifestPath) {
     await runProcess(
       'sf',
       ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
@@ -46,13 +44,15 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
-  const jobPath = providedJobPath ? writeScopedVlocityMonitorJob(paths, providedJobPath) : writeVlocityMonitorJob(paths);
+  const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeVlocityMonitorJob(paths);
+  const vlocityJobPath = toVlocityRelativePath(paths.orgRoot, jobPath);
+  const vlocityProjectPath = toVlocityRelativePath(paths.orgRoot, paths.vlocity);
   const command = providedJobPath ? 'packExport' : 'packExportAllDefault';
   try {
     await runProcess(
       'vlocity',
-      ['-sfdx.username', orgAlias, '-job', jobPath, '--projectPath', paths.vlocity, command],
-      {cwd: paths.orgRoot}
+      ['-sfdx.username', orgAlias, '-job', vlocityJobPath, '--projectPath', vlocityProjectPath, command],
+      {cwd: paths.orgRoot, env: buildVlocityEnv()}
     );
   } catch (error) {
     removeIgnoredMonitorFiles(paths.vlocity);
@@ -81,38 +81,24 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
   return {skipped: false};
 }
 
-function writeVlocityMonitorJob(paths) {
+export function writeVlocityMonitorJob(paths) {
   fs.mkdirSync(paths.manifest, {recursive: true});
   const jobPath = path.join(paths.manifest, 'monitor-vlocity-export.yaml');
   const yaml = [
-    `projectPath: ${yamlScalar(paths.vlocity)}`,
+    `projectPath: ${yamlScalar(toVlocityRelativePath(paths.orgRoot, paths.vlocity))}`,
     'continueAfterError: true',
     'compileOnBuild: false',
     'maxDepth: 0',
     'autoUpdateSettings: true',
     '',
-    'OverrideSettings:',
-    '    DataPacks:',
-    '        Catalog:',
-    '        Product2:',
-    '            MaxDeploy: 1',
+    'manifest: []',
     '',
-  ].join('\n');
-  fs.writeFileSync(jobPath, yaml, 'utf8');
-  return jobPath;
-}
-
-function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
-  fs.mkdirSync(paths.manifest, {recursive: true});
-  const jobPath = path.join(paths.manifest, `monitor-${path.basename(sourceJobPath)}`);
-  const sourceYaml = fs.readFileSync(sourceJobPath, 'utf8');
-  const yamlWithoutProjectPath = sourceYaml
-    .split(/\r?\n/)
-    .filter((line) => !/^projectPath\s*:/i.test(line.trim()))
-    .join('\n');
-  const yaml = [
-    `projectPath: ${yamlScalar(paths.vlocity)}`,
-    yamlWithoutProjectPath,
+    'OverrideSettings:',
+    '  DataPacks:',
+    '    Catalog: {}',
+    '    Product2:',
+    '      MaxDeploy: 1',
+    '',
   ].join('\n');
   fs.writeFileSync(jobPath, yaml, 'utf8');
   return jobPath;
@@ -120,6 +106,15 @@ function writeScopedVlocityMonitorJob(paths, sourceJobPath) {
 
 function yamlScalar(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+export function toVlocityRelativePath(from, target) {
+  const relative = path.relative(from, target) || '.';
+  return relative.split(path.sep).join('/');
+}
+
+export function buildVlocityEnv(baseEnv = process.env) {
+  return {...baseEnv, SF_TEMP_SHOW_SECRETS: 'true'};
 }
 
 function hasMonitorFiles(root) {

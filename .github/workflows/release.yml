@@ -54,8 +54,10 @@ jobs:
           cp "$PKG" "metadelta-${PKG_VERSION}.tgz"
           echo "ALIAS_TARBALL_NAME=metadelta-${PKG_VERSION}.tgz" >> $GITHUB_ENV
 
-      - name: Publish to npm with trusted publishing
+      - name: Publish to npmjs
         run: npm publish "$TARBALL_NAME" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
