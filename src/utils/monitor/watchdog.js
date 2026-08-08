@@ -53,7 +53,10 @@ export function resolveUserPath(inputPath, baseDir = process.cwd()) {
     return inputPath;
   }
   const expanded = expandHome(inputPath);
-  if (path.isAbsolute(expanded) || /^[a-zA-Z]:[\\/]/.test(expanded)) {
+  if (/^[a-zA-Z]:[\\/]/.test(expanded) || /^\\\\/.test(expanded)) {
+    return path.win32.normalize(expanded);
+  }
+  if (path.isAbsolute(expanded)) {
     return path.normalize(expanded);
   }
   return path.resolve(baseDir, expanded);
