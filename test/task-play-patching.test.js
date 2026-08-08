@@ -168,8 +168,9 @@ test('off toggle guard', async ({page}) => {
 
 test('createAiEnhancedTestFilePath appends .ai before extension', () => {
   const taskPlay = createTaskPlay();
-  const aiPath = taskPlay.createAiEnhancedTestFilePath('/tmp/tests/.metadelta.sample.ts');
-  assert.equal(aiPath, '/tmp/tests/.metadelta.sample.ai.ts');
+  const sourcePath = path.join(os.tmpdir(), 'tests', '.metadelta.sample.ts');
+  const aiPath = taskPlay.createAiEnhancedTestFilePath(sourcePath);
+  assert.equal(aiPath, path.join(os.tmpdir(), 'tests', '.metadelta.sample.ai.ts'));
 });
 
 test('buildPlaywrightArgs includes --headed when header is true', () => {

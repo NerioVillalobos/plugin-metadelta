@@ -6,10 +6,17 @@ import os from 'node:os';
 import {ensurePlaywrightTestDependency, resolveInstalledPlaywrightRuntime, buildFrontdoorUrlFromOrgDisplay} from '../src/utils/task/orchestrator.js';
 
 function createFakeSfCli(baseDir, handlerSource) {
-  const binPath = path.join(baseDir, process.platform === 'win32' ? 'sf.cmd' : 'sf');
+  const scriptPath = path.join(baseDir, 'fake-sf.js');
   const script = `#!/usr/bin/env node\n${handlerSource}\n`;
-  fs.writeFileSync(binPath, script, 'utf8');
-  fs.chmodSync(binPath, 0o755);
+  fs.writeFileSync(scriptPath, script, 'utf8');
+
+  const binPath = path.join(baseDir, process.platform === 'win32' ? 'sf.cmd' : 'sf');
+  if (process.platform === 'win32') {
+    fs.writeFileSync(binPath, `@echo off\r\n"${process.execPath}" "%~dp0fake-sf.js" %*\r\n`, 'utf8');
+  } else {
+    fs.writeFileSync(binPath, script, 'utf8');
+    fs.chmodSync(binPath, 0o755);
+  }
   return binPath;
 }
 

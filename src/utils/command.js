@@ -34,6 +34,7 @@ export function buildWindowsShimInvocation(candidate, args = [], env = process.e
   return {
     executable: env.ComSpec || env.COMSPEC || 'cmd.exe',
     args: ['/d', '/s', '/c', commandLine],
+    windowsVerbatimArguments: true,
   };
 }
 
@@ -68,6 +69,7 @@ export function runCommandSync(command, args = [], options = {}) {
     const result = spawnSync(spec.executable, spec.args, {
       encoding: 'utf8',
       shell: false,
+      windowsVerbatimArguments: spec.windowsVerbatimArguments ?? false,
       ...options,
     });
     lastResult = {...result, command: candidate};
@@ -132,6 +134,7 @@ export function runCommand(command, args = [], options = {}) {
         cwd,
         env,
         shell: false,
+        windowsVerbatimArguments: spec.windowsVerbatimArguments ?? false,
         stdio: [stdin, 'pipe', 'pipe'],
       });
 
