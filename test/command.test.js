@@ -27,11 +27,11 @@ test('Windows shims are invoked through cmd.exe with one escaped command line', 
   assert.equal(invocation.windowsVerbatimArguments, true);
   assert.deepEqual(invocation.args.slice(0, 3), ['/d', '/s', '/c']);
   assert.match(invocation.args[3], /^""C:\\Program Files\\Salesforce\\sf\.cmd"/);
-  assert.match(invocation.args[3], /\^%PATH\^%""$/);
+  assert.match(invocation.args[3], /"A\^?&B/);
+  assert.match(invocation.args[3], /\^%"PATH"\^%/);
   assert.match(invocation.args[3], /C:\\Program Files\\Salesforce\\sf\.cmd/);
-  assert.match(invocation.args[3], /\^&/);
-  assert.match(invocation.args[3], /\^%PATH\^%/);
-  assert.match(invocation.args[3], /\^!value\^!/);
+  assert.match(invocation.args[3], /A&B/);
+  assert.match(invocation.args[3], /!value!/);
 });
 
 test('executes a real Windows cmd shim without interpolating arguments', {skip: process.platform !== 'win32'}, () => {

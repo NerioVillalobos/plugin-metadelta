@@ -170,5 +170,5 @@ test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', 
 
 test('resolveUserPath preserves Windows absolute paths and resolves relative paths from base dir', () => {
   assert.equal(resolveUserPath('C:\\Users\\Nerio\\manifest\\Release.xml', '/tmp/base'), 'C:\\Users\\Nerio\\manifest\\Release.xml');
-  assert.equal(resolveUserPath('manifest/Release.xml', '/tmp/base'), path.join('/tmp/base', 'manifest/Release.xml'));
+  assert.equal(resolveUserPath('manifest/Release.xml', '/tmp/base'), path.resolve('/tmp/base', 'manifest/Release.xml'));
 });
