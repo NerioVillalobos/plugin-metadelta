@@ -5,7 +5,7 @@ Fecha : 8/04/2025
 
 
 import {Command, Flags} from '../../utils/oclif.js';
-import {spawn, spawnSync} from 'node:child_process';
+import {runCommand, runCommandSync, formatCommandFailure} from '../../utils/command.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fetchOrgApiVersion} from './orgApiVersion.js';
@@ -45,26 +45,18 @@ class Find extends Command {
     }
 
     const obtenerUsername = () => {
-      const result = spawnSync(`sf org display --target-org ${targetOrg} --json`, {
-        shell: true,
-        encoding: 'utf8',
-        stdio: ['ignore','pipe','ignore']
-      });
+      const result = runCommandSync('sf', ['org', 'display', '--target-org', targetOrg, '--json']);
       try {
         const parsed = JSON.parse(result.stdout);
         return parsed.result.username;
       } catch {
-        this.error('No se pudo obtener el Username del alias proporcionado.');
+        this.error(`No se pudo obtener el Username del alias proporcionado. ${formatCommandFailure(result)}`);
       }
     };
 
     const obtenerNombreCompleto = (username) => {
       const soql = `SELECT Name FROM User WHERE Username = '${username}'`;
-      const result = spawnSync(`sf data query --query "${soql}" --json --target-org ${targetOrg}`, {
-        shell: true,
-        encoding: 'utf8',
-        stdio: ['ignore','pipe','ignore']
-      });
+      const result = runCommandSync('sf', ['data', 'query', '--query', soql, '--json', '--target-org', targetOrg]);
       try {
         const parsed = JSON.parse(result.stdout);
         if (parsed.result.records.length > 0) {
@@ -73,7 +65,7 @@ class Find extends Command {
           this.error(`No se encontró un usuario con el Username: ${username}`);
         }
       } catch {
-        this.error('No se pudo obtener el nombre completo del usuario.');
+        this.error(`No se pudo obtener el nombre completo del usuario. ${formatCommandFailure(result)}`);
       }
     };
 
@@ -106,11 +98,7 @@ class Find extends Command {
     ];
 
     const obtenerMetadataDeOrg = () => {
-      const result = spawnSync(`sf force:mdapi:describemetadata --target-org ${targetOrg} --json`, {
-        shell: true,
-        encoding: 'utf8',
-        stdio: ['ignore','pipe','ignore']
-      });
+      const result = runCommandSync('sf', ['force:mdapi:describemetadata', '--target-org', targetOrg, '--json']);
       try {
         const parsed = JSON.parse(result.stdout);
         if (parsed.status === 0 && Array.isArray(parsed.result?.metadataObjects)) {
@@ -167,13 +155,14 @@ class Find extends Command {
     const revisarMetadata = (metadataType) => {
       return new Promise((resolve) => {
         displayStatus(metadataType);
-        const cmd = `sf org list metadata --metadata-type ${metadataType} --target-org ${targetOrg} --json`;
-        const child = spawn(cmd, {shell:true});
-        let data='';
-        child.stdout.on('data', chunk=> data += chunk.toString());
-        child.on('close', () => {
+        runCommand('sf', ['org', 'list', 'metadata', '--metadata-type', metadataType, '--target-org', targetOrg, '--json']).then((result) => {
+          if (result.error || result.status !== 0) {
+            this.warn(`No se pudo consultar ${metadataType}: ${formatCommandFailure(result)}`);
+            resolve({type: metadataType, soporta: false, filtrados: []});
+            return;
+          }
           try {
-            const json = JSON.parse(data);
+            const json = JSON.parse(result.stdout);
             const soporta = json.status === 0 && Array.isArray(json.result) &&
               json.result[0] && json.result[0].lastModifiedByName !== undefined && json.result[0].lastModifiedDate !== undefined;
             let filtrados = [];
@@ -316,13 +305,14 @@ class Find extends Command {
         const filtro = `LastModifiedBy.Name = '${userToAudit}' AND LastModifiedDate >= LAST_N_DAYS:${daysToCheck}`;
         const finalQuery = tieneWhere ? `${baseQuery} AND ${filtro}` : `${baseQuery} WHERE ${filtro}`;
         displayStatus(nombre);
-        const cmd = `sf data query --query \"${finalQuery}\" --target-org ${targetOrg} --json`;
-        const child = spawn(cmd, {shell:true});
-        let data='';
-        child.stdout.on('data', chunk => data += chunk.toString());
-        child.on('close', () => {
+        runCommand('sf', ['data', 'query', '--query', finalQuery, '--target-org', targetOrg, '--json']).then((result) => {
+          if (result.error || result.status !== 0) {
+            this.warn(`No se pudo consultar Vlocity ${nombre}: ${formatCommandFailure(result)}`);
+            resolve([]);
+            return;
+          }
           try {
-            const json = JSON.parse(data);
+            const json = JSON.parse(result.stdout);
             const registros = json.result.records.map(rec => ({
               type: nombre,
               fullName: construirFullNameVlocity(nombre, rec),
@@ -357,11 +347,7 @@ class Find extends Command {
 
     const obtenerRamaGit = () => {
       try {
-        const result = spawnSync('git rev-parse --abbrev-ref HEAD', {
-          shell: true,
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'ignore']
-        });
+        const result = runCommandSync('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
         if (result.status === 0) {
           const branch = result.stdout.trim();
           if (branch && branch !== 'HEAD') {

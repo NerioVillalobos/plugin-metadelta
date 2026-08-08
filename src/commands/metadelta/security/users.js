@@ -1,7 +1,7 @@
 import {Command, Flags} from '../../../utils/oclif.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import {execFileSync} from 'node:child_process';
+import {runCommandSync, formatCommandFailure} from '../../../utils/command.js';
 
 const SEPARATOR = '|';
 const VALIDATION_FILE = 'validation_current_matrix.csv';
@@ -194,23 +194,16 @@ class MetadeltaSecurityUsers extends Command {
   };
 
   runSfQuery(targetOrg, query) {
-    let result;
-    try {
-      result = execFileSync('sf', ['data', 'query', '-q', query, '-o', targetOrg, '--json'], {
-        encoding: 'utf8',
-        shell: process.platform === 'win32',
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-    } catch (error) {
-      const stderr = error.stderr?.toString() ?? error.message;
-      throw new Error(`Error ejecutando query:\n${query}\n\nSTDERR:\n${stderr}`);
+    const result = runCommandSync('sf', ['data', 'query', '--query', query, '--target-org', targetOrg, '--json']);
+    if (result.error || result.status !== 0) {
+      throw new Error(`Error ejecutando query:\n${query}\n\n${formatCommandFailure(result)}`);
     }
 
     let data;
     try {
-      data = JSON.parse(result);
+      data = JSON.parse(result.stdout);
     } catch {
-      throw new Error(`No se pudo interpretar la respuesta JSON.\n\nSTDOUT:\n${result}`);
+      throw new Error(`No se pudo interpretar la respuesta JSON.\n\nSTDOUT:\n${result.stdout}\n\nSTDERR:\n${result.stderr}`);
     }
 
     if (!data?.result?.records) {
@@ -236,10 +229,10 @@ class MetadeltaSecurityUsers extends Command {
   }
 
   runSfCommand(args) {
-    execFileSync('sf', args, {
-      stdio: 'inherit',
-      shell: process.platform === 'win32'
-    });
+    const result = runCommandSync('sf', args, {stdio: 'inherit'});
+    if (result.error || result.status !== 0) {
+      throw new Error(`Error ejecutando Salesforce CLI: ${formatCommandFailure(result)}`);
+    }
   }
 
   async runValidationMode({flags, matrix, users, userRecords, psgRecords, groupRecords}) {

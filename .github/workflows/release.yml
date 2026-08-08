@@ -14,7 +14,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  compatibility:
+    name: Compatibility (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '24']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Compile plugin
+        run: npm run compile
+
   build-publish-and-release:
+    needs: compatibility
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

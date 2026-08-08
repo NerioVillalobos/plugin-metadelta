@@ -22,7 +22,7 @@
     "test": "node --test",
     "manifest": "node scripts/generate-manifest.mjs",
     "pack": "npm run compile && npm pack",
-    "pack:tarball": "npm run compile && mkdir -p dist && npm pack --pack-destination dist && node scripts/create-tarball-alias.mjs"
+    "pack:tarball": "npm run compile && node scripts/pack-tarball.mjs"
   },
   "keywords": [
     "salesforce",
