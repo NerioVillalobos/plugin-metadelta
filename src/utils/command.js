@@ -11,6 +11,38 @@ function hasExtension(command) {
   return /\.[a-z0-9]+$/i.test(command) || /[\\/]/.test(command);
 }
 
+function isWindowsShim(candidate, platform = process.platform) {
+  return platform === 'win32' && /\.(cmd|bat)$/i.test(candidate);
+}
+
+function quoteWindowsCommandArg(value) {
+  const text = String(value);
+  if (text.length === 0) return '""';
+
+  // cmd.exe parses the command text after /c. Quote the complete argument and
+  // escape cmd metacharacters so SOQL, paths and user input remain one value.
+  const escaped = text
+    .replace(/([&|<>^()])/g, '^$1')
+    .replace(/%/g, '^%')
+    .replace(/!/g, '^!')
+    .replace(/"/g, '\\"');
+  return `"${escaped}"`;
+}
+
+export function buildWindowsShimInvocation(candidate, args = [], env = process.env) {
+  const commandLine = [candidate, ...args].map(quoteWindowsCommandArg).join(' ');
+  return {
+    executable: env.ComSpec || env.COMSPEC || 'cmd.exe',
+    args: ['/d', '/s', '/c', commandLine],
+  };
+}
+
+export function getCommandInvocation(candidate, args = [], platform = process.platform, env = process.env) {
+  return isWindowsShim(candidate, platform)
+    ? buildWindowsShimInvocation(candidate, args, env)
+    : {executable: candidate, args};
+}
+
 export function getCommandCandidates(command, platform = process.platform) {
   const value = String(command);
   const configured = COMMAND_ENV[value] ? process.env[COMMAND_ENV[value]] : null;
@@ -32,7 +64,8 @@ export function runCommandSync(command, args = [], options = {}) {
   let lastResult = null;
 
   for (const candidate of getCommandCandidates(command)) {
-    const result = spawnSync(candidate, args, {
+    const spec = getCommandInvocation(candidate, args);
+    const result = spawnSync(spec.executable, spec.args, {
       encoding: 'utf8',
       shell: false,
       ...options,
@@ -94,7 +127,8 @@ export function runCommand(command, args = [], options = {}) {
         return;
       }
 
-      const child = spawn(candidate, args, {
+      const spec = getCommandInvocation(candidate, args, process.platform, env);
+      const child = spawn(spec.executable, spec.args, {
         cwd,
         env,
         shell: false,
@@ -107,7 +141,7 @@ export function runCommand(command, args = [], options = {}) {
       const timeout = timeoutMs > 0 ? setTimeout(() => {
         settled = true;
         child.kill('SIGTERM');
-        resolve({command: candidate, status: 1, stdout, stderr, signal: 'SIGTERM', error: new Error('Tiempo de espera agotado.')});
+        resolve({command: candidate, status: 1, stdout, stderr, signal: 'SIGTERM', error: new Error(`${candidate} timed out after ${timeoutMs}ms`)});
       }, timeoutMs) : null;
 
       child.stdout.on('data', (chunk) => {

@@ -1,7 +1,11 @@
 name: Build & Release Metadelta
 
 on:
+  pull_request:
   push:
+    branches:
+      - master
+      - windows-compatibility-error
     tags:
       - 'v*'
 
@@ -44,6 +48,7 @@ jobs:
 
   build-publish-and-release:
     needs: compatibility
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

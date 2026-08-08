@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {XMLParser} from 'fast-xml-parser';
+import {runCommandSync} from '../../utils/command.js';
 
 const DEFAULT_API_VERSION = '63.0';
 
@@ -205,21 +206,23 @@ function buildCoreComponentsFromBranchFiles(branch, files, command) {
   }
 
   try {
-    execFileSync(
-      'sf',
-      [
-        'project',
-        'generate',
-        'manifest',
-        '--source-dir',
-        '.',
-        '--name',
-        manifestName,
-        '--output-dir',
-        tempManifestDir
-      ],
-      {cwd: tempProjectRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}
-    );
+    const result = runCommandSync('sf', [
+      'project',
+      'generate',
+      'manifest',
+      '--source-dir',
+      '.',
+      '--name',
+      manifestName,
+      '--output-dir',
+      tempManifestDir
+    ], {cwd: tempProjectRoot});
+    if (result.error || result.status !== 0) {
+      const error = result.error || new Error(`sf terminó con código ${result.status}`);
+      error.stderr = result.stderr;
+      error.stdout = result.stdout;
+      throw error;
+    }
   } catch (error) {
     command.warn(`No se pudo generar el manifest Core de forma estándar para ${branch}: ${extractExecError(error)}`);
     fs.rmSync(tempRoot, {recursive: true, force: true});
