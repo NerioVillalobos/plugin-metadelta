@@ -57,8 +57,18 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $tarball = npm pack --ignore-scripts --silent
-          Write-Output 'y' | sf plugins install ".\$tarball"
+          $tarball = (npm pack --ignore-scripts --silent).Trim()
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'metadelta-plugin-smoke'
+          New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
+          Push-Location $smokeRoot
+          try {
+            npm init --yes
+            npm install (Join-Path $env:GITHUB_WORKSPACE $tarball) --omit=dev
+          } finally {
+            Pop-Location
+          }
+          $pluginPath = Join-Path $smokeRoot 'node_modules\@nervill\metadelta'
+          sf plugins link $pluginPath
           sf plugins inspect @nervill/metadelta
           sf metadelta security users --help
 
