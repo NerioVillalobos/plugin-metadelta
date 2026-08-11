@@ -46,12 +46,19 @@ jobs:
       - name: Compile plugin
         run: npm run compile
 
+      - name: Install Salesforce CLI for smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          npm install --global @salesforce/cli
+          sf --version
+
       - name: Windows CLI smoke test
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $tarball = npm pack --ignore-scripts --silent
-          sf plugins install ".\$tarball"
+          Write-Output 'y' | sf plugins install ".\$tarball"
           sf plugins inspect @nervill/metadelta
           sf metadelta security users --help
 
