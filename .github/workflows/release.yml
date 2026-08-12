@@ -1,7 +1,11 @@
 name: Build & Release Metadelta
 
 on:
+  pull_request:
   push:
+    branches:
+      - master
+      - windows-compatibility-error
     tags:
       - 'v*'
 
@@ -14,7 +18,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  compatibility:
+    name: Compatibility (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '24']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Compile plugin
+        run: npm run compile
+
+      - name: Install Salesforce CLI for smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          npm install --global @salesforce/cli
+          sf --version
+
+      - name: Windows CLI smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $tarball = (npm pack --ignore-scripts --silent).Trim()
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'metadelta-plugin-smoke'
+          New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
+          Push-Location $smokeRoot
+          try {
+            npm init --yes
+            npm install (Join-Path $env:GITHUB_WORKSPACE $tarball) --omit=dev
+          } finally {
+            Pop-Location
+          }
+          $pluginPath = Join-Path $smokeRoot 'node_modules\@nervill\metadelta'
+          sf plugins link $pluginPath
+          sf plugins inspect @nervill/metadelta
+          sf metadelta security users --help
+
   build-publish-and-release:
+    needs: compatibility
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

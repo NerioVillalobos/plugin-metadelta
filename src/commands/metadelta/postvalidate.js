@@ -2,7 +2,7 @@ import {Command, Flags} from '../../utils/oclif.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {spawn} from 'node:child_process';
+import {runCommand} from '../../utils/command.js';
 
 class PostValidate extends Command {
   static id = 'metadelta:postvalidate';
@@ -75,9 +75,9 @@ class PostValidate extends Command {
         };
         fs.writeFileSync(path.join(tempDir, 'sfdx-project.json'), JSON.stringify(tempSfdxProject, null, 2));
 
-        const retrieveCmd = `sf project retrieve start --manifest ${xmlCopyPath} --target-org ${orgAlias}`;
+        const retrieveArgs = ['project', 'retrieve', 'start', '--manifest', xmlCopyPath, '--target-org', orgAlias];
         const retrieveLabel = `Retrieve de Salesforce Core (${orgAlias})`;
-        await this.runCommandAndCheck(retrieveCmd, retrieveLabel, tempDir);
+        await this.runCommandAndCheck('sf', retrieveArgs, retrieveLabel, tempDir);
 
         const packageDirPath = path.resolve(tempDir, packagePath);
         comparisonRoots.push(packageDirPath);
@@ -88,11 +88,11 @@ class PostValidate extends Command {
           this.error('Para procesar el manifest YAML debes indicar el alias del ambiente con --org.');
         }
         const yamlPath = path.resolve(flags.yaml);
-        const vlocityCmd = `vlocity --sfdx.username ${orgAlias} -job ${yamlPath} packExport --maxDepth 0`;
+        const vlocityArgs = ['--sfdx.username', orgAlias, '-job', yamlPath, 'packExport', '--maxDepth', '0'];
         const vlocityTarget = path.join(tempDir, packagePath, 'vlocity');
         fs.mkdirSync(vlocityTarget, {recursive: true});
         const vlocityLabel = `Retrieve de Vlocity (${orgAlias})`;
-        await this.runCommandAndCheck(vlocityCmd, vlocityLabel, vlocityTarget);
+        await this.runCommandAndCheck('vlocity', vlocityArgs, vlocityLabel, vlocityTarget);
         comparisonRoots.push(vlocityTarget);
       }
 
@@ -123,41 +123,18 @@ class PostValidate extends Command {
     };
   }
 
-  runCommandAndCheck(command, label, cwd) {
-    return new Promise((resolve, reject) => {
+  async runCommandAndCheck(command, args, label, cwd) {
       const stop = this.startSpinner(label);
-      const child = spawn(command, {shell: true, cwd, stdio: ['ignore', 'pipe', 'pipe']});
-      let stderr = '';
-      let stdout = '';
+      const result = await runCommand(command, args, {cwd});
+      stop();
+      if (result.error || result.status !== 0) {
+        const combined = [result.stderr, result.stdout, result.error?.message].filter(Boolean).join('\n').trim();
+        const extra = combined ? ` Detalle: ${combined}` : '';
+        this.error(`Error al ejecutar ${label}. Código: ${result.status ?? 'desconocido'}.${extra}`);
+        throw new Error('command failed');
+      }
 
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.stdout.on('data', (data) => {
-        // Consumimos stdout para evitar bloqueos por buffer lleno, pero sin mostrarlo.
-        stdout += data.toString();
-      });
-
-      child.on('error', (error) => {
-        stop();
-        this.error(`No se pudo iniciar ${label}: ${error.message}`);
-      });
-
-      child.on('close', (code) => {
-        stop();
-        if (code !== 0) {
-          const combined = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n');
-          const extra = combined ? ` Detalle: ${combined}` : '';
-          this.error(`Error al ejecutar ${label}. Código: ${code ?? 'desconocido'}.${extra}`);
-          reject(new Error('command failed'));
-          return;
-        }
-
-        this.log(`✅ ${label} completado.`);
-        resolve();
-      });
-    });
+      this.log(`✅ ${label} completado.`);
   }
 
   compareFolders({tempDirs, projectRoot, vlocityDir}) {

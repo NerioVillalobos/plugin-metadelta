@@ -13,6 +13,8 @@ import {
   updateControlLanguage,
   updateWatchTarget,
 } from './watchdog.js';
+import {getCommandCandidates} from './process.js';
+import {getCommandInvocation} from '../command.js';
 
 const PROCESS_STATE_PATH = path.join(os.homedir(), '.metadelta', 'monitor', 'control-processes.json');
 const TMUX_SESSION = 'metadelta';
@@ -437,10 +439,15 @@ function startBackgroundMonitor(target, context) {
   const logPath = path.join(os.homedir(), '.metadelta', `monitor-${target.org}.log`);
   fs.mkdirSync(path.dirname(logPath), {recursive: true});
   const logFd = fs.openSync(logPath, 'a');
-  const child = spawn(context.command, args, {
+  const candidate = getCommandCandidates(context.command).find((value) => {
+    const invocation = getCommandInvocation(value, ['--version']);
+    return spawnSync(invocation.executable, invocation.args, {stdio: 'ignore', shell: false}).status === 0;
+  }) ?? context.command;
+  const invocation = getCommandInvocation(candidate, args);
+  const child = spawn(invocation.executable, invocation.args, {
     detached: true,
     stdio: ['ignore', logFd, logFd],
-    shell: process.platform === 'win32',
+    shell: false,
   });
   child.unref();
   const state = loadProcessState();

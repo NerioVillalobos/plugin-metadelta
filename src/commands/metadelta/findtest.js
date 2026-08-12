@@ -1,7 +1,7 @@
 import {Command, Flags} from '../../utils/oclif.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {runCommandSync} from '../../utils/command.js';
 import {XMLParser, XMLBuilder} from 'fast-xml-parser';
 import {fetchOrgApiVersion} from './orgApiVersion.js';
 
@@ -864,7 +864,7 @@ class FindTest extends Command {
           deployArgs.push('--dry-run');
         }
         this.log(`\nEjecutando: sf ${deployArgs.join(' ')}`);
-        const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});
+        const result = runCommandSync('sf', deployArgs, {stdio: 'inherit'});
         if (result.error) {
           this.warn(`Error al ejecutar sf project deploy start: ${result.error.message}`);
         } else if (result.status !== 0) {
@@ -1009,7 +1009,7 @@ class FindTest extends Command {
       }
 
       this.log(`\nEjecutando: ${commandPreview}`);
-      const result = spawnSync('sf', deployArgs, {stdio: 'inherit'});
+        const result = runCommandSync('sf', deployArgs, {stdio: 'inherit'});
       if (result.error) {
         this.warn(`Error al ejecutar sf project deploy start: ${result.error.message}`);
       } else if (result.status !== 0) {

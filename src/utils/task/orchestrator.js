@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {createRequire} from 'node:module';
 import {spawn, spawnSync} from 'node:child_process';
+import {runCommand, runCommandSync} from '../command.js';
 
 const DEFAULT_ORCHESTRATOR_FILENAME = 'metadelta-task-orchestrator.json';
 const DEFAULT_METADELTA_DIRNAME = '.metadelta';
@@ -307,86 +308,16 @@ export function extractSfErrorMessage(output, fallback = 'Error al ejecutar coma
 
 
 
-function getNpxCommandCandidates() {
-  const candidates = [];
-  if (process.env.NPX_BINPATH) {
-    candidates.push(process.env.NPX_BINPATH);
-  }
-  candidates.push('npx');
-  if (process.platform === 'win32') {
-    candidates.push('npx.cmd');
-  }
-
-  return [...new Set(candidates.filter(Boolean))];
-}
-
 export function executeNpxCommand(args, options = {}) {
-  const candidates = getNpxCommandCandidates();
-  let lastResult = null;
-
-  for (const command of candidates) {
-    const result = spawnSync(command, args, {
-      shell: process.platform === 'win32',
-      ...options,
-    });
-    lastResult = result;
-    if (!result.error) {
-      return result;
-    }
-  }
-
-  return lastResult ?? {status: 1, stdout: '', stderr: '', error: new Error('No se pudo ejecutar npx.')};
+  return runCommandSync('npx', args, options);
 }
 
 export async function executeNpxCommandLive(args, options = {}) {
-  const candidates = getNpxCommandCandidates();
-  let lastResult = null;
-
-  for (const command of candidates) {
-    const result = await executeCommandLive(command, args, {
-      shell: process.platform === 'win32',
-      ...options,
-    });
-    lastResult = result;
-    if (!result.error) {
-      return result;
-    }
-  }
-
-  return lastResult ?? {status: 1, stdout: '', stderr: '', error: new Error('No se pudo ejecutar npx.')};
-}
-
-function getSfCommandCandidates() {
-  const candidates = [];
-  if (process.env.SF_BINPATH) {
-    candidates.push(process.env.SF_BINPATH);
-  }
-  candidates.push('sf');
-  if (process.platform === 'win32') {
-    candidates.push('sf.cmd');
-  }
-
-  return [...new Set(candidates.filter(Boolean))];
+  return runCommand('npx', args, options);
 }
 
 function executeSfCommand(args, options = {}) {
-  const candidates = getSfCommandCandidates();
-  let lastResult = null;
-
-  for (const command of candidates) {
-    const result = spawnSync(command, args, {
-      encoding: 'utf8',
-      shell: process.platform === 'win32',
-      ...options,
-    });
-
-    lastResult = result;
-    if (!result.error) {
-      return result;
-    }
-  }
-
-  return lastResult ?? {status: 1, stdout: '', stderr: ''};
+  return runCommandSync('sf', args, options);
 }
 
 function runSfJsonCommand(args, options = {}) {
@@ -582,7 +513,7 @@ export function ensurePlaywrightTestDependency(baseDir = process.cwd()) {
   }
 
   fs.mkdirSync(cacheDir, {recursive: true});
-  const result = spawnSync(
+  const result = runCommandSync(
     'npm',
     ['install', '--no-fund', '--no-audit', '--prefix', cacheDir, '@playwright/test'],
     {stdio: 'inherit'}
