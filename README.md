@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-08-02 — `@nervill/metadelta` 0.15.0
+> **Last update / Última actualización:** 2026-08-12 — `@nervill/metadelta` 0.16.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -64,7 +64,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.15.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -79,7 +79,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run compile
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.15.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0 (link)`.
 
 ---
 
@@ -548,7 +548,7 @@ Watchdog target entries can include custom manifests per org:
 }
 ```
 
-> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.15.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
+> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.16.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 
 ---
 
@@ -1405,7 +1405,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 }
 ```
 
-> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.15.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
+> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.16.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 
 ---
 
