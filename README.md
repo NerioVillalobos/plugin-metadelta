@@ -54,11 +54,11 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.11.14
+   sf plugins install @nervill/metadelta@0.16.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.14`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
@@ -642,6 +642,90 @@ Diagnostics + collaboration:
 
 > Please report new failures using the **`task play bug report`** template so issues can be triaged publicly and prioritized incrementally.
 
+#### MetaDelta Natural Task skill
+
+The repository includes [`skills/metadelta-natural-task`](skills/metadelta-natural-task), an Agent Skill that turns a Salesforce procedure written in natural language into an inspected, validated, reusable Playwright task for `sf metadelta task play`.
+
+The skill complements `task record` and `task play`; it does not replace them. It uses `task record` and Playwright inspection as evidence, rebuilds fragile recordings as durable TypeScript tests, checks whether the requested state is already satisfied, performs a no-save dry run, and only persists the change when the user explicitly authorizes the exact mutation.
+
+Prerequisites on the machine that runs the skill:
+
+* Codex or Claude Code with terminal and workspace access.
+* Salesforce CLI with MetaDelta installed and the target org already authenticated.
+* Node.js and the Playwright runtime required by MetaDelta.
+* Permission to open the target Salesforce org and perform the requested operation.
+
+##### Install in Codex from GitHub
+
+After this directory is available on the repository's default branch:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo NerioVillalobos/plugin-metadelta \
+  --path skills/metadelta-natural-task
+```
+
+To install from a branch or tag that has not been merged into the default branch, add `--ref <branch-or-tag>`. Restart Codex after installation. Invoke the installed skill by asking Codex to use `$metadelta-natural-task` and include the org alias, desired outcome, and natural-language UI procedure in the same request.
+
+##### Install in Claude Code
+
+From a local checkout of this repository, install it for the current user:
+
+```bash
+mkdir -p ~/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. ~/.claude/skills/metadelta-natural-task/
+```
+
+For project-only use, copy it into the target project instead:
+
+```bash
+mkdir -p /path/to/project/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. /path/to/project/.claude/skills/metadelta-natural-task/
+```
+
+Start or restart Claude Code and invoke `/metadelta-natural-task`, followed by the org alias, desired outcome, and procedure. The optional `agents/openai.yaml` file is used by Codex and is harmless when Claude Code loads the skill. This repository currently distributes the skill as a standalone Agent Skill; installing it through Claude's plugin marketplace would additionally require Claude plugin/marketplace manifests.
+
+##### Other local installation options
+
+Install a local checkout manually for Codex:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task"
+cp -a skills/metadelta-natural-task/. "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task/"
+```
+
+During skill development, use a symbolic link instead of copying so local repository changes are immediately visible. Choose the destination for the agent you use:
+
+```bash
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.codex/skills/metadelta-natural-task
+# or
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.claude/skills/metadelta-natural-task
+```
+
+The destination must not already exist before creating the symbolic link. A regular copy is preferable for stable installations; the link is intended for local development.
+
+##### Usage example
+
+Codex:
+
+```text
+Use $metadelta-natural-task for org devNervill. Setup -> Session Settings ->
+change Timeout Value to 1 hour -> Save. Inspect the current value first; if it
+is already 1 hour, do not change it. Create and validate the durable task, run
+the no-save dry run, and apply the change only after my explicit authorization.
+```
+
+Claude Code:
+
+```text
+/metadelta-natural-task org devNervill. Setup -> Session Settings -> change
+Timeout Value to 1 hour -> Save. Inspect the current value first; if it is
+already 1 hour, do not change it. Create and validate the durable task, run the
+no-save dry run, and apply the change only after my explicit authorization.
+```
+
+The expected durable result is a test such as `tests/<org>-<goal>.ts`. Temporary `tests/.metadelta.*` files produced during playback are execution evidence, not the reusable source file.
+
 ---
 
 ### `cleanps` command
@@ -913,11 +997,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.11.14
+   sf plugins install @nervill/metadelta@0.16.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.11.14`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.16.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -938,7 +1022,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    npm run compile
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.11.14 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.16.0 (link)`.
 
 ---
 
@@ -1498,6 +1582,90 @@ Diagnóstico + colaboración:
 4. Abre **Issues → New issue → `task play bug report`** y completa todos los campos requeridos.
 
 > Para reportar errores usa el template **`task play bug report`** y así acelerar un triage público, segmentado e incremental.
+
+#### Skill MetaDelta Natural Task
+
+El repositorio incluye [`skills/metadelta-natural-task`](skills/metadelta-natural-task), un Agent Skill que convierte un procedimiento de Salesforce escrito en lenguaje natural en una tarea Playwright inspeccionada, validada y reutilizable para `sf metadelta task play`.
+
+El skill complementa `task record` y `task play`; no los reemplaza. Usa `task record` y la inspección con Playwright como evidencia, reconstruye grabaciones frágiles como pruebas TypeScript duraderas, comprueba si el estado solicitado ya está satisfecho, ejecuta un dry run sin guardar y solo persiste el cambio cuando el usuario autoriza explícitamente la mutación exacta.
+
+Requisitos en la máquina que ejecutará el skill:
+
+* Codex o Claude Code con acceso a la terminal y al workspace.
+* Salesforce CLI con MetaDelta instalado y la org destino previamente autenticada.
+* Node.js y el runtime de Playwright requerido por MetaDelta.
+* Permisos para abrir la org Salesforce destino y realizar la operación solicitada.
+
+##### Instalar en Codex desde GitHub
+
+Después de que este directorio esté disponible en la rama predeterminada del repositorio:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo NerioVillalobos/plugin-metadelta \
+  --path skills/metadelta-natural-task
+```
+
+Para instalar desde una rama o tag que todavía no se ha integrado en la rama predeterminada, agrega `--ref <rama-o-tag>`. Reinicia Codex después de instalarlo. Invoca el skill solicitando a Codex que use `$metadelta-natural-task` e incluye en la misma petición el alias de la org, el resultado deseado y el procedimiento UI en lenguaje natural.
+
+##### Instalar en Claude Code
+
+Desde un checkout local de este repositorio, instálalo para el usuario actual:
+
+```bash
+mkdir -p ~/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. ~/.claude/skills/metadelta-natural-task/
+```
+
+Para usarlo solamente en un proyecto, cópialo dentro del proyecto destino:
+
+```bash
+mkdir -p /ruta/al/proyecto/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. /ruta/al/proyecto/.claude/skills/metadelta-natural-task/
+```
+
+Inicia o reinicia Claude Code e invoca `/metadelta-natural-task`, seguido por el alias de la org, el resultado deseado y el procedimiento. El archivo opcional `agents/openai.yaml` es utilizado por Codex y no causa problemas cuando Claude Code carga el skill. Actualmente este repositorio distribuye el skill como un Agent Skill independiente; instalarlo mediante el marketplace de plugins de Claude requeriría además los manifests de plugin/marketplace de Claude.
+
+##### Otras formas de instalación local
+
+Instala manualmente un checkout local en Codex:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task"
+cp -a skills/metadelta-natural-task/. "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task/"
+```
+
+Durante el desarrollo del skill puedes usar un enlace simbólico en lugar de copiarlo, de modo que los cambios locales del repositorio sean visibles inmediatamente. Elige el destino correspondiente al agente utilizado:
+
+```bash
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.codex/skills/metadelta-natural-task
+# o
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.claude/skills/metadelta-natural-task
+```
+
+El destino no debe existir antes de crear el enlace simbólico. Para instalaciones estables se recomienda una copia normal; el enlace está pensado para desarrollo local.
+
+##### Ejemplo de uso
+
+Codex:
+
+```text
+Usa $metadelta-natural-task para la org devNervill. Setup -> Session Settings ->
+cambia Timeout Value a 1 hour -> Save. Primero inspecciona el valor actual; si
+ya es 1 hour, no lo cambies. Crea y valida la tarea duradera, ejecuta el dry run
+sin guardar y aplica el cambio solo después de mi autorización explícita.
+```
+
+Claude Code:
+
+```text
+/metadelta-natural-task org devNervill. Setup -> Session Settings -> cambia
+Timeout Value a 1 hour -> Save. Primero inspecciona el valor actual; si ya es
+1 hour, no lo cambies. Crea y valida la tarea duradera, ejecuta el dry run sin
+guardar y aplica el cambio solo después de mi autorización explícita.
+```
+
+El resultado duradero esperado es una prueba como `tests/<org>-<objetivo>.ts`. Los archivos temporales `tests/.metadelta.*` generados durante la reproducción son evidencia de ejecución, no el archivo fuente reutilizable.
 
 ---
 
