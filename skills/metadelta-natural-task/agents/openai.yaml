@@ -1,0 +1,4 @@
+interface:
+  display_name: "MetaDelta Natural Task"
+  short_description: "Convierte instrucciones en tareas MetaDelta robustas"
+  default_prompt: "Usa $metadelta-natural-task para convertir esta solicitud de Salesforce en una tarea MetaDelta verificable."
