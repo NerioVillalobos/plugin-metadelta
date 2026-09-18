@@ -76,7 +76,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 5. Link the plugin to your local Salesforce CLI:
    ```bash
-   npm run compile
+   npm run build
    sf plugins link .
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0 (link)`.
@@ -1020,7 +1020,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 5. Vincula el plugin con tu Salesforce CLI local:
    ```bash
-   npm run compile
+   npm run build
    sf plugins link .
    ```
    Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0 (link)`.
