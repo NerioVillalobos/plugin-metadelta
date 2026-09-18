@@ -1,9 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  buildBundledMetadataDeltaComponents,
   filterCompleteApexClassDeletions,
   filterCompleteVlocityDatapackDeletions,
 } from '../src/commands/metadelta/finddelta.js';
+
+const customLabels = (labels) => `<?xml version="1.0" encoding="UTF-8"?>
+<CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
+${labels.map(({name, value}) => `    <labels>
+        <fullName>${name}</fullName>
+        <language>es_MX</language>
+        <protected>false</protected>
+        <shortDescription>${name}</shortDescription>
+        <value>${value}</value>
+    </labels>`).join('\n')}
+</CustomLabels>`;
 
 test('filterCompleteApexClassDeletions keeps ApexClass only when cls and cls-meta.xml are deleted', () => {
   const files = [
@@ -51,5 +63,31 @@ test('filterCompleteVlocityDatapackDeletions keeps only datapacks without remain
     'Vlocity/OmniScript/DeletedPack/DeletedPack_DataPack.json',
     'Vlocity/OmniScript/DeletedPack/Child/step.json',
     'force-app/Vlocity/DataRaptor/DeletedWithPrefix/DeletedWithPrefix_DataPack.json',
+  ]);
+});
+
+test('buildCustomLabelDeltaComponents returns only added or modified labels', () => {
+  const files = ['force-app/main/default/labels/CustomLabels.labels-meta.xml'];
+  const source = customLabels([
+    {name: 'ExistingLabel', value: 'same'},
+    {name: 'ChangedLabel', value: 'new'},
+    {name: 'AddedLabel', value: 'added'},
+  ]);
+  const target = customLabels([
+    {name: 'ExistingLabel', value: 'same'},
+    {name: 'ChangedLabel', value: 'old'},
+    {name: 'RemovedLabel', value: 'removed'},
+  ]);
+
+  const delta = buildBundledMetadataDeltaComponents('source', 'target', files, (branch) => (
+    branch === 'source' ? source : target
+  ));
+
+  assert.deepEqual(delta.active, [
+    {type: 'CustomLabel', fullName: 'ChangedLabel'},
+    {type: 'CustomLabel', fullName: 'AddedLabel'},
+  ]);
+  assert.deepEqual(delta.destructive, [
+    {type: 'CustomLabel', fullName: 'RemovedLabel'},
   ]);
 });

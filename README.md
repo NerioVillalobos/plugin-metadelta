@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-06-11 — `@nervill/metadelta` 0.11.6
+> **Last update / Última actualización:** 2026-09-18 — `@nervill/metadelta` 0.17.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -50,7 +50,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.6`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
 
 3. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -63,7 +63,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.11.6 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0 (link)`.
 
 ### Usage
 
@@ -400,6 +400,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
 > **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
 > **Monitor Vlocity support (v0.11.6):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
+> **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
 > **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
 > **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
 
@@ -1026,6 +1027,7 @@ sf metadelta monitor run --org DEV --scope salesforce
 > **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
 > **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
 > **Soporte monitor Vlocity (v0.11.6):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
+> **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
 > **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
 > **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
 
