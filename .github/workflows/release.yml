@@ -1,26 +1,93 @@
 name: Build & Release Metadelta
 
 on:
+  pull_request:
   push:
+    branches:
+      - master
+      - windows-compatibility-error
     tags:
       - 'v*'
 
 permissions:
   contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build-and-package:
-    runs-on: ubuntu-latest
+  compatibility:
+    name: Compatibility (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '24']
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Compile plugin
+        run: npm run compile
+
+      - name: Install Salesforce CLI for smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          npm install --global @salesforce/cli
+          sf --version
+
+      - name: Windows CLI smoke test
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $tarball = (npm pack --ignore-scripts --silent).Trim()
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'metadelta-plugin-smoke'
+          New-Item -ItemType Directory -Force -Path $smokeRoot | Out-Null
+          Push-Location $smokeRoot
+          try {
+            npm init --yes
+            npm install (Join-Path $env:GITHUB_WORKSPACE $tarball) --omit=dev
+          } finally {
+            Pop-Location
+          }
+          $pluginPath = Join-Path $smokeRoot 'node_modules\@nervill\metadelta'
+          sf plugins link $pluginPath
+          sf plugins inspect @nervill/metadelta
+          sf metadelta security users --help
+
+  build-publish-and-release:
+    needs: compatibility
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -31,11 +98,11 @@ jobs:
           npm version "$VERSION" --no-git-tag-version --allow-same-version
           echo "PKG_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build (compile TypeScript)
-        run: npm run build
+      - name: Run tests
+        run: npm test
 
-      - name: Generate manifest after build (while dependencies exist)
-        run: npm run manifest
+      - name: Build (compile TypeScript)
+        run: npm run compile
 
       - name: Remove node_modules before packaging
         run: rm -rf node_modules
@@ -46,6 +113,11 @@ jobs:
           echo "TARBALL_NAME=$PKG" >> $GITHUB_ENV
           cp "$PKG" "metadelta-${PKG_VERSION}.tgz"
           echo "ALIAS_TARBALL_NAME=metadelta-${PKG_VERSION}.tgz" >> $GITHUB_ENV
+
+      - name: Publish to npmjs
+        run: npm publish "$TARBALL_NAME" --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

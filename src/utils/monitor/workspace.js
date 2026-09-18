@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export function createMonitorWorkspace(projectRoot, orgAlias) {
-  const root = path.join(projectRoot, '.metadelta-monitor');
-  const orgRoot = path.join(root, orgAlias);
+export function createMonitorWorkspace(monitorRoot, orgAlias) {
+  const root = monitorRoot;
+  const orgRoot = monitorRoot;
   const paths = {
     root,
     lock: path.join(root, '.lock'),
@@ -31,15 +31,15 @@ export function prepareOrgTree(paths) {
 
 export function resetCurrent(paths, scope) {
   if (scope === 'all' || scope === 'salesforce') {
-    fs.rmSync(paths.salesforce, {recursive: true, force: true});
     fs.mkdirSync(paths.salesforce, {recursive: true});
+    clearDirectory(paths.salesforce);
   }
   if (scope === 'all' || scope === 'vlocity') {
-    fs.rmSync(paths.vlocity, {recursive: true, force: true});
     fs.mkdirSync(paths.vlocity, {recursive: true});
+    clearDirectory(paths.vlocity);
   }
-  fs.rmSync(paths.temp, {recursive: true, force: true});
   fs.mkdirSync(paths.temp, {recursive: true});
+  clearDirectory(paths.temp);
 }
 
 export function cleanupMonitorWorkspace(paths) {
@@ -47,11 +47,54 @@ export function cleanupMonitorWorkspace(paths) {
     return;
   }
   fs.rmSync(path.join(paths.root, '.git'), {recursive: true, force: true});
-  if (paths.orgRoot) {
-    fs.rmSync(paths.orgRoot, {recursive: true, force: true});
+  for (const dir of [paths.current, paths.manifest, paths.temp]) {
+    fs.rmSync(dir, {recursive: true, force: true});
   }
   if (paths.lock) {
     fs.rmSync(paths.lock, {force: true});
   }
   fs.mkdirSync(paths.root, {recursive: true});
+}
+
+function removeDirectory(dir) {
+  try {
+    fs.rmSync(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
+  } catch (error) {
+    if (process.platform !== 'win32' || !['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(error?.code)) {
+      throw error;
+    }
+    makeWritable(dir);
+    fs.rmSync(dir, {recursive: true, force: true, maxRetries: 15, retryDelay: 300});
+  }
+}
+
+function clearDirectory(dir) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    removeDirectory(path.join(dir, entry.name));
+  }
+}
+
+function makeWritable(dir) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    const entryPath = path.join(dir, entry.name);
+    try {
+      fs.chmodSync(entryPath, 0o700);
+    } catch {
+      // Best effort only; Windows may still lock files owned by another process.
+    }
+    if (entry.isDirectory()) {
+      makeWritable(entryPath);
+    }
+  }
+  try {
+    fs.chmodSync(dir, 0o700);
+  } catch {
+    // Best effort only.
+  }
 }

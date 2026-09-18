@@ -1,4 +1,4 @@
-import {Command, Flags} from '@oclif/core';
+import {Command, Flags} from '../../../utils/oclif.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';

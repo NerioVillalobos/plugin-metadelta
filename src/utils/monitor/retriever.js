@@ -3,25 +3,29 @@ import path from 'node:path';
 import {commandExists, runProcess} from './process.js';
 import {isIgnoredMonitorFile, isSampleInputJsonError} from './ignore.js';
 
-export async function retrieveSalesforceCore(paths, orgAlias) {
+export async function retrieveSalesforceCore(paths, orgAlias, options = {}) {
+  const {manifestPath} = options;
   fs.mkdirSync(paths.manifest, {recursive: true});
   ensureSfdxProject(paths.orgRoot);
-  await runProcess(
-    'sf',
-    ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
-    {cwd: paths.orgRoot}
-  );
 
-  const generatedCandidates = [
-    path.join(paths.orgRoot, 'metadelta-backup.xml'),
-    path.join(paths.orgRoot, 'manifest', 'metadelta-backup.xml'),
-  ];
-  const packageXml = path.join(paths.manifest, 'package.xml');
-  const generated = generatedCandidates.find((candidate) => fs.existsSync(candidate));
-  if (generated) {
-    fs.renameSync(generated, packageXml);
-  } else if (!fs.existsSync(packageXml)) {
-    throw new Error(`No se generó el manifest esperado para ${orgAlias}.`);
+  const packageXml = manifestPath ? path.resolve(manifestPath) : path.join(paths.manifest, 'package.xml');
+  if (!manifestPath) {
+    await runProcess(
+      'sf',
+      ['project', 'generate', 'manifest', '--from-org', orgAlias, '--excluded-metadata', 'StandardValueSet', '--name', 'metadelta-backup'],
+      {cwd: paths.orgRoot}
+    );
+
+    const generatedCandidates = [
+      path.join(paths.orgRoot, 'metadelta-backup.xml'),
+      path.join(paths.orgRoot, 'manifest', 'metadelta-backup.xml'),
+    ];
+    const generated = generatedCandidates.find((candidate) => fs.existsSync(candidate));
+    if (generated) {
+      fs.renameSync(generated, packageXml);
+    } else if (!fs.existsSync(packageXml)) {
+      throw new Error(`No se generó el manifest esperado para ${orgAlias}.`);
+    }
   }
 
   ensureSfdxProject(paths.salesforce);
@@ -31,7 +35,7 @@ export async function retrieveSalesforceCore(paths, orgAlias) {
 }
 
 export async function exportVlocity(paths, orgAlias, options = {}) {
-  const {jobPath: providedJobPath, required = false} = options;
+  const {required = false, jobPath: providedJobPath} = options;
   if (!commandExists('vlocity')) {
     const reason = 'El binario vlocity no está disponible en este ambiente.';
     if (required) {
@@ -40,23 +44,29 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
     return {skipped: true, reason};
   }
 
-  const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeDefaultVlocityJob(paths);
-  if (!fs.existsSync(jobPath)) {
-    throw new Error(`No se encontró el job Vlocity: ${jobPath}`);
-  }
-
+  const jobPath = providedJobPath ? path.resolve(providedJobPath) : writeVlocityMonitorJob(paths);
+  const vlocityJobPath = toVlocityRelativePath(paths.orgRoot, jobPath);
+  const vlocityProjectPath = toVlocityRelativePath(paths.orgRoot, paths.vlocity);
+  const command = providedJobPath ? 'packExport' : 'packExportAllDefault';
   try {
     await runProcess(
       'vlocity',
-      ['-sfdx.username', orgAlias, '--projectPath', paths.vlocity, '-job', jobPath, 'packExportAllDefault'],
-      {cwd: paths.orgRoot}
+      ['-sfdx.username', orgAlias, '-job', vlocityJobPath, '--projectPath', vlocityProjectPath, command],
+      {cwd: paths.orgRoot, env: buildVlocityEnv()}
     );
   } catch (error) {
     removeIgnoredMonitorFiles(paths.vlocity);
+    const hasExportedFiles = hasMonitorFiles(paths.vlocity);
     if (isSampleInputJsonError(error.message)) {
       return {
         skipped: false,
         warning: 'Vlocity export tuvo errores en *_SampleInputJson.json; esos archivos fueron ignorados por el monitor.',
+      };
+    }
+    if (hasExportedFiles) {
+      return {
+        skipped: false,
+        warning: `Vlocity export terminó con errores, pero se conservaron los DataPacks exportados parcialmente:\n${error.message}`,
       };
     }
     if (required) {
@@ -69,6 +79,49 @@ export async function exportVlocity(paths, orgAlias, options = {}) {
   }
   removeIgnoredMonitorFiles(paths.vlocity);
   return {skipped: false};
+}
+
+export function writeVlocityMonitorJob(paths) {
+  fs.mkdirSync(paths.manifest, {recursive: true});
+  const jobPath = path.join(paths.manifest, 'monitor-vlocity-export.yaml');
+  const yaml = [
+    `projectPath: ${yamlScalar(toVlocityRelativePath(paths.orgRoot, paths.vlocity))}`,
+    'continueAfterError: true',
+    'compileOnBuild: false',
+    'maxDepth: 0',
+    'autoUpdateSettings: true',
+    '',
+    'manifest: []',
+    '',
+    'OverrideSettings:',
+    '  DataPacks:',
+    '    Catalog: {}',
+    '    Product2:',
+    '      MaxDeploy: 1',
+    '',
+  ].join('\n');
+  fs.writeFileSync(jobPath, yaml, 'utf8');
+  return jobPath;
+}
+
+function yamlScalar(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+export function toVlocityRelativePath(from, target) {
+  const relative = path.relative(from, target) || '.';
+  return relative.split(path.sep).join('/');
+}
+
+export function buildVlocityEnv(baseEnv = process.env) {
+  return {...baseEnv, SF_TEMP_SHOW_SECRETS: 'true'};
+}
+
+function hasMonitorFiles(root) {
+  if (!fs.existsSync(root)) {
+    return false;
+  }
+  return collectFiles(root).some((filePath) => !isIgnoredMonitorFile(filePath));
 }
 
 function removeIgnoredMonitorFiles(root) {
@@ -94,34 +147,6 @@ function collectFiles(dir) {
     }
   }
   return files;
-}
-
-function writeDefaultVlocityJob(paths) {
-  const jobPath = path.join(paths.temp, 'vlocity-export-all.yaml');
-  fs.writeFileSync(
-    jobPath,
-    [
-      'projectPath: .',
-      'expansionPath: .',
-      'maxDepth: -1',
-      'useAllRelationships: true',
-      'supportHeadersOnly: true',
-      'supportForceDeploy: true',
-      'includeSalesforceMetadata: false',
-      'manifest:',
-      '  - OmniScript',
-      '  - DataRaptor',
-      '  - FlexCard',
-      '  - IntegrationProcedure',
-      '  - EPC',
-      '  - VlocityDataPack',
-      '',
-      '# packExportAllDefault uses Vlocity default DataPack queries.',
-      '# The manifest documents the monitor scope and keeps the job compatible with custom overrides.',
-      '',
-    ].join('\n')
-  );
-  return jobPath;
 }
 
 function ensureSfdxProject(dir) {

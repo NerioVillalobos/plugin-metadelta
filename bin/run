@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {run} from '@oclif/core';
+import {run} from '../lib/utils/oclif.js';
 
 async function main() {
   await run(undefined, import.meta.url);

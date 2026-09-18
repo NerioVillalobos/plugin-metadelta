@@ -7,38 +7,40 @@
 
 ## English
 
-Metadelta is a custom Salesforce CLI plugin that offers twelve complementary workflows:
+Metadelta is a custom Salesforce CLI plugin that offers thirteen complementary command families:
 
 * `sf metadelta find` inspects a target org and reports metadata components modified by a specific user within a recent time window, optionally generating manifest files for deployment or Vlocity datapack migration. When it writes `package.xml`, the command stamps the file with the API version detected from the target org.
+* `sf metadelta orgApiVersion` prints the API version reported by a target org and is used internally by commands that need to align generated manifests with the org.
 * `sf metadelta finddelta` compares two Git branches and generates delta manifests under `manifest/` for Salesforce Core (`.xml`) and Vlocity (`.yaml`), including destructive manifests when complete deletions are detected. ApexClass destructive entries require both `.cls` and `.cls-meta.xml` to be deleted, and Vlocity destructive entries require the entire datapack folder to be absent from the source branch. It can also merge missing components into existing manifests with `--xml` and `--yaml` without duplicating entries.
-* `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
-* `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
-* `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 * `sf metadelta postvalidate` re-retrieves the manifests you deployed (Core `package.xml` and/or Vlocity YAML), downloads the corresponding components into a temporary folder, and compares them to your local sources with a colorized diff table.
-* `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
 * `sf metadelta access` exports aliases, captures encrypted auth URLs, and restores secure org access across Windows/Linux/WSL with an MFA checkpoint.
 * `sf metadelta security users` reads a security master matrix plus a target users list, resolves required IDs in the org, generates bulk-ready CSV files for role/PSG/group assignments, and can optionally apply changes via Bulk API or generate a current-state validation matrix via `--validate`, and compare that file against the master matrix locally via `--compare`.
 * `sf metadelta initspace` bootstraps a local Salesforce workspace by creating the base folder tree and seed project files required by this plugin.
-* `sf metadelta monitor run` starts a temporary terminal monitor for Salesforce Core and Vlocity metadata drift using only local filesystem snapshots and a local Git diff engine.
+* `sf metadelta monitor run` starts a terminal monitor for Salesforce Core and Vlocity metadata drift using local filesystem snapshots, a local Git diff engine, optional XML/YAML scoped manifests, Vlocity modifier enrichment, a persistent JSONL change log, and optional CSV export.
 * `sf metadelta task record` and `sf metadelta task play` record/play Playwright-based Salesforce tasks with automatic recovery stabilizers, patched `.metadelta.*` playback, and orchestrated diagnostics.
+* `sf metadelta cleanps` extracts a focused copy of a permission set by keeping only the entries that match a fragment or appear in a curated allowlist.
+* `sf metadelta findtest` reviews Apex classes inside a local SFDX project, confirms the presence of their corresponding test classes, and can validate existing `package.xml` manifests prior to a deployment. Generated or updated manifests inherit the API version reported by the target org when available.
+* `sf metadelta manual collect` aggregates manual-step markdown documents stored under `docs/`, renders a consolidated index/banner per story, and offers a sprint-aware mode that only includes the files still pending merge into the base branch.
+* `sf metadelta merge` scans manifest XML files whose names contain a given substring, deduplicates their metadata members, and builds a consolidated `globalpackage.xml` (or a custom output filename).
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
 ### Index
 
 - [Installation](#installation)
-- [`sf metadelta find`](#usage)
+- [`sf metadelta find`](#find-command)
+- [`sf metadelta orgApiVersion`](#orgapiversion-command)
 - [`sf metadelta finddelta`](#finddelta-command)
-- [`sf metadelta cleanps`](#cleanps-command)
-- [`sf metadelta findtest`](#findtest-command)
-- [`sf metadelta manual collect`](#manual-collect-command)
-- [`sf metadelta merge`](#merge-command)
 - [`sf metadelta postvalidate`](#postvalidate-command)
 - [`sf metadelta access`](#access-command)
 - [`sf metadelta security users`](#security-users-command)
 - [`sf metadelta initspace`](#initspace-command)
 - [`sf metadelta monitor run`](#monitor-run-command)
 - [`sf metadelta task record / task play`](#task-record--task-play-command)
+- [`sf metadelta cleanps`](#cleanps-command)
+- [`sf metadelta findtest`](#findtest-command)
+- [`sf metadelta manual collect`](#manual-collect-command)
+- [`sf metadelta merge`](#merge-command)
 
 ### Installation
 
@@ -46,26 +48,48 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    npm install --global @salesforce/cli@2.102.6
    ```
-2. Install the plugin directly from GitHub using the Salesforce CLI:
+2. Install the latest published version from npm using the Salesforce CLI (recommended):
+   ```bash
+   sf plugins install @nervill/metadelta
+   ```
+   To install this exact release instead, pin the version:
+   ```bash
+   sf plugins install @nervill/metadelta@0.17.0
+   ```
+   > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
+
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
+
+3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
 
-3. (Optional, for local development) Clone this repository and install dependencies:
+   ![Metadelta plugin installation example](images/metadelta-example-install.gif)
+
+4. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
    git clone <repo-url>
    cd plugin-metadelta
    npm install
    ```
-4. Link the plugin to your local Salesforce CLI:
+5. Link the plugin to your local Salesforce CLI:
    ```bash
-   npm run build
+   npm run compile
    sf plugins link .
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0 (link)`.
 
-### Usage
+---
+
+### `find` command
+
+#### Explanation
+
+The plugin compares metadata changes for the specified user and prints a table of modified components. When requested, it also produces manifest files under the `manifest/` directory.
+
+#### Usage
 
 Run the command from any directory after linking:
 
@@ -73,9 +97,7 @@ Run the command from any directory after linking:
 sf metadelta find --org <alias_or_username> [flags]
 ```
 
-The plugin compares metadata changes for the specified user and prints a table of modified components. When requested, it also produces manifest files under the `manifest/` directory.
-
-### Flags
+#### Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -124,7 +146,7 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
 >
 > **Note:** When the path to your metafile contains spaces or special characters, wrap it in quotes (for example, `--metafile "./metadata lists/mismetadatos.json"`).
 
-### Examples
+#### Examples
 
 - Basic scan for the default user:
   ```bash
@@ -138,22 +160,57 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
+   ![Metadelta plugin find command example](images/metadelta-example-find-command.gif)
 
+#### Output
+
+The `find` command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory. If the command runs inside a Git repository, the manifest filename uses the current branch name; otherwise it falls back to the provided org alias. Existing files are preserved by adding incremental `-v1`, `-v2`, … suffixes.
+
+---
+
+### `orgApiVersion` command
+
+#### Explanation
+
+Print the API version reported by a target org:
+
+#### Usage
+
+```bash
+sf metadelta orgApiVersion --org <alias_or_username>
+```
+
+The command runs `sf org display --target-org <alias> --json`, extracts `result.apiVersion`, and prints only the version value. It is also used internally by commands that need to align generated manifests with the org API version.
+
+#### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
+
+   ![Metadelta plugin orgApiVersion command example](images/metadelta-example-orgApiVersion-command.gif)
+---
 
 ### `finddelta` command
 
+#### Explanation
+
 Generate delta manifests by comparing two branches:
+
+#### Usage
 
 ```bash
 sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
 ```
 
-What it does:
+#### Characteristics
 
 1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
 2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
 3. Creates destructive manifests automatically when complete deletions exist.
 4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+
+#### Notes
 
 Destructive hardening:
 
@@ -170,7 +227,7 @@ Vlocity outputs:
 - `manifest/<from>.yaml`
 - `manifest/Destructive-<from>.yaml` (only when needed)
 
-Flags:
+#### Flags
 
 | Flag | Description |
 |------|-------------|
@@ -179,11 +236,16 @@ Flags:
 | `--xml` | Existing destination `package.xml` to update with missing Core components. |
 | `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
 
+   ![Metadelta plugin find command example](images/metadelta-example-finddelta-command.gif)
+---
+
 ### `postvalidate` command
+
+#### Explanation
 
 Validates a deployment by re‑retrieving the manifests you used (XML for Salesforce Core and/or YAML for Vlocity) into a temporary folder, comparing the downloaded files against your local sources, and rendering a colorized `Component | Name | Diff` table with `✓` for matches and `✗` for differences.
 
-**What it does**
+#### Characteristics
 
 1. Creates a temporary retrieve directory and hides the raw command output behind a spinner while the retrieves run.
 2. For Salesforce Core (`--xml`), runs `sf project retrieve start --manifest <xml> --target-org <org> --output-dir <tempDir>`.
@@ -192,7 +254,7 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
 5. Compares folder-to-folder ignoring whitespace, blank lines, XML/JS/YAML comments, Vlocity `GlobalKey` lines, and skips noise files like `VlocityBuildErrors.log`, `VlocityBuildLog.yaml`, and the `vlocity-temp/` directory.
 6. Prints a box-style table with colored headers and status symbols, then deletes the temporary folder.
 
-**Flags**
+#### Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -203,7 +265,7 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
 
 > Provide at least one manifest (`--xml` or `--yaml`). When both are present, the retrieves share the same temp folder and a single comparison pass.
 
-**Usage examples**
+#### Examples
 
 - Core only:
   ```bash
@@ -220,17 +282,23 @@ Validates a deployment by re‑retrieving the manifests you used (XML for Salesf
 
 Run the command from the Salesforce project root so Core retrieves line up with your `packageDirectories` structure. Datapacks are resolved relative to the current directory first and then to `--vlocity-dir`.
 
+---
+
 ### `access` command
+
+#### Explanation
 
 Metadelta Access is an **Org Access Replication Tool** with applied security controls. It automates a formerly manual process to export aliases, protect auth URLs, and restore org access across machines with MFA + passphrase encryption.
 
 Use Metadelta Access to transfer org login access securely between machines:
 
+#### Usage
+
 ```bash
 sf metadelta access --all --output docs
 ```
 
-Core flow:
+#### Characteristics
 
 1. `--all` or `--prefix <text>` creates `<output>/<name>/accessbackup.dat` with connected aliases and usernames and also creates `accessbackup.dat.mfa`.
    During this step, the command tries to print an ASCII QR in the terminal (when Python `qrcode` is available); it always prints Secret + URI as fallback.
@@ -284,9 +352,15 @@ By using `metadelta access` and all other commands in this plugin, you acknowled
 
 Use the tool carefully, rotate credentials when needed, and treat backup files as sensitive secrets.
 
+---
+
 ### `security users` command
 
+#### Explanation
+
 Use this command to transform a security matrix into actionable Bulk API files for a target org:
+
+#### Usage
 
 ```bash
 sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
@@ -294,7 +368,7 @@ sf metadelta security users --master data/master.csv --target-users data/target-
 
 This workflow mirrors the original Python utility and is designed for controlled migrations of user access models.
 
-**What it does**
+#### Characteristics
 
 1. Reads the master matrix (`--master`) and the target users file (`--target-users`).
 2. Resolves org IDs by querying `User`, `UserRole`, `PermissionSetGroup`, and `Group` via Salesforce CLI.
@@ -311,13 +385,13 @@ This workflow mirrors the original Python utility and is designed for controlled
 6. When `--validate` is present, the command does not apply changes and instead generates `validation_current_matrix.csv` with one row per target user and current values for `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, and `Queues`.
 7. When `--compare` is present, no org connection is required: the command compares `--file-validation` against `--master` locally and outputs only users with differences in `comparison_mismatches.csv` using compact annotations: `<value>` means missing in user (present in master), and `=value=` means extra in user (not present in master).
 
-**Input expectations**
+#### Input
 
 - `--master` must include columns like: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
 - `PermissionSetGroup`, `PublicGroupSegmento`, and `Queues` support multiple values separated by `|`.
 - `--target-users` should include at least: `Username`, `RoleName`.
 
-**Flags**
+#### Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -330,7 +404,7 @@ This workflow mirrors the original Python utility and is designed for controlled
 | `--compare` | Compares `--file-validation` vs `--master` locally and exports only users with differences to `comparison_mismatches.csv` in compact format (`<value>` missing, `=value=` extra). Cannot be combined with `--apply` or `--validate`. | `false` |
 | `--file-validation` | Path to `validation_current_matrix.csv` used by `--compare`. | None |
 
-**Examples**
+#### Examples
 
 - Dry run (generate files only):
   ```bash
@@ -349,15 +423,21 @@ This workflow mirrors the original Python utility and is designed for controlled
   sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
+---
+
 ### `initspace` command
 
+#### Explanation
+
 Create the recommended workspace scaffold in your current directory:
+
+#### Usage
 
 ```bash
 sf metadelta initspace
 ```
 
-What the command creates:
+#### Characteristics
 
 - Folders:
   - `force-app/main/default`
@@ -372,46 +452,121 @@ What the command creates:
 
 `initspace` is idempotent for directories (safe to re-run) and rewrites the three root files so they stay aligned with the plugin defaults.
 
+---
+
 ### `monitor run` command
 
-Starts a temporary terminal monitor for Salesforce Core and Vlocity metadata drift:
+#### Explanation
+
+Starts a persistent terminal monitor for Salesforce Core and Vlocity metadata drift:
+
+#### Usage
 
 ```bash
 sf metadelta monitor run --org DEV
 ```
 
-The monitor creates `.metadelta-monitor/`, retrieves the current metadata snapshot, initializes a local-only Git repository as the diff engine, and refreshes every five minutes. `NEXT` shows the exact next refresh time instead of repainting a countdown. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Full errors and Vlocity warnings are wrapped in a detail section and automatically pause UI repainting so the text can be selected/copied. Press `p` to pause/resume, `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, `d`/Enter for details, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
+#### Flags
 
-For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` with a temporary job that covers OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC, and standard DataPack exports. You can also provide your own Vlocity job file:
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--org`, `-o` | Alias or username of the target org. Required for the normal monitor mode. | Required unless `--control` or `--watchdog-once` is used |
+| `--interval` | Refresh interval in minutes. Values below `1` are normalized to `1`. | `5` |
+| `--scope` | Metadata source to monitor: `all`, `salesforce`, or `vlocity`. | `all` |
+| `--scope-xml` | Path to a Salesforce Core `package.xml`. When present, the monitor retrieves and watches only the Core components listed in that manifest. | None |
+| `--scope-yaml` | Path to a Vlocity YAML job/manifest. When present, the monitor exports and watches only the DataPacks listed in that file. | None |
+| `--export-csv` | Path where the persistent `change-log.jsonl` should be exported as CSV when the monitor exits. The path is resolved from the directory where the command was started. | None |
+| `--control` | Opens the portable Metadelta Monitor control menu for watchdog targets and monitor launches. | `false` |
+| `--watchdog-once` | Runs one Teams watchdog cycle using `change-log.jsonl` targets from the watchdog config, then exits. | `false` |
+| `--watchdog-config` | Path to the watchdog config JSON. | `~/.metadelta/monitor/watchdog.config.json` |
+| `--teams-webhook-url` | Microsoft Teams webhook URL for `--watchdog-once`. Prefer `METADELTA_TEAMS_WEBHOOK_URL` for secrets. | Environment/config |
+| `--once` | Run one refresh cycle and exit. Useful for validation. | `false` |
+
+The monitor stores its runtime state under `~/.metadelta/monitor/<orgAlias>/`. Inside that folder it maintains `current/`, `manifest/`, `temp/`, the local-only Git repository used as the diff engine, and refreshes every five minutes. `NEXT` shows the exact next refresh time instead of repainting a countdown, and `RETRIEVE` shows the last Salesforce Core + Vlocity retrieve/export duration. The first cycle creates the baseline and shows `STATUS: BASELINE CREATED`; later refreshes show added, modified, deleted, or renamed files. Full errors and Vlocity warnings are wrapped in a detail section and automatically pause UI repainting so the text can be selected/copied.
+
+For Salesforce Core changes, the monitor queries the org metadata APIs to enrich each row with `LastModifiedBy.Name` and `LastModifiedDate`. For Vlocity changes, it now shares the Vlocity DataPack query catalog used by `sf metadelta find`, so paths such as `vlocity/Promotion/<GlobalKey>/...` are resolved against the parent DataPack record by `Name`, `Id`, or namespaced `GlobalKey__c` when available. This improves the modifier shown in the dashboard and in the change log instead of falling back to `N/A` for many Vlocity DataPack files.
+
+When `--scope-xml` or `--scope-yaml` is present, the dashboard scope label reflects the custom scope: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM`, or `ALL-CUSTOM`. The XML/YAML paths can use any filename and are resolved relative to the directory where you start the command, before the monitor changes into `~/.metadelta/monitor/<orgAlias>/`.
+
+#### Examples
+
+Examples for scoped monitoring:
 
 ```bash
-sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+sf metadelta monitor run --org DEV --scope-xml manifest/core.xml
+sf metadelta monitor run --org DEV --scope-yaml manifest/vlocity.yaml
+sf metadelta monitor run --org DEV --scope-xml manifest/core.xml --scope-yaml manifest/vlocity.yaml
 ```
 
-When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. All metadata, manifests, temporary files, and Git history are deleted on exit; only the empty `.metadelta-monitor/` root may remain. For orgs without Vlocity CLI installed, use:
+The UI has two navigable sections. `SALESFORCE CORE / VLOCITY` groups changes by metadata type and shows the count, latest change date, and latest modifier for each type. `RECENT CHANGES` lists the session-cumulative component changes with the most recently detected items first. The arrow keys move the `>` selector across both sections; when the selected row moves past the visible terminal area, the list scrolls so the selector remains visible. Press Enter or `d` on an individual change to see its file, metadata query, modifier, detection time, and Git diff summary. Press Enter or `d` on a metadata type to open `TYPE DETAILS`, which lists the changed components for that type in recent-first order.
 
-`RECENT CHANGES` is cumulative within the active terminal session only. It keeps changes detected across refreshes in memory, but nothing is persisted after exit. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
+Press `p` to pause/resume, `r` to refresh, `s` for Salesforce only, `v` for Vlocity only, `a` for all, and `q`, `x`, `ESC`, `CTRL+C`, or `exit` to quit.
+
+For Vlocity-enabled orgs, the default monitor scope runs `packExportAllDefault` with a temporary job file that includes `continueAfterError: true`:
+
+```bash
+sf metadelta monitor run --org DEV --scope vlocity
+```
+
+When the scope is `all`, a Vlocity export failure does not block Salesforce Core monitoring; the UI keeps the Core diff and shows the Vlocity warning. For orgs without Vlocity CLI installed, use:
 
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce
 ```
 
-> **Linked ESM note:** When `sf` prints `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, always run `npm run build` before testing commands. If your CLI still does not resolve `sf metadelta task record`, use `sf metadelta:task:record` and relink the plugin. Task diagnostics are saved in `.metadelta/metadelta-task-orchestrator.json`. This is mandatory after local code changes; otherwise `sf` may run stale compiled `lib/` output.
-> **Task play hardening:** `sf metadelta task play` now includes automatic stabilizers for frontdoor/base URL separation, initial Setup popup recovery, popup rebinds, App Launcher fallbacks, dynamic Permission Set Assignment selectors, and Action Library scroll selection + Finish enablement checks in the temporary `.metadelta.*` test file.
-> **Salesforce CLI secrets workaround (v0.11.4):** `sf metadelta task record` and `sf metadelta task play` build Salesforce frontdoor URLs from the alias passed in `--org`. When they need the real `accessToken`, Metadelta now runs the required `sf org display --target-org <alias> --verbose --json` calls with `SF_TEMP_SHOW_SECRETS=true` in the child process environment. This keeps the automation compatible with Salesforce CLI outputs that redact secrets, without asking users to run `sf org auth ...` interactively or set the workaround globally.
-> **Monitor Vlocity support (v0.11.6):** `sf metadelta monitor run` can monitor Vlocity-only sessions with `--scope vlocity` and accepts `--vlocity-job` for org-specific DataPack export jobs. The default job is temporary and uses `packExportAllDefault`; it is not persisted after exit.
+`RECENT CHANGES` is cumulative within the active terminal session. Across restarts, the Git baseline and snapshots are preserved under `~/.metadelta/monitor/<orgAlias>/`, so the next run continues from the last baseline instead of starting from scratch. A persistent append-only change log is written to `~/.metadelta/monitor/<orgAlias>/change-log.jsonl`. It records `SESSION_STARTED`, `CHANGE_DETECTED`, and `SESSION_ENDED` events with the component type, component name, action, detection time, last modified date, and modifier when available. Vlocity files named `*_SampleInputJson.json` are ignored by the monitor because they are sample payloads and can produce noisy JSON parsing failures.
+
+To export the accumulated persistent log to CSV when the monitor exits, use `--export-csv`. The export includes session and change events in stable columns such as `event`, `org`, `scope`, `source`, `action`, `type`, `component`, `file`, `detectedAt`, `lastModifiedDate`, `lastModifiedBy`, `startedAt`, `endedAt`, `exitCode`, and `reason`.
+
+```bash
+sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
+```
+
+The complementary watchdog mode reads the persistent `change-log.jsonl` files and sends Microsoft Teams alerts when a `CHANGE_DETECTED` event was touched by a user outside the configured DevOps allowlist. It is incremental and stores byte offsets in a local state file, so repeated scheduled executions do not resend already processed events. Put the webhook URL in `METADELTA_TEAMS_WEBHOOK_URL` or pass it explicitly only in secure local environments.
+
+```bash
+sf metadelta monitor run --watchdog-once
+sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
+```
+
+The control menu is a portable companion for managing watchdog targets and monitor launches without editing JSON by hand. It can add/remove org targets, configure or clear per-target `scopeXml` and `scopeYaml`, change each monitor interval, switch the menu language between English and Spanish, run one watchdog cycle, start monitors in background, use `tmux` for a multi-monitor TUI when available on Linux/WSL/macOS, and open all monitors as Windows Terminal tabs when `wt.exe` is available.
+
+```bash
+sf metadelta monitor run --control
+```
+
+Watchdog target entries can include custom manifests per org:
+
+```json
+{
+  "org": "Telecentro-qa",
+  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "scopeXml": "/absolute/path/Release.xml",
+  "scopeYaml": "/absolute/path/Release.yaml",
+  "interval": 8,
+  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+}
+```
+
+> **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.16.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 > **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
-> **Task orchestrator diagnostics:** The orchestrator now stores the most relevant Playwright failure excerpt (not only the exit code), making solution matching and future triage more accurate in `.metadelta/metadelta-task-orchestrator.json`.
-> **Report a task-play issue:** If playback fails, please open a public GitHub Issue at <https://github.com/NerioVillalobos/plugin-metadelta/issues> and include: (1) command executed, (2) full error text, (3) screenshot captured while running with `--header`, and (4) sanitized `.metadelta.*` snippet around the failing step.
+
+---
 
 ### `task record` / `task play` command
 
+#### Explanation
+
 Use `task record` to capture a Playwright flow and `task play` to replay it in another org with automatic patching, recovery stabilizers, and orchestrated diagnostics:
+
+#### Usage
 
 ```bash
 sf metadelta task record --org <alias>
 sf metadelta task play --org <alias> --tstname tests/<recorded-file>.ts [--header] [--ai --ai-provider gemini --ai-model <model> --ai-key <key>]
 ```
+
+#### Characteristics
 
 Supported coverage for `sf metadelta task play` (scope and limits):
 
@@ -419,6 +574,8 @@ Supported coverage for `sf metadelta task play` (scope and limits):
 * Optional AI hardening (`--ai`) runs **after** deterministic patching, uses a constrained AI fragility-analysis plan (targeted hardening, not full-file free rewrite), creates a second derived file (`tests/.metadelta.<name>.ai.ts`) when safe, supports model override with `--ai-model`/`METADELTA_AI_MODEL`, and falls back to the deterministic file if AI is unavailable/invalid.
 * Playback now also includes conservative idempotent guards for supported patterns (checkbox state, toggle state, and safe fill-value matches): when target state is already satisfied the step is skipped; otherwise it runs normally.
 * The command aims to auto-mitigate known recurrent failures first; if mitigation is not possible, it surfaces orchestrator-backed actionable errors instead of generic failures.
+
+#### Flags
 
 AI and idempotency options (quick reference):
 
@@ -428,6 +585,8 @@ AI and idempotency options (quick reference):
 | `--ai-provider` | AI provider selector (current supported value: `gemini`). | No (defaults to `gemini` when `--ai` is used) |
 | `--ai-model` | Overrides Gemini model (e.g. `gemini-2.5-flash`). | No |
 | `--ai-key` | API key passed inline (pipeline-friendly but prefer env secrets). | No (required only when `--ai` is enabled and no env key exists) |
+
+#### Notes
 
 Environment variables recognized by AI mode:
 
@@ -473,6 +632,8 @@ How we measure coverage:
 * **Stabilization coverage = (recurrent failure families with automatic mitigation) / (recurrent failure families observed) × 100**.
 * Current technical estimate: **~60%–70% coverage** over known recurrent failure families (not all possible Salesforce scenarios).
 
+#### Comments
+
 Diagnostics + collaboration:
 
 1. Review `test-results/.../error-context.md`.
@@ -482,9 +643,99 @@ Diagnostics + collaboration:
 
 > Please report new failures using the **`task play bug report`** template so issues can be triaged publicly and prioritized incrementally.
 
+#### MetaDelta Natural Task skill
+
+The repository includes [`skills/metadelta-natural-task`](skills/metadelta-natural-task), an Agent Skill that turns a Salesforce procedure written in natural language into an inspected, validated, reusable Playwright task for `sf metadelta task play`.
+
+The skill complements `task record` and `task play`; it does not replace them. It uses `task record` and Playwright inspection as evidence, rebuilds fragile recordings as durable TypeScript tests, checks whether the requested state is already satisfied, performs a no-save dry run, and only persists the change when the user explicitly authorizes the exact mutation.
+
+Prerequisites on the machine that runs the skill:
+
+* Codex or Claude Code with terminal and workspace access.
+* Salesforce CLI with MetaDelta installed and the target org already authenticated.
+* Node.js and the Playwright runtime required by MetaDelta.
+* Permission to open the target Salesforce org and perform the requested operation.
+
+##### Install in Codex from GitHub
+
+After this directory is available on the repository's default branch:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo NerioVillalobos/plugin-metadelta \
+  --path skills/metadelta-natural-task
+```
+
+To install from a branch or tag that has not been merged into the default branch, add `--ref <branch-or-tag>`. Restart Codex after installation. Invoke the installed skill by asking Codex to use `$metadelta-natural-task` and include the org alias, desired outcome, and natural-language UI procedure in the same request.
+
+##### Install in Claude Code
+
+From a local checkout of this repository, install it for the current user:
+
+```bash
+mkdir -p ~/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. ~/.claude/skills/metadelta-natural-task/
+```
+
+For project-only use, copy it into the target project instead:
+
+```bash
+mkdir -p /path/to/project/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. /path/to/project/.claude/skills/metadelta-natural-task/
+```
+
+Start or restart Claude Code and invoke `/metadelta-natural-task`, followed by the org alias, desired outcome, and procedure. The optional `agents/openai.yaml` file is used by Codex and is harmless when Claude Code loads the skill. This repository currently distributes the skill as a standalone Agent Skill; installing it through Claude's plugin marketplace would additionally require Claude plugin/marketplace manifests.
+
+##### Other local installation options
+
+Install a local checkout manually for Codex:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task"
+cp -a skills/metadelta-natural-task/. "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task/"
+```
+
+During skill development, use a symbolic link instead of copying so local repository changes are immediately visible. Choose the destination for the agent you use:
+
+```bash
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.codex/skills/metadelta-natural-task
+# or
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.claude/skills/metadelta-natural-task
+```
+
+The destination must not already exist before creating the symbolic link. A regular copy is preferable for stable installations; the link is intended for local development.
+
+##### Usage example
+
+Codex:
+
+```text
+Use $metadelta-natural-task for org devNervill. Setup -> Session Settings ->
+change Timeout Value to 1 hour -> Save. Inspect the current value first; if it
+is already 1 hour, do not change it. Create and validate the durable task, run
+the no-save dry run, and apply the change only after my explicit authorization.
+```
+
+Claude Code:
+
+```text
+/metadelta-natural-task org devNervill. Setup -> Session Settings -> change
+Timeout Value to 1 hour -> Save. Inspect the current value first; if it is
+already 1 hour, do not change it. Create and validate the durable task, run the
+no-save dry run, and apply the change only after my explicit authorization.
+```
+
+The expected durable result is a test such as `tests/<org>-<goal>.ts`. Temporary `tests/.metadelta.*` files produced during playback are execution evidence, not the reusable source file.
+
+---
+
 ### `cleanps` command
 
+#### Explanation
+
 Generate a trimmed permission-set file with:
+
+#### Usage
 
 ```bash
 sf metadelta cleanps --permissionset <name> --prefix <fragment> [flags]
@@ -492,7 +743,7 @@ sf metadelta cleanps --permissionset <name> --prefix <fragment> [flags]
 
 The command locates the default package directory declared in `sfdx-project.json`, reads the matching permission-set XML under `<packageDir>/main/default/permissionsets`, and produces a filtered copy inside `<project-root>/cleanps/` (the folder is created automatically when missing).
 
-#### Cleaning workflow
+#### Characteristics
 
 1. **Prefix-driven matches.** Every candidate entry is evaluated against the fragment provided through `--prefix`. If any relevant value (such as the object name, record type, or tab API name) contains that fragment, the entire node is kept.
 2. **Allowlist overrides.** When you pass `--exclude <file>`, the command loads each non-empty line of the text file (relative paths are resolved from the project root). Any entry whose relevant value equals one of those lines is preserved even when it does not contain the prefix. Use this to retain standard objects or tabs that complement your custom solution.
@@ -511,9 +762,15 @@ The default output file follows the pattern `<PermissionSet>_<prefix>_filtered.p
 | `--output`, `-o` | Name of the XML file written under `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
 | `--project-dir` | Optional root directory that holds `sfdx-project.json`. When omitted, the command walks up from the current working directory. | Auto-detected |
 
+---
+
 ### `findtest` command
 
+#### Explanation
+
 Analyse Apex classes and their associated tests with:
+
+#### Usage
 
 ```bash
 sf metadelta findtest [flags]
@@ -525,7 +782,7 @@ By default the command looks for `sfdx-project.json` in the current directory (o
 
 When `--xml-name` points to a manifest that needs to be updated (for example to add detected tests), the command refreshes its `<version>` node with the API version reported by the target org when `--org`/`--target-org` is supplied.
 
-#### Quick start
+#### Examples
 
 | Scenario | Example |
 |----------|---------|
@@ -562,6 +819,7 @@ Once the functional and test pools are separated, the command evaluates each cla
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
 | `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report starts from the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
+| `--deploy` | Alias for providing the deployment manifest path. It behaves like `--xml-name`. | N/A |
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
 | `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
@@ -572,15 +830,32 @@ Once the functional and test pools are separated, the command evaluates each cla
 | `--verbose` | Print detailed warnings for every class filtered out or missing locally. | `false` |
 | `--json` | Emit a JSON summary with filtering metrics (`inputCount`, `filteredCount`, `finalCount`, and ignored/missing lists). | `false` |
 
+#### Deployment helper flow
+
+When you provide a manifest file through `--xml-name` or `--deploy`, the command:
+
+1. Reads the existing `package.xml` (the file must already exist).
+2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it reports the absence of Apex classes. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
+3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
+4. Finds the associated test classes for each remaining Apex entry. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Name-only heuristics are surfaced as warnings so you can double-check coverage manually.
+5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
+6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
+
 #### Output
 
 Every run starts with a summary line detailing how many classes came from the manifest (or filesystem), how many were filtered out, and how many remain in the local repository. The detailed mapping preserves the original script format (`ApexClass → ApexTest`). When a manifest is provided, the command automatically ignores managed-package entries (`namespace__*`) and common Communities controllers unless you opt back in; only classes that exist locally are considered for test discovery. Use `--verbose` to list the filtered names and `--json` to capture the underlying metrics programmatically.
 
 Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
 
+---
+
 ### `manual collect` command
 
+#### Explanation
+
 Build a consolidated runbook of manual steps by parsing markdown files stored under a directory such as `docs/`. Valid filenames follow the `Prefix-<story>-<PRE|POST>.md` pattern—files that start with `Prefix` are normalized automatically. Run the command with:
+
+#### Usage
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -616,9 +891,15 @@ If no qualifying files remain in the requested range the command stops with a fr
 | `--base-branch` | Base branch used to compute the diff range when `--partial` is active. | `master` |
 | `--order-by` | Source for the ordering timestamp. Use `git` to rely on commit dates instead of file modification times. | `mtime` |
 
+---
+
 ### `merge` command
 
+#### Explanation
+
 Combine multiple manifest fragments into a single package with:
+
+#### Usage
 
 ```bash
 sf metadelta merge --xml-name <substring> [flags]
@@ -645,28 +926,15 @@ To merge every manifest whose filename contains `Prefix` into `manifest/globalpa
 
 ```bash
 sf metadelta merge --xml-name Prefix
+```
 
 To restrict the merge to manifests that have not been merged back into `master` yet:
 
 ```bash
 sf metadelta merge --xml-name Prefix --partial --sprint-branch Branch-Destination --base-branch master
 ```
-```
 
-#### Deployment flow (existing `package.xml`)
-
-When you provide a manifest file (by pointing `--xml-name` to an existing file), the command:
-
-1. Reads the existing `package.xml` (the file must already exist).
-2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it reports the absence of Apex classes. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
-3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
-4. Finds the associated test classes for each remaining Apex entry. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Name-only heuristics are surfaced as warnings so you can double-check coverage manually.
-5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
-6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
-
-### Output
-
-The command prints each matching component with its type, full name, last modified date, and modifier. When `--xml` or `--yaml` are set, the corresponding manifest files are created inside the `manifest/` directory. If the command runs inside a Git repository, the manifest filename uses the current branch name; otherwise it falls back to the provided org alias. Existing files are preserved by adding incremental `-v1`, `-v2`, … suffixes.
+---
 
 ### Uninstalling
 
@@ -679,40 +947,44 @@ sf plugins unlink @nervill/metadelta
 
 This project is released under the [ISC License](LICENSE).
 
+---
+
 ## Español
 
-Metadelta es un plugin personalizado de Salesforce CLI que ofrece doce flujos complementarios:
+Metadelta es un plugin personalizado de Salesforce CLI que ofrece trece familias de comandos complementarias:
 
 * `sf metadelta find` inspecciona una org de destino y reporta los componentes de metadatos modificados por un usuario específico durante un rango de tiempo reciente, generando opcionalmente manifiestos para despliegues o migraciones de paquetes de Vlocity. Al crear `package.xml`, la versión del manifiesto coincide con la versión de API detectada en la org de destino.
+* `sf metadelta orgApiVersion` imprime la versión de API reportada por una org de destino y se usa internamente por comandos que necesitan alinear manifiestos generados con la org.
 * `sf metadelta finddelta` compara dos ramas Git y genera manifiestos delta en `manifest/` para Salesforce Core (`.xml`) y Vlocity (`.yaml`), incluyendo manifiestos destructivos cuando detecta eliminaciones completas. Las entradas destructivas de ApexClass requieren que se eliminen tanto el `.cls` como su `.cls-meta.xml`, y las entradas destructivas de Vlocity requieren que la carpeta completa del datapack no exista en la rama fuente. También puede fusionar componentes faltantes en manifiestos existentes con `--xml` y `--yaml` sin duplicar entradas.
-* `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
-* `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
-* `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 * `sf metadelta postvalidate` vuelve a recuperar los manifiestos que desplegaste (`package.xml` de Core y/o YAML de Vlocity), descarga los componentes correspondientes en una carpeta temporal y los compara con tus fuentes locales mostrando una tabla de diferencias colorizada.
-* `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
 * `sf metadelta access` exporta aliases, captura auth URLs cifradas y restaura accesos de forma segura entre Windows/Linux/WSL con validación MFA.
 * `sf metadelta security users` lee una matriz maestra de seguridad y una lista de usuarios objetivo, resuelve IDs requeridos en la org, genera CSVs listos para Bulk API para roles/PSG/grupos y opcionalmente aplica los cambios o genera una matrix de estado actual con `--validate`, y compara localmente ese archivo contra la matrix maestra con `--compare`.
 * `sf metadelta initspace` prepara un workspace local de Salesforce creando la estructura base de carpetas y los archivos semilla requeridos por el plugin.
-* `sf metadelta monitor run` inicia un monitor temporal de terminal para detectar drift de metadatos Salesforce Core y Vlocity usando solo snapshots locales y Git local como motor de diff.
+* `sf metadelta monitor run` inicia un monitor de terminal para detectar drift de metadatos Salesforce Core y Vlocity usando snapshots locales, Git local como motor de diff, manifiestos XML/YAML opcionales para scope específico, enriquecimiento de modificador Vlocity, log persistente JSONL y exportación CSV opcional.
 * `sf metadelta task record` y `sf metadelta task play` graban/reproducen tareas de Salesforce con Playwright, estabilizadores automáticos de recuperación, reproducción sobre `.metadelta.*` y diagnósticos orquestados.
+* `sf metadelta cleanps` genera una copia depurada de un permission set conservando solo los nodos que coincidan con un fragmento o con una lista permitida.
+* `sf metadelta findtest` revisa las clases Apex dentro de un proyecto SFDX local, confirma la presencia de sus clases de prueba correspondientes y puede validar `package.xml` existentes antes de un despliegue. Los manifiestos generados o actualizados usan la versión de API que reporte la org de destino cuando esté disponible.
+* `sf metadelta manual collect` consolida los documentos de pasos manuales almacenados en `docs/`, agrega índice y banner informativo y ofrece un modo parcial que solo incluye los archivos aún pendientes de merge en la rama base.
+* `sf metadelta merge` busca archivos de manifiesto cuyos nombres contengan una subcadena específica, unifica sus miembros de metadatos sin duplicados y construye un `globalpackage.xml` consolidado (o el nombre de archivo que indiques).
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
 ### Índice
 
 - [Instalación](#instalación)
-- [`sf metadelta find`](#uso)
+- [`sf metadelta find`](#comando-find)
+- [`sf metadelta orgApiVersion`](#comando-orgapiversion)
 - [`sf metadelta finddelta`](#comando-finddelta)
-- [`sf metadelta cleanps`](#comando-cleanps)
-- [`sf metadelta findtest`](#comando-findtest)
-- [`sf metadelta manual collect`](#comando-manual-collect)
-- [`sf metadelta merge`](#comando-merge)
 - [`sf metadelta postvalidate`](#comando-postvalidate)
 - [`sf metadelta access`](#comando-access)
 - [`sf metadelta security users`](#comando-security-users)
 - [`sf metadelta initspace`](#comando-initspace)
 - [`sf metadelta monitor run`](#comando-monitor-run)
 - [`sf metadelta task record / task play`](#comando-task-record--task-play)
+- [`sf metadelta cleanps`](#comando-cleanps)
+- [`sf metadelta findtest`](#comando-findtest)
+- [`sf metadelta manual collect`](#comando-manual-collect)
+- [`sf metadelta merge`](#comando-merge)
 
 ### Instalación
 
@@ -720,20 +992,48 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```bash
    npm install --global @salesforce/cli@2.102.6
    ```
-2. Clona este repositorio e instala las dependencias:
+2. Instala la última versión publicada en npm mediante Salesforce CLI (recomendado):
+   ```bash
+   sf plugins install @nervill/metadelta
+   ```
+   Para instalar específicamente esta versión:
+   ```bash
+   sf plugins install @nervill/metadelta@0.17.0
+   ```
+   > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
+
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0`.
+
+3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
+   ```bash
+   sf plugins install github:NerioVillalobos/plugin-metadelta.git
+   ```
+   Confirma la instalación con `sf plugins`.
+
+   ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
+
+4. (Opcional, para desarrollo local) Clona este repositorio e instala las dependencias:
    ```bash
    git clone <repo-url>
    cd plugin-metadelta
    npm install
    ```
-3. Vincula el plugin con tu Salesforce CLI local:
+5. Vincula el plugin con tu Salesforce CLI local:
    ```bash
-   npm run build
+   npm run compile
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0 (link)`.
 
-### Uso
+---
+
+### Comando `find`
+
+#### Explicación
+
+El plugin compara los cambios de metadatos para el usuario especificado y muestra una tabla de componentes modificados. Cuando se solicita, también produce archivos de manifiesto en el directorio `manifest/`.
+
+#### Uso
 
 Ejecuta el comando desde cualquier directorio después de vincularlo:
 
@@ -741,9 +1041,7 @@ Ejecuta el comando desde cualquier directorio después de vincularlo:
 sf metadelta find --org <alias_o_usuario> [banderas]
 ```
 
-El plugin compara los cambios de metadatos para el usuario especificado y muestra una tabla de componentes modificados. Cuando se solicita, también produce archivos de manifiesto en el directorio `manifest/`.
-
-### Banderas
+#### Banderas
 
 | Bandera | Descripción | Valor por defecto |
 |--------|-------------|-------------------|
@@ -792,7 +1090,7 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
 >
 > **Nota:** Si la ruta al archivo contiene espacios o caracteres especiales, enciérrala entre comillas (por ejemplo, `--metafile "./listas metadata/mismetadatos.json"`).
 
-### Ejemplos
+#### Ejemplos
 
 - Escaneo básico para el usuario por defecto:
   ```bash
@@ -807,21 +1105,55 @@ sf metadelta find --org miOrg --metafile ./mismetadatos.json
   sf metadelta find --org miOrg --namespace miNS --yaml
   ```
 
+#### Salida
+
+El comando `find` imprime cada componente coincidente con su tipo, nombre completo, fecha de última modificación y usuario modificador. Cuando se establecen `--xml` o `--yaml`, los archivos de manifiesto correspondientes se crean dentro del directorio `manifest/`. Si el comando se ejecuta dentro de un repositorio Git, el nombre del archivo utiliza la rama actual; en caso contrario, emplea el alias de la org. Los archivos existentes se conservan agregando sufijos incrementales `-v1`, `-v2`, etc.
+
+---
+
+### Comando `orgApiVersion`
+
+#### Explicación
+
+Imprime la versión de API reportada por una org de destino:
+
+#### Uso
+
+```bash
+sf metadelta orgApiVersion --org <alias_o_usuario>
+```
+
+El comando ejecuta `sf org display --target-org <alias> --json`, extrae `result.apiVersion` e imprime únicamente el valor de la versión. También se usa internamente por comandos que necesitan alinear los manifiestos generados con la versión de API de la org.
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--org`, `-o` | **Requerida.** Alias o usuario de la org destino. | N/A |
+
+
+---
 
 ### Comando `finddelta`
 
+#### Explicación
+
 Genera manifiestos delta comparando dos ramas:
+
+#### Uso
 
 ```bash
 sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Release.xml] [--yaml manifest/vlocity.yaml]
 ```
 
-Qué hace:
+#### Características
 
 1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
 2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
 3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones completas.
 4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+
+#### Comentarios
 
 Endurecimiento de destructivos:
 
@@ -838,7 +1170,7 @@ Salidas Vlocity:
 - `manifest/<from>.yaml`
 - `manifest/Destructive-<from>.yaml` (solo cuando corresponde)
 
-Banderas:
+#### Banderas
 
 | Bandera | Descripción |
 |---------|-------------|
@@ -847,17 +1179,68 @@ Banderas:
 | `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
 | `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
 
+---
+
+### Comando `postvalidate`
+
+#### Explicación
+
+Valida un despliegue recuperando nuevamente los manifiestos usados (`package.xml` para Salesforce Core y/o YAML para Vlocity), descargando los componentes en una carpeta temporal y comparándolos contra tus fuentes locales con una tabla colorizada `Componente | Nombre | Diff`, usando `✓` para coincidencias y `✗` para diferencias.
+
+#### Características
+
+1. Crea una carpeta temporal de retrieve y oculta la salida cruda de los comandos detrás de un spinner mientras se ejecutan.
+2. Para Salesforce Core (`--xml`), ejecuta `sf project retrieve start --manifest <xml> --target-org <org> --output-dir <tempDir>`.
+3. Para Vlocity (`--yaml`), ejecuta `vlocity --sfdx.username <org> -job <yaml> packExport --maxDepth 0` dentro de la misma carpeta temporal.
+4. Mapea los archivos Core recuperados contra el repositorio usando los `packageDirectories` de `sfdx-project.json` (incluyendo `main/default`) y los datapacks contra la carpeta indicada en `--vlocity-dir` (por defecto `Vlocity`).
+5. Compara carpetas ignorando espacios, líneas vacías, comentarios XML/JS/YAML, líneas `GlobalKey` de Vlocity y archivos de ruido como `VlocityBuildErrors.log`, `VlocityBuildLog.yaml` y el directorio `vlocity-temp/`.
+6. Muestra una tabla estilo caja con encabezados coloreados y símbolos de estado, y luego elimina la carpeta temporal.
+
+#### Banderas
+
+| Bandera | Descripción | Valor por defecto |
+|---------|-------------|-------------------|
+| `--xml` | Ruta al `package.xml` usado para el despliegue Core. Requiere `--org`. | Ninguno |
+| `--yaml` | Ruta al manifiesto YAML de Vlocity usado para el despliegue de datapacks. Requiere `--org`. | Ninguno |
+| `--org`, `-o` | Alias o usuario para los retrieves Core y Vlocity. | Org por defecto |
+| `--vlocity-dir` | Carpeta local donde están los datapacks. También se revisa cuando los manifiestos contienen prefijo `Vlocity/`. | `Vlocity` |
+
+> Indica al menos un manifiesto (`--xml` o `--yaml`). Cuando ambos están presentes, los retrieves comparten la misma carpeta temporal y una sola comparación.
+
+#### Ejemplos
+
+- Solo Core:
+  ```bash
+  sf metadelta postvalidate --xml manifest/SP1.2.11.0.xml --org SFOrg-prod
+  ```
+- Solo Vlocity desde una carpeta personalizada:
+  ```bash
+  sf metadelta postvalidate --yaml manifest/vlo-manifest.yaml --org SFOrg-Demo02 --vlocity-dir Vlocity
+  ```
+- Core + Vlocity en una sola ejecución:
+  ```bash
+  sf metadelta postvalidate --xml manifest/package.xml --yaml manifest/vlocity.yaml --org my-env --vlocity-dir Vlocity
+  ```
+
+Ejecuta el comando desde la raíz del proyecto Salesforce para que los retrieves Core coincidan con la estructura de `packageDirectories`. Los datapacks se resuelven primero de forma relativa al directorio actual y luego contra `--vlocity-dir`.
+
+---
+
 ### Comando `access`
+
+#### Explicación
 
 Metadelta Access es una **herramienta de replicación de accesos de orgs (Org Access Replication Tool)** con controles de seguridad aplicados. Automatiza un proceso que antes era manual para exportar aliases, proteger auth URLs y restaurar accesos entre equipos usando MFA + cifrado con passphrase.
 
 Metadelta Access permite mover accesos de orgs entre equipos de forma segura:
 
+#### Uso
+
 ```bash
 sf metadelta access --all --output docs
 ```
 
-Flujo principal:
+#### Características
 
 1. `--all` o `--prefix <texto>` genera `<output>/<nombre>/accessbackup.dat` con aliases conectados y usuarios, y crea `accessbackup.dat.mfa`.
    En este paso, el comando intenta mostrar un QR ASCII en terminal (si Python `qrcode` está disponible); siempre imprime Secret + URI como respaldo.
@@ -911,9 +1294,15 @@ Al usar `metadelta access` y el resto de comandos del plugin, aceptas que:
 
 Usa la herramienta con criterio, rota credenciales cuando corresponda y trata los archivos de respaldo como secretos sensibles.
 
+---
+
 ### Comando `security users`
 
+#### Explicación
+
 Usa este comando para convertir una matriz de seguridad en archivos ejecutables por Bulk API para una org destino:
+
+#### Uso
 
 ```bash
 sf metadelta security users --master data/master.csv --target-users data/target-users.csv --org myOrg
@@ -921,7 +1310,7 @@ sf metadelta security users --master data/master.csv --target-users data/target-
 
 Este flujo replica la utilidad original en Python y está orientado a migraciones controladas del modelo de accesos de usuarios.
 
-**Qué realiza**
+#### Características
 
 1. Lee la matriz maestra (`--master`) y el archivo de usuarios objetivo (`--target-users`).
 2. Resuelve IDs en la org consultando `User`, `UserRole`, `PermissionSetGroup` y `Group` con Salesforce CLI.
@@ -938,13 +1327,13 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
 6. Si agregas `--validate`, el comando no aplica cambios y genera `validation_current_matrix.csv` con una fila por usuario objetivo y los valores actuales de `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento` y `Queues`.
 7. Si agregas `--compare`, no se conecta a ninguna org: compara localmente `--file-validation` contra `--master` y exporta solo usuarios con diferencias en `comparison_mismatches.csv` usando anotaciones compactas: `<valor>` significa faltante en usuario (sí está en master) y `=valor=` significa extra en usuario (no está en master).
 
-**Formato esperado de entrada**
+#### Entrada
 
 - `--master` debe incluir columnas como: `RoleName`, `PermissionSetGroup`, `PublicGroupPuesto`, `PublicGroupSegmento`, `Queues`.
 - `PermissionSetGroup`, `PublicGroupSegmento` y `Queues` aceptan múltiples valores separados por `|`.
 - `--target-users` debe incluir al menos: `Username`, `RoleName`.
 
-**Banderas**
+#### Banderas
 
 | Bandera | Descripción | Valor por defecto |
 |---------|-------------|-------------------|
@@ -957,7 +1346,7 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
 | `--compare` | Compara localmente `--file-validation` vs `--master` y exporta solo usuarios con diferencias a `comparison_mismatches.csv` en formato compacto (`<valor>` faltante, `=valor=` extra). No se puede combinar con `--apply` ni `--validate`. | `false` |
 | `--file-validation` | Ruta al `validation_current_matrix.csv` usado por `--compare`. | Ninguno |
 
-**Ejemplos**
+#### Ejemplos
 
 - Dry run (solo generación de archivos):
   ```bash
@@ -976,15 +1365,21 @@ Este flujo replica la utilidad original en Python y está orientado a migracione
   sf metadelta security users --master ./data/security_master_matrix.csv --file-validation ./reports/out/validation_current_matrix.csv --compare --output-dir ./reports
   ```
 
+---
+
 ### Comando `initspace`
 
+#### Explicación
+
 Crea la estructura recomendada del workspace en el directorio actual:
+
+#### Uso
 
 ```bash
 sf metadelta initspace
 ```
 
-Qué crea el comando:
+#### Características
 
 - Carpetas:
   - `force-app/main/default`
@@ -999,46 +1394,121 @@ Qué crea el comando:
 
 `initspace` es idempotente para carpetas (puedes ejecutarlo varias veces) y reescribe los tres archivos raíz para mantenerlos alineados con la configuración por defecto del plugin.
 
+---
+
 ### Comando `monitor run`
 
-Inicia un monitor temporal de terminal para detectar drift de metadatos Salesforce Core y Vlocity:
+#### Explicación
+
+Inicia un monitor persistente de terminal para detectar drift de metadatos Salesforce Core y Vlocity:
+
+#### Uso
 
 ```bash
 sf metadelta monitor run --org DEV
 ```
 
-El monitor crea `.metadelta-monitor/`, recupera el snapshot actual de metadatos, inicializa un repositorio Git local como motor de diff y refresca cada cinco minutos. `NEXT` muestra la hora exacta del próximo refresh en vez de repintar un countdown. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Los errores completos y avisos de Vlocity se muestran envueltos en una sección de detalle y pausan automáticamente el repintado de la UI para poder seleccionar/copiar el texto. Presiona `p` para pausar/reanudar, `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo, `d`/Enter para detalle y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
+#### Banderas
 
-Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` con un job temporal que cubre OmniScript, DataRaptor, FlexCard, Integration Procedure, EPC y exports estándar de DataPacks. También puedes indicar tu propio job Vlocity:
+| Flag | Descripción | Valor por defecto |
+| --- | --- | --- |
+| `--org`, `-o` | Alias o username del org destino. Requerido para el modo normal del monitor. | Requerido salvo con `--control` o `--watchdog-once` |
+| `--interval` | Intervalo de refresh en minutos. Los valores menores a `1` se normalizan a `1`. | `5` |
+| `--scope` | Fuente de metadata a monitorear: `all`, `salesforce` o `vlocity`. | `all` |
+| `--scope-xml` | Ruta a un `package.xml` de Salesforce Core. Cuando se indica, el monitor recupera y observa solo los componentes Core listados en ese manifest. | Ninguno |
+| `--scope-yaml` | Ruta a un job/manifest YAML de Vlocity. Cuando se indica, el monitor exporta y observa solo los DataPacks listados en ese archivo. | Ninguno |
+| `--export-csv` | Ruta donde se debe exportar el `change-log.jsonl` persistente como CSV cuando el monitor sale. La ruta se resuelve desde el directorio donde se inició el comando. | Ninguno |
+| `--control` | Abre el menu portable de control de Metadelta Monitor para targets del watchdog y arranque de monitores. | `false` |
+| `--watchdog-once` | Ejecuta un ciclo de watchdog Teams usando los targets `change-log.jsonl` del config y sale. | `false` |
+| `--watchdog-config` | Ruta al JSON de configuracion del watchdog. | `~/.metadelta/monitor/watchdog.config.json` |
+| `--teams-webhook-url` | Webhook URL de Microsoft Teams para `--watchdog-once`. Se recomienda `METADELTA_TEAMS_WEBHOOK_URL` para secretos. | Ambiente/config |
+| `--once` | Ejecuta un solo ciclo de refresh y sale. Útil para validación. | `false` |
+
+El monitor guarda su estado de ejecución en `~/.metadelta/monitor/<aliasOrg>/`. Dentro de esa carpeta mantiene `current/`, `manifest/`, `temp/`, el repositorio Git local usado como motor de diff y refresca cada cinco minutos. `NEXT` muestra la hora exacta del próximo refresh en vez de repintar un countdown, y `RETRIEVE` muestra la duración del último retrieve/export Salesforce Core + Vlocity. El primer ciclo crea la línea base y muestra `STATUS: BASELINE CREATED`; los siguientes refresh muestran archivos agregados, modificados, eliminados o renombrados. Los errores completos y avisos de Vlocity se muestran envueltos en una sección de detalle y pausan automáticamente el repintado de la UI para poder seleccionar/copiar el texto.
+
+Para cambios Salesforce Core, el monitor consulta las APIs de metadata del org para enriquecer cada fila con `LastModifiedBy.Name` y `LastModifiedDate`. Para cambios Vlocity, ahora comparte el catálogo de queries DataPack usado por `sf metadelta find`, por lo que rutas como `vlocity/Promotion/<GlobalKey>/...` se resuelven contra el DataPack padre por `Name`, `Id` o el campo namespaced `GlobalKey__c` cuando esté disponible. Esto mejora el modificador mostrado en el dashboard y en el log, evitando caer en `N/A` para muchos archivos DataPack Vlocity.
+
+Cuando `--scope-xml` o `--scope-yaml` está presente, el dashboard muestra el scope custom correspondiente: `SALESFORCE-CUSTOM`, `VLOCITY-CUSTOM` o `ALL-CUSTOM`. Las rutas XML/YAML pueden tener cualquier nombre de archivo y se resuelven de forma relativa al directorio donde inicias el comando, antes de que el monitor cambie a `~/.metadelta/monitor/<aliasOrg>/`.
+
+#### Ejemplos
+
+Ejemplos de monitoreo con scope específico:
 
 ```bash
-sf metadelta monitor run --org DEV --scope vlocity --vlocity-job ./vlocity-export.yaml
+sf metadelta monitor run --org DEV --scope-xml manifest/core.xml
+sf metadelta monitor run --org DEV --scope-yaml manifest/vlocity.yaml
+sf metadelta monitor run --org DEV --scope-xml manifest/core.xml --scope-yaml manifest/vlocity.yaml
 ```
 
-Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Al salir se eliminan metadatos, manifests, temporales e historial Git; solo puede quedar la raíz vacía `.metadelta-monitor/`. Para orgs sin Vlocity CLI instalado, usa:
+La UI tiene dos secciones navegables. `SALESFORCE CORE / VLOCITY` agrupa cambios por tipo de metadata y muestra contador, fecha del último cambio y último usuario modificador para cada tipo. `RECENT CHANGES` lista los cambios acumulados de la sesión con los elementos detectados más recientemente primero. Las flechas mueven el selector `>` por ambas secciones; cuando la fila seleccionada supera el área visible de la terminal, la lista se desplaza para mantener el selector en pantalla. Presiona Enter o `d` sobre un cambio individual para ver archivo, query de metadata, modificador, hora de detección y resumen del diff Git. Presiona Enter o `d` sobre un tipo de metadata para abrir `TYPE DETAILS`, que lista los componentes cambiados de ese tipo en orden reciente primero.
 
-`RECENT CHANGES` es acumulativo solo dentro de la sesión activa de terminal. Conserva en memoria los cambios detectados entre refreshes, pero no persiste nada después de salir. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
+Presiona `p` para pausar/reanudar, `r` para refrescar, `s` para solo Salesforce, `v` para solo Vlocity, `a` para todo y `q`, `x`, `ESC`, `CTRL+C` o `exit` para salir.
+
+Para orgs con Vlocity habilitado, el scope por defecto del monitor ejecuta `packExportAllDefault` con un job YAML temporal que incluye `continueAfterError: true`:
+
+```bash
+sf metadelta monitor run --org DEV --scope vlocity
+```
+
+Cuando el scope es `all`, una falla de export Vlocity no bloquea el monitoreo de Salesforce Core; la UI conserva el diff Core y muestra el aviso de Vlocity. Para orgs sin Vlocity CLI instalado, usa:
 
 ```bash
 sf metadelta monitor run --org DEV --scope salesforce
 ```
 
-> **Nota para ESM enlazado:** Si `sf` muestra `@nervill/metadelta is a linked ESM module and cannot be auto-transpiled`, ejecuta `npm run build` antes de probar comandos. Si la CLI no resuelve `sf metadelta task record`, usa `sf metadelta:task:record` y vuelve a enlazar el plugin. El diagnóstico de tareas se guarda en `.metadelta/metadelta-task-orchestrator.json`. Esto es obligatorio tras cambios locales de código; de lo contrario `sf` puede ejecutar un `lib/` compilado desactualizado.
-> **Robustez en task play:** `sf metadelta task play` incluye estabilizadores automáticos para separar frontdoor/base URL, recuperar la apertura inicial del popup de Setup, reabrir popups, aplicar fallback en App Launcher, normalizar selectores dinámicos de Permission Set Assignment y resolver selección con scroll + validación de botón Finish en Action Library dentro del archivo temporal `.metadelta.*`.
-> **Workaround de secretos de Salesforce CLI (v0.11.4):** `sf metadelta task record` y `sf metadelta task play` construyen URLs frontdoor usando el alias recibido en `--org`. Cuando necesitan el `accessToken` real, Metadelta ejecuta las llamadas requeridas a `sf org display --target-org <alias> --verbose --json` con `SF_TEMP_SHOW_SECRETS=true` en el entorno del proceso hijo. Esto mantiene la automatización compatible con salidas de Salesforce CLI que ocultan secretos, sin pedir al usuario ejecutar `sf org auth ...` de forma interactiva ni configurar el workaround globalmente.
-> **Soporte monitor Vlocity (v0.11.6):** `sf metadelta monitor run` puede monitorear sesiones solo Vlocity con `--scope vlocity` y acepta `--vlocity-job` para jobs de export DataPack específicos de una org. El job por defecto es temporal, usa `packExportAllDefault` y no se conserva al salir.
+`RECENT CHANGES` es acumulativo dentro de la sesión activa de terminal. Entre ejecuciones, el baseline Git y los snapshots se preservan en `~/.metadelta/monitor/<aliasOrg>/`, por lo que el siguiente arranque continúa desde la última línea base en vez de iniciar desde cero. Además, se escribe un log persistente append-only en `~/.metadelta/monitor/<aliasOrg>/change-log.jsonl`. Este log registra eventos `SESSION_STARTED`, `CHANGE_DETECTED` y `SESSION_ENDED` con tipo de componente, nombre de componente, acción, hora de detección, fecha de última modificación y modificador cuando estén disponibles. Los archivos Vlocity `*_SampleInputJson.json` se ignoran porque son payloads de ejemplo y pueden generar ruido por errores de parsing JSON.
+
+Para exportar el log persistente acumulado a CSV cuando el monitor sale, usa `--export-csv`. La exportación incluye eventos de sesión y cambios en columnas estables como `event`, `org`, `scope`, `source`, `action`, `type`, `component`, `file`, `detectedAt`, `lastModifiedDate`, `lastModifiedBy`, `startedAt`, `endedAt`, `exitCode` y `reason`.
+
+```bash
+sf metadelta monitor run --org DEV --export-csv reports/metadelta-monitor.csv
+```
+
+El modo complementario watchdog lee los `change-log.jsonl` persistentes y envia alertas a Microsoft Teams cuando un evento `CHANGE_DETECTED` fue tocado por un usuario fuera del allowlist DevOps configurado. Es incremental y guarda offsets de bytes en un archivo de estado local, por lo que las ejecuciones programadas repetidas no reenvian eventos ya procesados. Coloca el webhook en `METADELTA_TEAMS_WEBHOOK_URL` o pasalo explicitamente solo en ambientes locales seguros.
+
+```bash
+sf metadelta monitor run --watchdog-once
+sf metadelta monitor run --watchdog-once --watchdog-config ~/.metadelta/monitor/watchdog.config.json
+```
+
+El menu de control es un complemento portable para administrar targets del watchdog y arranques de monitores sin editar JSON a mano. Permite agregar/quitar orgs, configurar o limpiar `scopeXml` y `scopeYaml` por target, cambiar el intervalo de cada monitor, alternar el idioma del menu entre Espanol e Ingles, ejecutar un ciclo del watchdog, iniciar monitores en background, usar `tmux` para una TUI multi-monitor cuando este disponible en Linux/WSL/macOS y abrir todos los monitores como pestanas de Windows Terminal cuando `wt.exe` este disponible.
+
+```bash
+sf metadelta monitor run --control
+```
+
+Los targets del watchdog pueden incluir manifests custom por org:
+
+```json
+{
+  "org": "Telecentro-qa",
+  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "scopeXml": "/absolute/path/Release.xml",
+  "scopeYaml": "/absolute/path/Release.yaml",
+  "interval": 8,
+  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+}
+```
+
+> **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.16.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 > **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
-> **Diagnóstico del orquestador:** El orquestador ahora guarda el fragmento más relevante del fallo de Playwright (no solo el código de salida), mejorando el match de soluciones y el triage futuro dentro de `.metadelta/metadelta-task-orchestrator.json`.
-> **Reportar incidencias de task play:** Si la reproducción falla, abre un Issue público en GitHub: <https://github.com/NerioVillalobos/plugin-metadelta/issues> e incluye: (1) comando ejecutado, (2) texto completo del error, (3) captura ejecutando con `--header`, y (4) fragmento saneado del archivo `.metadelta.*` en el paso donde falla.
+
+---
 
 ### Comando `task record` / `task play`
 
+#### Explicación
+
 Usa `task record` para grabar un flujo en Playwright y `task play` para reproducirlo en otra org con parcheo automático, estabilizadores de recuperación y diagnóstico orquestado:
+
+#### Uso
 
 ```bash
 sf metadelta task record --org <alias>
 sf metadelta task play --org <alias> --tstname tests/<archivo-grabado>.ts [--header] [--ai --ai-provider gemini --ai-model <model> --ai-key <key>]
 ```
+
+#### Características
 
 Cobertura soportada de `sf metadelta task play` (alcance y límites):
 
@@ -1046,6 +1516,8 @@ Cobertura soportada de `sf metadelta task play` (alcance y límites):
 * El hardening con IA (`--ai`) es opcional, corre **después** del parcheo determinista, usa un plan interno acotado de análisis de fragilidad (no reescritura libre del archivo completo), crea un segundo archivo derivado (`tests/.metadelta.<nombre>.ai.ts`) cuando es seguro, permite forzar modelo con `--ai-model`/`METADELTA_AI_MODEL` y vuelve al archivo determinista si la IA falla o responde inválido.
 * La reproducción ahora incluye guardas idempotentes conservadoras para patrones soportados (estado de checkbox, estado de toggles y fills comparables): si el estado objetivo ya está cumplido se omite el paso; si no, se ejecuta normalmente.
 * El comando intenta primero mitigar automáticamente los fallos recurrentes conocidos; si no puede resolverlos, devuelve errores accionables respaldados por el orquestador (en vez de fallos genéricos).
+
+#### Banderas
 
 Opciones de IA e idempotencia (resumen rápido):
 
@@ -1055,6 +1527,8 @@ Opciones de IA e idempotencia (resumen rápido):
 | `--ai-provider` | Selector de proveedor IA (valor soportado actualmente: `gemini`). | No (por defecto `gemini` al usar `--ai`) |
 | `--ai-model` | Permite forzar modelo Gemini (ejemplo: `gemini-2.5-flash`). | No |
 | `--ai-key` | API key inline (útil en pipeline, aunque se recomienda secret por variable de entorno). | No (solo requerida si usas `--ai` y no hay key por entorno) |
+
+#### Comentarios
 
 Variables de entorno reconocidas por modo IA:
 
@@ -1100,6 +1574,8 @@ Cómo medimos cobertura:
 * **Cobertura de estabilización = (familias de falla recurrente con mitigación automática) / (familias de falla recurrente observadas) × 100**.
 * Estimación técnica actual: **~60%–70% de cobertura** sobre fallas recurrentes conocidas (no sobre todos los escenarios posibles de Salesforce).
 
+#### Diagnóstico
+
 Diagnóstico + colaboración:
 
 1. Revisa `test-results/.../error-context.md`.
@@ -1109,9 +1585,99 @@ Diagnóstico + colaboración:
 
 > Para reportar errores usa el template **`task play bug report`** y así acelerar un triage público, segmentado e incremental.
 
+#### Skill MetaDelta Natural Task
+
+El repositorio incluye [`skills/metadelta-natural-task`](skills/metadelta-natural-task), un Agent Skill que convierte un procedimiento de Salesforce escrito en lenguaje natural en una tarea Playwright inspeccionada, validada y reutilizable para `sf metadelta task play`.
+
+El skill complementa `task record` y `task play`; no los reemplaza. Usa `task record` y la inspección con Playwright como evidencia, reconstruye grabaciones frágiles como pruebas TypeScript duraderas, comprueba si el estado solicitado ya está satisfecho, ejecuta un dry run sin guardar y solo persiste el cambio cuando el usuario autoriza explícitamente la mutación exacta.
+
+Requisitos en la máquina que ejecutará el skill:
+
+* Codex o Claude Code con acceso a la terminal y al workspace.
+* Salesforce CLI con MetaDelta instalado y la org destino previamente autenticada.
+* Node.js y el runtime de Playwright requerido por MetaDelta.
+* Permisos para abrir la org Salesforce destino y realizar la operación solicitada.
+
+##### Instalar en Codex desde GitHub
+
+Después de que este directorio esté disponible en la rama predeterminada del repositorio:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/install-skill-from-github.py" \
+  --repo NerioVillalobos/plugin-metadelta \
+  --path skills/metadelta-natural-task
+```
+
+Para instalar desde una rama o tag que todavía no se ha integrado en la rama predeterminada, agrega `--ref <rama-o-tag>`. Reinicia Codex después de instalarlo. Invoca el skill solicitando a Codex que use `$metadelta-natural-task` e incluye en la misma petición el alias de la org, el resultado deseado y el procedimiento UI en lenguaje natural.
+
+##### Instalar en Claude Code
+
+Desde un checkout local de este repositorio, instálalo para el usuario actual:
+
+```bash
+mkdir -p ~/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. ~/.claude/skills/metadelta-natural-task/
+```
+
+Para usarlo solamente en un proyecto, cópialo dentro del proyecto destino:
+
+```bash
+mkdir -p /ruta/al/proyecto/.claude/skills/metadelta-natural-task
+cp -a skills/metadelta-natural-task/. /ruta/al/proyecto/.claude/skills/metadelta-natural-task/
+```
+
+Inicia o reinicia Claude Code e invoca `/metadelta-natural-task`, seguido por el alias de la org, el resultado deseado y el procedimiento. El archivo opcional `agents/openai.yaml` es utilizado por Codex y no causa problemas cuando Claude Code carga el skill. Actualmente este repositorio distribuye el skill como un Agent Skill independiente; instalarlo mediante el marketplace de plugins de Claude requeriría además los manifests de plugin/marketplace de Claude.
+
+##### Otras formas de instalación local
+
+Instala manualmente un checkout local en Codex:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task"
+cp -a skills/metadelta-natural-task/. "${CODEX_HOME:-$HOME/.codex}/skills/metadelta-natural-task/"
+```
+
+Durante el desarrollo del skill puedes usar un enlace simbólico en lugar de copiarlo, de modo que los cambios locales del repositorio sean visibles inmediatamente. Elige el destino correspondiente al agente utilizado:
+
+```bash
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.codex/skills/metadelta-natural-task
+# o
+ln -s "$(pwd)/skills/metadelta-natural-task" ~/.claude/skills/metadelta-natural-task
+```
+
+El destino no debe existir antes de crear el enlace simbólico. Para instalaciones estables se recomienda una copia normal; el enlace está pensado para desarrollo local.
+
+##### Ejemplo de uso
+
+Codex:
+
+```text
+Usa $metadelta-natural-task para la org devNervill. Setup -> Session Settings ->
+cambia Timeout Value a 1 hour -> Save. Primero inspecciona el valor actual; si
+ya es 1 hour, no lo cambies. Crea y valida la tarea duradera, ejecuta el dry run
+sin guardar y aplica el cambio solo después de mi autorización explícita.
+```
+
+Claude Code:
+
+```text
+/metadelta-natural-task org devNervill. Setup -> Session Settings -> cambia
+Timeout Value a 1 hour -> Save. Primero inspecciona el valor actual; si ya es
+1 hour, no lo cambies. Crea y valida la tarea duradera, ejecuta el dry run sin
+guardar y aplica el cambio solo después de mi autorización explícita.
+```
+
+El resultado duradero esperado es una prueba como `tests/<org>-<objetivo>.ts`. Los archivos temporales `tests/.metadelta.*` generados durante la reproducción son evidencia de ejecución, no el archivo fuente reutilizable.
+
+---
+
 ### Comando `cleanps`
 
+#### Explicación
+
 Genera una versión depurada de un permission set con:
+
+#### Uso
 
 ```bash
 sf metadelta cleanps --permissionset <nombre> --prefix <fragmento> [banderas]
@@ -1119,7 +1685,7 @@ sf metadelta cleanps --permissionset <nombre> --prefix <fragmento> [banderas]
 
 El comando identifica el directorio de paquete predeterminado declarado en `sfdx-project.json`, lee el XML ubicado en `<packageDir>/main/default/permissionsets` y produce una copia filtrada dentro de `<raiz-del-proyecto>/cleanps/` (la carpeta se crea automáticamente si no existe).
 
-#### Flujo de depuración
+#### Características
 
 1. **Coincidencias por fragmento.** Cada entrada candidata se evalúa contra el fragmento recibido en `--prefix`. Si algún valor relevante (por ejemplo, el nombre del objeto, del tipo de registro o de la pestaña) contiene el fragmento, el nodo completo se conserva.
 2. **Lista permitida opcional.** Al indicar `--exclude <archivo>`, el comando carga cada línea no vacía del archivo de texto (las rutas relativas se resuelven desde la raíz del proyecto). Cualquier entrada cuyo valor coincida exactamente con alguna de esas líneas se mantiene aunque no contenga el prefijo. Esto permite preservar objetos estándar o pestañas complementarias a tu solución.
@@ -1138,9 +1704,15 @@ El archivo de salida predeterminado sigue el patrón `<PermissionSet>_<prefix>_f
 | `--output`, `-o` | Nombre del XML generado dentro de `cleanps/`. | `<PermissionSet>_<prefix>_filtered.permissionset-meta.xml` |
 | `--project-dir` | Directorio raíz opcional que contiene `sfdx-project.json`. Si se omite, el comando recorre los padres del directorio actual hasta encontrarlo. | Detectado automáticamente |
 
+---
+
 ### Comando `findtest`
 
+#### Explicación
+
 Analiza las clases Apex y sus pruebas asociadas con:
+
+#### Uso
 
 ```bash
 sf metadelta findtest [banderas]
@@ -1152,7 +1724,7 @@ Por defecto el comando localiza `sfdx-project.json` en el directorio actual (o e
 
 Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, para agregar pruebas detectadas), el comando reemplaza el nodo `<version>` con la versión de API reportada por la org indicada mediante `--org`/`--target-org`.
 
-#### Guía rápida
+#### Ejemplos
 
 | Escenario | Ejemplo |
 |-----------|---------|
@@ -1163,6 +1735,12 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 | Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
+
+#### Detección de documentación de pasos manuales
+
+Cuando indicas `--xml-name` o `--deploy`, el comando cruza el nombre del manifiesto con los archivos dentro del directorio `docs/` del proyecto. Si encuentra documentación que referencia el identificador del manifiesto (por ejemplo `docs/Prefix-NumberStories-PRE.md` para `manifest/name-branch.xml`), la consola muestra una advertencia visible para que revises y ejecutes esos pasos manuales antes del despliegue o en lugar de él.
+
+Si el manifiesto no existe pero sí hay documentación relacionada en `docs/`, el comando se detiene y recuerda seguir el procedimiento manual documentado sin usar `--dry-run` ni `--run-deploy`. Cuando no existe ni el manifiesto ni documentación relacionada, reporta el XML faltante como error.
 
 #### Cómo se detectan las clases de prueba
 
@@ -1179,6 +1757,7 @@ Si no existe una coincidencia directa, `findtest` recurre a una heurística basa
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
 | `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte parte de las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
+| `--deploy` | Alias para indicar la ruta del manifiesto de despliegue. Se comporta como `--xml-name`. | N/A |
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
 | `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente agrega `--dry-run` para mantener la validación no destructiva. | `false` |
@@ -1189,15 +1768,32 @@ Si no existe una coincidencia directa, `findtest` recurre a una heurística basa
 | `--verbose` | Muestra advertencias detalladas para cada clase filtrada o ausente localmente. | `false` |
 | `--json` | Emite un resumen en formato JSON con métricas de filtrado (`inputCount`, `filteredCount`, `finalCount` y las listas ignoradas/faltantes). | `false` |
 
+#### Flujo del asistente de despliegue
+
+Al indicar un manifiesto con `--xml-name` o `--deploy`, el comando:
+
+1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
+2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, reporta la ausencia. Cuando `--org`/`--target-org` está presente, igual invoca `sf project deploy start --manifest <archivo> -l NoTestRun` agregando `--dry-run` salvo que indiques `--run-deploy`. Sin org, el flujo se detiene después del reporte.
+3. Construye la lista a evaluar intersectando el manifiesto con el filesystem local y, opcionalmente, eliminando clases de paquetes gestionados y controladores de Communities. Usa `--verbose` para listar los elementos omitidos.
+4. Busca la clase de prueba asociada para cada entrada Apex restante. Las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, etc.) se agregan al manifiesto. Las heurísticas por nombre se muestran como advertencias para revisión manual.
+5. Si alguna clase Apex no tiene prueba asociada, solo tiene una coincidencia heurística o falta el archivo requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
+6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> ...` o `-l NoTestRun` si no se detectan pruebas. El comando agrega `--dry-run` salvo que pases `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
+
 #### Salida
 
 Cada ejecución inicia con una línea resumen indicando cuántas clases provienen del manifiesto (o del filesystem), cuántas se filtraron y cuántas existen en el repositorio local. El mapeo detallado mantiene el formato del script original (`ApexClass → ApexTest`). Al usar un manifiesto, el comando omite automáticamente las entradas de paquetes gestionados (`namespace__*`) y los controladores comunes de Communities, a menos que elijas incluirlos; solo se consideran las clases que existen localmente. Usa `--verbose` para listar los nombres filtrados y `--json` si necesitas capturar las métricas programáticamente.
 
 Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
 
+---
+
 ### Comando `manual collect`
 
+#### Explicación
+
 Genera un cuaderno consolidado de pasos manuales leyendo los archivos markdown ubicados en un directorio como `docs/`. Los nombres válidos siguen el patrón `Prefijo-<historia>-<PRE|POST>.md` (las variantes con `Prefijo` se normalizan automáticamente). Ejecuta el comando así:
+
+#### Uso
 
 ```bash
 sf metadelta manual collect --docs ./docs --output ./docs/MANUAL-STEPS.md --all
@@ -1233,9 +1829,15 @@ Si el rango solicitado no contiene archivos válidos, el comando se detiene con 
 | `--base-branch` | Rama base utilizada para calcular el diff cuando `--partial` está activo. | `master` |
 | `--order-by` | Fuente de la fecha utilizada para ordenar (`mtime` o `git`). | `mtime` |
 
+---
+
 ### Comando `merge`
 
+#### Explicación
+
 Combina múltiples fragmentos de manifiesto en un solo paquete con:
+
+#### Uso
 
 ```bash
 sf metadelta merge --xml-name <subcadena> [banderas]
@@ -1262,28 +1864,15 @@ Para unir todos los manifiestos cuyo nombre contenga `Prefijo` en `manifest/glob
 
 ```bash
 sf metadelta merge --xml-name Prefijo
+```
 
 Para combinar únicamente los manifests que aún no se fusionaron en `master`:
 
 ```bash
 sf metadelta merge --xml-name Prefijo --partial --sprint-branch Branch-Destino --base-branch master
 ```
-```
 
-#### Flujo de despliegue (package.xml existente)
-
-Al indicar un manifiesto (apuntando `--xml-name` a un archivo existente), el comando:
-
-1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
-2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, ejecuta `sf project deploy start --manifest <archivo> -l NoTestRun` y agrega `--dry-run` a menos que indiques `--run-deploy`.
-3. Construye la lista a evaluar intersectando el manifiesto con el filesystem local y, opcionalmente, eliminando las clases de paquetes gestionados y los controladores de Communities. Usa `--verbose` para conocer qué elementos se omitieron.
-4. Busca la clase de prueba asociada para cada entrada Apex restante. Se agregan al manifiesto las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias basadas solo en similitud del nombre se muestran como advertencias para que verifiques la cobertura manualmente.
-5. Si alguna clase Apex no tiene prueba asociada, solo cuenta con una coincidencia heurística o falta el archivo `.cls` requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
-6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> …` (o `-l NoTestRun` si no se detectan pruebas). El comando agrega `--dry-run` a menos que indiques `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
-
-### Salida
-
-El comando imprime cada componente coincidente con su tipo, nombre completo, fecha de última modificación y usuario modificador. Cuando se establecen `--xml` o `--yaml`, los archivos de manifiesto correspondientes se crean dentro del directorio `manifest/`. Si el comando se ejecuta dentro de un repositorio Git, el nombre del archivo utiliza la rama actual; en caso contrario, emplea el alias de la org. Los archivos existentes se conservan agregando sufijos incrementales `-v1`, `-v2`, ….
+---
 
 ### Desinstalación
 

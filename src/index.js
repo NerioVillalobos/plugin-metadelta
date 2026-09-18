@@ -1,3 +1,3 @@
-import {run} from '@oclif/core';
+import {run} from './utils/oclif.js';
 
 export {run};
