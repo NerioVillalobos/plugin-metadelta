@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-08-12 — `@nervill/metadelta` 0.16.0
+> **Last update / Última actualización:** 2026-09-18 — `@nervill/metadelta` 0.17.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -54,17 +54,17 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.16.0
+   sf plugins install @nervill/metadelta@0.17.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -76,10 +76,10 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 5. Link the plugin to your local Salesforce CLI:
    ```bash
-   npm run compile
+   npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.16.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0 (link)`.
 
 ---
 
@@ -549,6 +549,7 @@ Watchdog target entries can include custom manifests per org:
 ```
 
 > **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.16.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
+> **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
 
 ---
 
@@ -997,11 +998,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.16.0
+   sf plugins install @nervill/metadelta@0.17.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.16.0`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -1019,10 +1020,10 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
 5. Vincula el plugin con tu Salesforce CLI local:
    ```bash
-   npm run compile
+   npm run build
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.16.0 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0 (link)`.
 
 ---
 
@@ -1490,6 +1491,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 ```
 
 > **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.16.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
+> **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
 
 ---
 
