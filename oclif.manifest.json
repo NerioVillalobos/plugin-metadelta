@@ -278,6 +278,14 @@
           "multiple": false,
           "type": "option"
         },
+        "triggers-dir": {
+          "name": "triggers-dir",
+          "summary": "Ruta relativa o absoluta al directorio que contiene los triggers Apex.",
+          "default": "force-app/main/default/triggers",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
         "xml-name": {
           "name": "xml-name",
           "summary": "Ruta al package.xml existente que se usará para el análisis o despliegue.",
@@ -1004,5 +1012,5 @@
       ]
     }
   },
-  "version": "0.17.0"
+  "version": "0.18.0"
 }

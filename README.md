@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-09-18 — `@nervill/metadelta` 0.17.0
+> **Last update / Última actualización:** 2026-10-02 — `@nervill/metadelta` 0.18.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -54,17 +54,17 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.17.0
+   sf plugins install @nervill/metadelta@0.18.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -79,7 +79,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.17.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0 (link)`.
 
 ---
 
@@ -550,6 +550,7 @@ Watchdog target entries can include custom manifests per org:
 
 > **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.16.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 > **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
+> **findtest coverage improvements (v0.18.0):** `sf metadelta findtest` detects runnable tests from Apex source annotations, includes manifest tests and source-reference matches, and validates ApexTrigger coverage through handlers or DML.
 
 ---
 
@@ -793,6 +794,7 @@ When `--xml-name` points to a manifest that needs to be updated (for example to 
 | Run a production-ready deployment that skips `-l` when no Apex tests are found | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignore the manifest and inspect only local sources | `sf metadelta findtest --only-local` |
 | Include managed-package classes explicitly | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
+| Use a custom Apex trigger directory | `sf metadelta findtest --triggers-dir force-app/main/default/triggers` |
 
 > **Note:** The deployment helper (dry-run or live deploy) requires `--org` or `--target-org`. Without either flag, the command only analyses manifests and local sources—even when `--xml-name` is provided.
 
@@ -804,13 +806,14 @@ If the manifest file itself is missing but matching documentation exists under `
 
 #### How Apex tests are detected
 
-`sf metadelta findtest` splits Apex sources into functional classes and tests by applying a case-insensitive name pattern (`TEST_NAME_PATTERN`) while scanning the target directory. Non-matching `.cls` files become candidates for validation, whereas files whose names contain `test`, `_test`, `testclass`, or similar suffixes are treated as potential test classes.
+`sf metadelta findtest` inspects the Apex source itself to classify classes. A class annotated with `@IsTest` (or using the legacy `testMethod` syntax) is treated as a test class; it is included in `-t` only when it also contains test methods. This prevents factories such as `TestDataFactory` from being passed as deploy tests. The class name is used only as a fallback when its source cannot be read.
 
 Once the functional and test pools are separated, the command evaluates each class with the following steps:
 
 1. **Direct suffix match.** `findtest` attempts to append each of the known test suffixes (`Test`, `_Test`, `TestClass`, etc.) to the Apex class name and looks for an exact match. The comparison also tolerates trigger handler patterns by trimming a trailing `Handler` before trying the suffixes, so classes like `MyTriggerHandler` can pair with tests named `MyTriggerTest`.
-2. **Content analysis.** When there is no direct match, the command opens every potential test class and looks for evidence that it exercises the Apex class: instantiations (`new MyClass`), static member access (`MyClass.someMethod(`), or variable declarations (`MyClass variable;`). The best-scoring candidate is reported as a low-confidence suggestion, leaving the final decision to you.
-3. **Manifest reconciliation.** If a manifest is provided, the command normalizes every `<members>` entry (ignoring whitespace, nil markers, and letter casing) before comparing it against the inferred tests. This prevents duplicate insertions and ensures that existing test names are respected even when the XML formatting varies.
+2. **Content analysis.** When there is no direct match, the command opens every test class and looks for whole-word references to the Apex class: instantiations (`new MyClass`), static member access (`MyClass.someMethod(`), or variable declarations (`MyClass variable;`). A reference is valid coverage and all matching tests are included, rather than only the highest-scoring suggestion. Scheduler, schedule, and schedulable role suffixes are also considered when matching related test names.
+3. **Manifest reconciliation.** Tests already listed in the manifest are included when they are runnable test classes, even when their production class is not part of the delta. Support classes annotated with `@IsTest` but without test methods are excluded. The command normalizes every `<members>` entry before comparing it against inferred tests, preventing duplicate insertions.
+4. **Trigger coverage.** `ApexTrigger` members in the manifest are inspected from `force-app/main/default/triggers` (or `--triggers-dir`). A trigger is considered covered when a runnable test references its handler/trigger or performs DML involving the trigger object. An uncovered trigger is reported as a blocking warning.
 
 #### Flags
 
@@ -818,6 +821,7 @@ Once the functional and test pools are separated, the command evaluates each cla
 |------|-------------|---------|
 | `--project-dir` | Path to the Salesforce project root (folder that contains `sfdx-project.json`). If omitted, the command walks up from the current directory until it finds it. | Current project |
 | `--source-dir` | Relative or absolute path to the Apex classes directory. | `force-app/main/default/classes` |
+| `--triggers-dir` | Relative or absolute path to the Apex triggers directory used for manifest coverage analysis. | `force-app/main/default/triggers` |
 | `--xml-name` | Relative or absolute path to an existing `package.xml`. When provided, the console report starts from the Apex classes declared in that manifest and the same file is used for deployment validation. | N/A |
 | `--deploy` | Alias for providing the deployment manifest path. It behaves like `--xml-name`. | N/A |
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
@@ -835,17 +839,17 @@ Once the functional and test pools are separated, the command evaluates each cla
 When you provide a manifest file through `--xml-name` or `--deploy`, the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
-2. Checks for `<types><name>ApexClass</name></types>` entries. If none are present, it reports the absence of Apex classes. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
+2. Checks for `<types><name>ApexClass</name></types>` and `<types><name>ApexTrigger</name></types>` entries. If neither is present, it reports that no Apex components require test analysis. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
 3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
-4. Finds the associated test classes for each remaining Apex entry. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are appended to the manifest. Name-only heuristics are surfaced as warnings so you can double-check coverage manually.
-5. If any Apex class lacks an associated test, only has a heuristic match, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
+4. Finds the associated test classes for each remaining Apex class. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) and whole-word source references are included in `-t`; tests already present in the manifest are also included. Trigger coverage is resolved through its handler, trigger name, or DML on the trigger SObject.
+5. If any Apex class or trigger lacks an associated test, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
 6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
 
 #### Output
 
 Every run starts with a summary line detailing how many classes came from the manifest (or filesystem), how many were filtered out, and how many remain in the local repository. The detailed mapping preserves the original script format (`ApexClass → ApexTest`). When a manifest is provided, the command automatically ignores managed-package entries (`namespace__*`) and common Communities controllers unless you opt back in; only classes that exist locally are considered for test discovery. Use `--verbose` to list the filtered names and `--json` to capture the underlying metrics programmatically.
 
-Only test classes whose names match the Apex class directly (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) are considered reliable and appear in the mapping. Potential matches detected heuristically are reported as warnings for review and are **not** added to manifests or deployment commands automatically.
+Directly matched tests and tests that reference the Apex class in source are included in the mapping and deployment command. `@IsTest` support classes without test methods are excluded, while tests already listed in the manifest are retained when they are runnable.
 
 ---
 
@@ -998,11 +1002,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.17.0
+   sf plugins install @nervill/metadelta@0.18.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.18.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -1023,7 +1027,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.17.0 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.18.0 (link)`.
 
 ---
 
@@ -1492,6 +1496,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 
 > **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.16.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 > **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
+> **Mejoras de cobertura en findtest (v0.18.0):** `sf metadelta findtest` detecta pruebas ejecutables desde las anotaciones del código Apex, incluye pruebas del manifiesto y referencias del código, y valida la cobertura de ApexTrigger mediante handlers o DML.
 
 ---
 
@@ -1735,6 +1740,7 @@ Cuando `--xml-name` apunta a un manifiesto que debe actualizarse (por ejemplo, p
 | Desplegar a producción omitiendo `-l` cuando no hay clases Apex | `sf metadelta findtest --xml-name manifest/package.xml --org SFOrg --run-deploy-prod` |
 | Ignorar el manifiesto y revisar solo el código local | `sf metadelta findtest --only-local` |
 | Incluir clases de paquetes gestionados explícitamente | `sf metadelta findtest --xml-name manifest/package.xml --no-ignore-managed` |
+| Usar un directorio personalizado de triggers Apex | `sf metadelta findtest --triggers-dir force-app/main/default/triggers` |
 
 #### Detección de documentación de pasos manuales
 
@@ -1744,11 +1750,13 @@ Si el manifiesto no existe pero sí hay documentación relacionada en `docs/`, e
 
 #### Cómo se detectan las clases de prueba
 
-`sf metadelta findtest` separa las clases Apex funcionales de las clases de prueba aplicando un patrón de nombre insensible a mayúsculas (`TEST_NAME_PATTERN`) mientras recorre el directorio indicado. Los archivos `.cls` que no coinciden con el patrón se consideran candidatos a validar; los que contienen `test`, `_test`, `testclass` u otros sufijos similares se tratan como posibles clases de prueba.
+`sf metadelta findtest` inspecciona el código Apex para clasificar las clases. Una clase anotada con `@IsTest` (o que usa la sintaxis heredada `testMethod`) se trata como clase de prueba; solo se incluye en `-t` cuando contiene métodos de prueba. Esto evita pasar factories como `TestDataFactory` como pruebas de despliegue. El nombre se usa únicamente como fallback cuando no se puede leer el código fuente.
 
 Para cada clase funcional, el comando intenta primero una coincidencia directa por sufijo (por ejemplo `AccountController` → `AccountControllerTest`, `AccountController_Test`, `AccountControllerTestClass`, etc.). Cuando encuentra una coincidencia directa, la relación se marca con confianza “exacta” y aparece en el mapeo mostrado en consola.
 
-Si no existe una coincidencia directa, `findtest` recurre a una heurística basada en el contenido: abre cada clase de prueba candidata y busca instanciaciones, llamadas a métodos estáticos o declaraciones de variables que hagan referencia a la clase Apex (`new MiClase`, `MiClase.algunMetodo(`, `MiClase variable;`). El candidato con mayor puntaje se presenta como sugerencia de baja confianza para que revises o ajustes la cobertura manualmente.
+Si no existe una coincidencia directa, `findtest` busca referencias completas en el contenido de las clases de prueba (`new MiClase`, `MiClase.algunMetodo(`, `MiClase variable;`). Una referencia cuenta como cobertura válida y se incluyen todas las pruebas coincidentes, no solo la sugerencia con mayor puntaje. También se consideran los sufijos `scheduler`, `schedule` y `schedulable` al relacionar nombres.
+
+Las clases de prueba que ya aparecen en el manifiesto se incluyen aunque su clase productiva no esté en el delta, siempre que sean ejecutables. Las factories anotadas con `@IsTest` pero sin métodos de prueba se excluyen. Los `ApexTrigger` del manifiesto se analizan desde `force-app/main/default/triggers` o desde la ruta indicada en `--triggers-dir`; se busca cobertura por handler, referencia al trigger o DML sobre su SObject. Un trigger sin cobertura se informa como bloqueo.
 
 #### Banderas
 
@@ -1756,6 +1764,7 @@ Si no existe una coincidencia directa, `findtest` recurre a una heurística basa
 |--------|-------------|-------------------|
 | `--project-dir` | Ruta al directorio raíz del proyecto Salesforce (donde vive `sfdx-project.json`). Si se omite, el comando recorre los directorios padres hasta encontrarlo. | Proyecto actual |
 | `--source-dir` | Ruta relativa o absoluta a la carpeta que contiene las clases Apex a inspeccionar. | `force-app/main/default/classes` |
+| `--triggers-dir` | Ruta relativa o absoluta a la carpeta de triggers Apex para analizar la cobertura del manifiesto. | `force-app/main/default/triggers` |
 | `--xml-name` | Ruta relativa o absoluta a un `package.xml` existente. Al proporcionarla, el reporte parte de las clases Apex declaradas en el manifiesto y se usa el mismo archivo para validar despliegues. | N/A |
 | `--deploy` | Alias para indicar la ruta del manifiesto de despliegue. Se comporta como `--xml-name`. | N/A |
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
@@ -1773,17 +1782,17 @@ Si no existe una coincidencia directa, `findtest` recurre a una heurística basa
 Al indicar un manifiesto con `--xml-name` o `--deploy`, el comando:
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
-2. Verifica si existen nodos `<types><name>ApexClass</name></types>`. Si no hay clases Apex, reporta la ausencia. Cuando `--org`/`--target-org` está presente, igual invoca `sf project deploy start --manifest <archivo> -l NoTestRun` agregando `--dry-run` salvo que indiques `--run-deploy`. Sin org, el flujo se detiene después del reporte.
+2. Verifica si existen nodos `<types><name>ApexClass</name></types>` y `<types><name>ApexTrigger</name></types>`. Si no hay componentes Apex que analizar, reporta la ausencia. Cuando `--org`/`--target-org` está presente, igual invoca `sf project deploy start --manifest <archivo> -l NoTestRun` agregando `--dry-run` salvo que indiques `--run-deploy`. Sin org, el flujo se detiene después del reporte.
 3. Construye la lista a evaluar intersectando el manifiesto con el filesystem local y, opcionalmente, eliminando clases de paquetes gestionados y controladores de Communities. Usa `--verbose` para listar los elementos omitidos.
-4. Busca la clase de prueba asociada para cada entrada Apex restante. Las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, etc.) se agregan al manifiesto. Las heurísticas por nombre se muestran como advertencias para revisión manual.
-5. Si alguna clase Apex no tiene prueba asociada, solo tiene una coincidencia heurística o falta el archivo requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
+4. Busca la clase de prueba asociada para cada clase Apex restante. Las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, etc.) y las referencias completas en el código se incluyen en `-t`; también se conservan las pruebas ejecutables ya presentes en el manifiesto. La cobertura de triggers se resuelve por handler, nombre del trigger o DML sobre su SObject.
+5. Si alguna clase Apex o trigger no tiene prueba asociada, o falta el archivo requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
 6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> ...` o `-l NoTestRun` si no se detectan pruebas. El comando agrega `--dry-run` salvo que pases `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
 
 #### Salida
 
 Cada ejecución inicia con una línea resumen indicando cuántas clases provienen del manifiesto (o del filesystem), cuántas se filtraron y cuántas existen en el repositorio local. El mapeo detallado mantiene el formato del script original (`ApexClass → ApexTest`). Al usar un manifiesto, el comando omite automáticamente las entradas de paquetes gestionados (`namespace__*`) y los controladores comunes de Communities, a menos que elijas incluirlos; solo se consideran las clases que existen localmente. Usa `--verbose` para listar los nombres filtrados y `--json` si necesitas capturar las métricas programáticamente.
 
-Solo se consideran confiables las clases de prueba cuyo nombre coincide directamente con la clase Apex (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, …). Las coincidencias heurísticas se muestran como advertencias para revisión y **no** se agregan automáticamente al manifiesto ni a los comandos de despliegue.
+Las pruebas con coincidencia directa y las que referencian la clase Apex en el código se incluyen en el mapeo y en el comando de despliegue. Las clases de soporte `@IsTest` sin métodos de prueba se excluyen, mientras que las pruebas ejecutables ya presentes en el manifiesto se conservan.
 
 ---
 
