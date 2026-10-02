@@ -5,7 +5,7 @@ import {runCommandSync} from '../../utils/command.js';
 import {XMLParser, XMLBuilder} from 'fast-xml-parser';
 import {fetchOrgApiVersion} from './orgApiVersion.js';
 
-const TEST_NAME_PATTERN = /TEST|Test_|test_|_TEST|TEST_|Test|_test/i;
+const TEST_NAME_PATTERN = /test/i;
 
 const ensureArray = (value) => {
   if (Array.isArray(value)) {
@@ -164,7 +164,7 @@ const getApexClasses = (directory) => {
   return fs.readdirSync(directory)
     .filter((file) => file.endsWith('.cls'))
     .map((file) => path.basename(file, '.cls'))
-    .filter((file) => !TEST_NAME_PATTERN.test(file));
+    .filter((file) => !getClassInfo(directory, file).isTestClass);
 };
 
 const getTestClasses = (directory) => {
@@ -172,8 +172,9 @@ const getTestClasses = (directory) => {
     return [];
   }
   return fs.readdirSync(directory)
-    .filter((file) => file.endsWith('.cls') && TEST_NAME_PATTERN.test(file))
-    .map((file) => path.basename(file, '.cls'));
+    .filter((file) => file.endsWith('.cls'))
+    .map((file) => path.basename(file, '.cls'))
+    .filter((file) => isRunnableTestClass(directory, file));
 };
 
 const getClassContent = (directory, className) => {
@@ -192,13 +193,56 @@ const classFileExists = (directory, className) => {
   return fs.existsSync(filePath);
 };
 
+const stripComments = (source = '') => source
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/.*$/gm, '');
+
+const isTestClassContent = (source = '') => {
+  const normalized = stripComments(source);
+  const classIndex = normalized.search(/\bclass\s+\w+/i);
+  if (classIndex < 0) {
+    return false;
+  }
+
+  const declaration = normalized.slice(Math.max(0, classIndex - 300), classIndex + 300);
+  return /@isTest(?:\s*\([^)]*\))?[\s\S]*\bclass\s+\w+/i.test(declaration)
+    || /\btestMethod\b/i.test(normalized);
+};
+
+const hasTestMethods = (source = '') => {
+  const normalized = stripComments(source);
+  return /@isTest(?:\s*\([^)]*\))?\s+(?:(?:public|private|protected|global)\s+)?(?:static\s+)?[\w<>\[\],\s]+\s+\w+\s*\(/i.test(normalized)
+    || /\btestMethod\b/i.test(normalized);
+};
+
+const getClassInfo = (directory, className) => {
+  const content = getClassContent(directory, className);
+  if (!content) {
+    return {
+      content: '',
+      isTestClass: TEST_NAME_PATTERN.test(className),
+      hasTestMethods: false,
+      runnableTest: false
+    };
+  }
+
+  const isTestClass = isTestClassContent(content);
+  const runnableTest = isTestClass && hasTestMethods(content);
+  return {content, isTestClass, hasTestMethods: hasTestMethods(content), runnableTest};
+};
+
+const isRunnableTestClass = (directory, className) => getClassInfo(directory, className).runnableTest;
+
+const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const findTestReferences = (apexClass, testClassContent) => {
+  const escapedClass = escapeRegExp(apexClass);
   const patterns = [
-    new RegExp(`\\bnew\\s+${apexClass}\\b`, 'g'),
-    new RegExp(`\\b${apexClass}\\.\\w+\\(`, 'g'),
-    new RegExp(`\\b${apexClass}\\s+\\w+;`, 'g')
+    new RegExp(`\\bnew\\s+${escapedClass}\\b`, 'i'),
+    new RegExp(`\\b${escapedClass}\\.\\w+\\(`, 'i'),
+    new RegExp(`\\b${escapedClass}\\s+\\w+\\s*;`, 'i')
   ];
-  return patterns.some((pattern) => pattern.test(testClassContent));
+  return patterns.some((pattern) => pattern.test(stripComments(testClassContent)));
 };
 
 const DIRECT_TEST_SUFFIXES = [
@@ -226,6 +270,8 @@ const APEX_ROLE_SUFFIXES = [
   'batch',
   'queueable',
   'schedulable',
+  'scheduler',
+  'schedule',
   'triggerhandler'
 ];
 
@@ -326,10 +372,10 @@ const findPrimaryTestClass = (apexClass, testClasses, directory) => {
       return {testClass, confidence: 'exact'};
     }
 
-    const testClassContent = getClassContent(directory, testClass);
+    const testClassContent = getClassInfo(directory, testClass).content;
     let score = 0;
 
-    if (testClassContent.includes(apexClass)) {
+    if (new RegExp(`\\b${escapeRegExp(apexClass)}\\b`, 'i').test(stripComments(testClassContent))) {
       score += 3;
     }
     if (findTestReferences(apexClass, testClassContent)) {
@@ -362,10 +408,26 @@ const mapApexToTests = (classesDirectory) => {
   const suggestions = [];
 
   for (const apexClass of apexClasses) {
+    const referenceTests = testClasses.filter((testClass) => (
+      findTestReferences(apexClass, getClassInfo(classesDirectory, testClass).content)
+    ));
     const primary = findPrimaryTestClass(apexClass, testClasses, classesDirectory);
 
     if (primary && primary.confidence === 'exact') {
-      mapping[apexClass] = {testClass: primary.testClass, confidence: 'exact'};
+      mapping[apexClass] = {
+        testClass: primary.testClass,
+        testClasses: Array.from(new Set([
+          primary.testClass,
+          ...referenceTests
+        ])),
+        confidence: 'exact'
+      };
+    } else if (referenceTests.length > 0) {
+      mapping[apexClass] = {
+        testClass: referenceTests[0],
+        testClasses: referenceTests,
+        confidence: 'reference'
+      };
     } else {
       mapping[apexClass] = {testClass: null, confidence: 'none'};
 
@@ -396,11 +458,96 @@ const findProjectRoot = (startDir) => {
 const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
 
 const formatMappingDisplay = (entry) => {
-  if (entry && entry.confidence === 'exact' && entry.testClass) {
-    return entry.testClass;
+  if (entry && entry.testClass) {
+    const suffix = entry.confidence === 'reference' ? ' (referencia)' : '';
+    return `${entry.testClass}${suffix}`;
   }
 
   return NO_TEST_FOUND_MESSAGE;
+};
+
+const getTriggerContent = (directory, triggerName) => {
+  const filePath = path.join(directory, `${triggerName}.trigger`);
+  return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+};
+
+const extractTriggerSObject = (triggerContent = '') => {
+  const match = stripComments(triggerContent).match(/\btrigger\s+\w+\s+on\s+([\w]+)\b/i);
+  return match ? match[1] : null;
+};
+
+const extractTriggerHandlers = (triggerContent = '') => {
+  const normalized = stripComments(triggerContent);
+  const handlers = new Set();
+  const patterns = [
+    /\bnew\s+([A-Za-z_]\w*Handler)\b/g,
+    /\b([A-Za-z_]\w*Handler)\s*\./g,
+    /\b([A-Za-z_]\w*Handler)\s*\(/g
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of normalized.matchAll(pattern)) {
+      handlers.add(match[1]);
+    }
+  }
+
+  return Array.from(handlers);
+};
+
+const findTriggerTestReferences = (triggerName, triggerContent, testContent) => {
+  const normalizedTest = stripComments(testContent);
+  const handlers = extractTriggerHandlers(triggerContent);
+  const handlerReference = handlers.some((handler) => (
+    new RegExp(`\\b${escapeRegExp(handler)}\\b`, 'i').test(normalizedTest)
+  ));
+  const triggerReference = new RegExp(`\\b${escapeRegExp(triggerName)}\\b`, 'i').test(normalizedTest);
+  const objectName = extractTriggerSObject(triggerContent);
+  const dmlOperation = /\b(insert|update|delete|undelete|upsert)\b/i.test(normalizedTest);
+  const objectDml = objectName
+    ? new RegExp(`\\b${escapeRegExp(objectName)}\\b`, 'i').test(normalizedTest) && dmlOperation
+    : false;
+
+  return {
+    covered: handlerReference || triggerReference || objectDml,
+    rule: handlerReference ? 'handler' : triggerReference ? 'trigger' : objectDml ? 'DML' : null
+  };
+};
+
+const mapApexTriggersToTests = (triggersDirectory, classesDirectory) => {
+  if (!fs.existsSync(triggersDirectory)) {
+    return {};
+  }
+
+  const testClasses = getTestClasses(classesDirectory);
+  const mapping = {};
+  const triggerFiles = fs.readdirSync(triggersDirectory)
+    .filter((file) => file.endsWith('.trigger'))
+    .map((file) => path.basename(file, '.trigger'));
+
+  for (const triggerName of triggerFiles) {
+    const triggerContent = getTriggerContent(triggersDirectory, triggerName);
+    const references = testClasses
+      .map((testClass) => {
+        const result = findTriggerTestReferences(
+          triggerName,
+          triggerContent,
+          getClassInfo(classesDirectory, testClass).content
+        );
+        return result.covered ? {testClass, rule: result.rule} : null;
+      })
+      .filter(Boolean);
+
+    mapping[triggerName] = {
+      testClass: references[0]?.testClass ?? null,
+      testClasses: references.map(({testClass}) => testClass),
+      rules: references,
+      sObject: extractTriggerSObject(triggerContent),
+      handlers: extractTriggerHandlers(triggerContent),
+      confidence: references.length > 0 ? 'reference' : 'none'
+    };
+  }
+
+  return mapping;
 };
 
 const resolvePath = (baseDir, candidate) => {
@@ -453,7 +600,10 @@ const gatherTestsForDeployment = (
   manifestMembers,
   mapping,
   classesDirectory,
-  availableApexClasses = new Set()
+  availableApexClasses = new Set(),
+  triggerMembers = [],
+  triggerMapping = {},
+  triggersDirectory = ''
 ) => {
   const testsToRun = new Set();
   const testsMissingInManifest = new Set();
@@ -461,18 +611,23 @@ const gatherTestsForDeployment = (
   const apexWithoutTests = new Set();
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
+  const triggerWithoutTests = new Set();
 
   const existingMembers = new Set(manifestMembers.map((member) => canonicalizeMemberName(member)));
 
-  for (const member of apexMembers) {
-    if (TEST_NAME_PATTERN.test(member)) {
+  for (const member of manifestMembers) {
+    const info = getClassInfo(classesDirectory, member);
+    if (info.runnableTest) {
       testsToRun.add(member);
-      if (!classFileExists(classesDirectory, member)) {
-        missingTestFiles.add(member);
-      }
       continue;
     }
 
+    if (!classFileExists(classesDirectory, member) && TEST_NAME_PATTERN.test(member)) {
+      missingTestFiles.add(member);
+    }
+  }
+
+  for (const member of apexMembers) {
     if (!availableApexClasses.has(member)) {
       missingApexClasses.add(member);
       continue;
@@ -480,7 +635,7 @@ const gatherTestsForDeployment = (
 
     const mappingEntry = mapping[member];
 
-    if (!mappingEntry || mappingEntry.confidence !== 'exact' || !mappingEntry.testClass) {
+    if (!mappingEntry || !mappingEntry.testClass) {
       if (mappingEntry && mappingEntry.suggestion) {
         lowConfidenceMatches.set(member, mappingEntry.suggestion);
       }
@@ -489,16 +644,38 @@ const gatherTestsForDeployment = (
       continue;
     }
 
-    const mapped = mappingEntry.testClass;
-    testsToRun.add(mapped);
+    const mappedTests = mappingEntry.testClasses?.length
+      ? mappingEntry.testClasses
+      : [mappingEntry.testClass];
+    for (const mapped of mappedTests) {
+      testsToRun.add(mapped);
 
-    if (!classFileExists(classesDirectory, mapped)) {
-      missingTestFiles.add(mapped);
+      if (!classFileExists(classesDirectory, mapped)) {
+        missingTestFiles.add(mapped);
+        continue;
+      }
+
+      if (!existingMembers.has(canonicalizeMemberName(mapped))) {
+        testsMissingInManifest.add(mapped);
+      }
+    }
+  }
+
+  for (const trigger of triggerMembers) {
+    const entry = triggerMapping[trigger];
+    const mappedTests = entry?.testClasses ?? [];
+    if (mappedTests.length === 0) {
+      triggerWithoutTests.add(trigger);
       continue;
     }
 
-    if (!existingMembers.has(canonicalizeMemberName(mapped))) {
-      testsMissingInManifest.add(mapped);
+    for (const mapped of mappedTests) {
+      testsToRun.add(mapped);
+      if (!classFileExists(classesDirectory, mapped)) {
+        missingTestFiles.add(mapped);
+      } else if (!existingMembers.has(canonicalizeMemberName(mapped))) {
+        testsMissingInManifest.add(mapped);
+      }
     }
   }
 
@@ -508,7 +685,10 @@ const gatherTestsForDeployment = (
     missingTestFiles: Array.from(missingTestFiles),
     apexWithoutTests: Array.from(apexWithoutTests),
     missingApexClasses: Array.from(missingApexClasses),
-    lowConfidenceMatches
+    lowConfidenceMatches,
+    triggerWithoutTests: Array.from(triggerWithoutTests),
+    triggerMapping,
+    triggersDirectory
   };
 };
 
@@ -522,6 +702,10 @@ class FindTest extends Command {
     'source-dir': Flags.string({
       summary: 'Ruta relativa o absoluta al directorio que contiene las clases Apex.',
       default: 'force-app/main/default/classes'
+    }),
+    'triggers-dir': Flags.string({
+      summary: 'Ruta relativa o absoluta al directorio que contiene los triggers Apex.',
+      default: 'force-app/main/default/triggers'
     }),
     'xml-name': Flags.string({
       summary: 'Ruta al package.xml existente que se usará para el análisis o despliegue.'
@@ -592,6 +776,9 @@ class FindTest extends Command {
     const sourceDir = path.isAbsolute(flags['source-dir'])
       ? flags['source-dir']
       : path.join(projectRoot, flags['source-dir']);
+    const triggersDir = path.isAbsolute(flags['triggers-dir'])
+      ? flags['triggers-dir']
+      : path.join(projectRoot, flags['triggers-dir']);
 
     if (!fs.existsSync(sourceDir)) {
       this.error(`El directorio de clases Apex no existe: ${sourceDir}`);
@@ -678,12 +865,12 @@ class FindTest extends Command {
     const initialClassSet = new Set();
     let usedManifest = manifestApexMembers !== null;
     const manifestNonTestMembers = usedManifest
-      ? manifestApexMembersNormalized.filter((name) => !TEST_NAME_PATTERN.test(name))
+      ? manifestApexMembersNormalized.filter((name) => !getClassInfo(sourceDir, name).isTestClass)
       : [];
 
     if (usedManifest) {
       manifestApexMembersNormalized.forEach((name) => {
-        if (name && !TEST_NAME_PATTERN.test(name)) {
+        if (name && !getClassInfo(sourceDir, name).isTestClass) {
           initialClassSet.add(name);
         }
       });
@@ -849,10 +1036,11 @@ class FindTest extends Command {
       const types = ensureArray(originalTypes);
       const typesIsArray = Array.isArray(originalTypes);
       const apexType = types.find((type) => type.name === 'ApexClass');
+      const triggerType = types.find((type) => type.name === 'ApexTrigger');
 
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
 
-      if (!apexType) {
+      if (!apexType && !triggerType) {
         const noApexMessage = fallbackTestLevel
           ? `\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue con ${fallbackTestLevel}.`
           : '\nEl package.xml no incluye clases Apex. Se ejecutará el despliegue sin especificar nivel de pruebas.';
@@ -873,9 +1061,13 @@ class FindTest extends Command {
         return;
       }
 
-      const originalMembers = apexType.members ?? [];
+      const originalMembers = apexType?.members ?? [];
       const members = ensureArray(originalMembers);
       const normalizedMembers = members.map((member) => normalizeMemberValue(member)).filter(Boolean);
+      const triggerMembers = triggerType
+        ? ensureArray(triggerType.members ?? []).map((member) => normalizeMemberValue(member)).filter(Boolean)
+        : [];
+      const triggerMapping = mapApexTriggersToTests(triggersDir, sourceDir);
 
       const {
         testsToRun,
@@ -883,19 +1075,23 @@ class FindTest extends Command {
         missingTestFiles,
         apexWithoutTests,
         missingApexClasses,
-        lowConfidenceMatches
+        lowConfidenceMatches,
+        triggerWithoutTests
       } = gatherTestsForDeployment(
         finalClasses,
         normalizedMembers,
         apexTestMapping,
         sourceDir,
-        availableApexClasses
+        availableApexClasses,
+        triggerMembers,
+        triggerMapping,
+        triggersDir
       );
 
       let manifestUpdated = false;
       let manifestUpdateReason = '';
 
-      if (testsMissingInManifest.length > 0) {
+      if (testsMissingInManifest.length > 0 && apexType) {
         const updatedMembers = [...normalizedMembers];
         const updatedMembersLookup = new Set(updatedMembers.map((member) => canonicalizeMemberName(member)));
         for (const testClass of testsMissingInManifest) {
@@ -961,6 +1157,11 @@ class FindTest extends Command {
           `No se encontraron archivos .cls para las clases de prueba requeridas: ${missingTestFiles.join(', ')}`
         );
       }
+      if (triggerWithoutTests.length > 0) {
+        blockingWarnings.push(
+          `No se encontraron clases de prueba que cubran los ApexTrigger indicados: ${triggerWithoutTests.join(', ')}`
+        );
+      }
 
       blockingWarnings.forEach((message) => this.warn(message));
 
@@ -1020,3 +1221,10 @@ class FindTest extends Command {
 }
 
 export default FindTest;
+
+export {
+  gatherTestsForDeployment,
+  isTestClassContent,
+  mapApexToTests,
+  mapApexTriggersToTests
+};
