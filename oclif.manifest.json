@@ -323,7 +323,7 @@
         },
         "run-deploy-prod": {
           "name": "run-deploy-prod",
-          "summary": "Ejecuta el despliegue sin --dry-run y evita NoTestRun cuando no hay clases de prueba (producción).",
+          "summary": "Alias compatible de --run-deploy: ejecuta sin --dry-run. La detección de producción controla NoTestRun.",
           "allowNo": false,
           "type": "boolean"
         },
@@ -1012,5 +1012,5 @@
       ]
     }
   },
-  "version": "0.18.0"
+  "version": "0.19.0"
 }
