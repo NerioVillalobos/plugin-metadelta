@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-10-02 — `@nervill/metadelta` 0.18.0
+> **Last update / Última actualización:** 2026-10-05 — `@nervill/metadelta` 0.19.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -54,17 +54,17 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.18.0
+   sf plugins install @nervill/metadelta@0.19.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -79,7 +79,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.18.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0 (link)`.
 
 ---
 
@@ -551,6 +551,7 @@ Watchdog target entries can include custom manifests per org:
 > **Monitor persistence, scoped manifests, Vlocity enrichment, CSV export, and watchdog control (v0.16.0):** `sf metadelta monitor run` preserves snapshots, Git baseline, and `change-log.jsonl` under `~/.metadelta/monitor/<orgAlias>/`. Use `--scope-xml` and/or `--scope-yaml` to monitor only the components listed in a Core XML or Vlocity YAML manifest. Use `--export-csv` to produce an audit-friendly CSV copy of the persistent log when the command exits. Use `--control` and `--watchdog-once` for the complementary Teams watchdog/control workflow.
 > **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
 > **findtest coverage improvements (v0.18.0):** `sf metadelta findtest` detects runnable tests from Apex source annotations, includes manifest tests and source-reference matches, and validates ApexTrigger coverage through handlers or DML.
+> **findtest production deployment fix (v0.19.0):** `sf metadelta findtest` detects whether the target org is a sandbox before selecting the fallback test level, omits `NoTestRun` in production, preserves dry-run validation, and returns a non-zero exit code when the deploy fails.
 
 ---
 
@@ -827,7 +828,7 @@ Once the functional and test pools are separated, the command evaluates each cla
 | `--org` | Alias or username to use with the deployment helper. Mirrors `--target-org` but is shorter to type. | CLI default |
 | `--target-org` | Alias or username passed to `sf project deploy start` (same behaviour as `--org`). | CLI default |
 | `--run-deploy` | Executes the deployment helper without appending `--dry-run`. When omitted, the helper always adds `--dry-run` to keep the validation non-destructive. | `false` |
-| `--run-deploy-prod` | Production deployment helper that omits the `-l` flag when the manifest lacks Apex classes and uses `-l RunSpecifiedTests` with the detected test names when they exist. | `false` |
+| `--run-deploy-prod` | Compatibility alias for `--run-deploy`: runs without `--dry-run`. Production detection independently controls whether `NoTestRun` is allowed. | `false` |
 | `--only-local` | Ignores the manifest (if any) and analyses only the Apex classes present in the local repository. | `false` |
 | `--ignore-managed`, `--no-ignore-managed` | Skip (`true`) or include (`false`) classes whose names start with `namespace__`. | `true` |
 | `--ignore-communities`, `--no-ignore-communities` | Skip (`true`) or include (`false`) the built-in Communities controllers (ChangePasswordController, etc.). | `true` |
@@ -839,11 +840,13 @@ Once the functional and test pools are separated, the command evaluates each cla
 When you provide a manifest file through `--xml-name` or `--deploy`, the command:
 
 1. Reads the existing `package.xml` (the file must already exist).
-2. Checks for `<types><name>ApexClass</name></types>` and `<types><name>ApexTrigger</name></types>` entries. If neither is present, it reports that no Apex components require test analysis. When `--org`/`--target-org` is provided, the command still invokes `sf project deploy start --manifest <file> -l NoTestRun` (adding `--dry-run` unless you include `--run-deploy`). Without an org, the workflow stops after the report.
+2. Checks for `<types><name>ApexClass</name></types>` and `<types><name>ApexTrigger</name></types>` entries. If neither is present, it detects `Organization.IsSandbox` in the target org. Sandbox orgs use `-l NoTestRun`; production orgs omit `-l` so Salesforce applies its default test level, both for dry-run and real deployment. Without an org, the workflow stops after the report.
 3. Builds the evaluation list by intersecting the manifest with the local filesystem, optionally removing managed-package members and Communities controllers. Use `--verbose` to list the skipped entries.
 4. Finds the associated test classes for each remaining Apex class. Direct name matches (`MyClassTest`, `MyClass_Test`, `MyClassTests`, …) and whole-word source references are included in `-t`; tests already present in the manifest are also included. Trigger coverage is resolved through its handler, trigger name, or DML on the trigger SObject.
-5. If any Apex class or trigger lacks an associated test, or a required test file is missing, the command reports the names and skips `sf project deploy start` so you can fix the manifest or restore the files.
-6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or `-l NoTestRun` if no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Use `--org`/`--target-org` to override the CLI default org.
+5. If any Apex class or trigger lacks an associated test, or a required test file is missing, the command reports the names. In sandboxes it skips `sf project deploy start` so you can fix the manifest or restore the files; in production, when no tests are resolved, it continues without `-l` so Salesforce applies its default test level.
+6. Otherwise, it executes `sf project deploy start --manifest <file> -l RunSpecifiedTests -t <Test1> -t <Test2> …` (or the org-appropriate fallback when no tests were detected). The command appends `--dry-run` unless you pass `--run-deploy`. Deploy failures terminate `findtest` with a non-zero exit code. Use `--org`/`--target-org` to override the CLI default org.
+
+When the `Organization.IsSandbox` query fails, `findtest` warns and treats the destination as production, omitting `NoTestRun` because Salesforce production organizations reject that test level. `--run-deploy-prod` remains supported as a compatibility alias for running without `--dry-run`.
 
 #### Output
 
@@ -1002,11 +1005,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.18.0
+   sf plugins install @nervill/metadelta@0.19.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.18.0`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.19.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -1027,7 +1030,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.18.0 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.19.0 (link)`.
 
 ---
 
@@ -1497,6 +1500,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 > **Persistencia, manifests con scope, enriquecimiento Vlocity, exportacion CSV y control watchdog en monitor (v0.16.0):** `sf metadelta monitor run` preserva snapshots, baseline Git y `change-log.jsonl` en `~/.metadelta/monitor/<aliasOrg>/`. Usa `--scope-xml` y/o `--scope-yaml` para monitorear solo los componentes indicados en un manifest XML Core o Vlocity YAML. Usa `--export-csv` para producir una copia CSV del log persistente al salir del comando. Usa `--control` y `--watchdog-once` para el flujo complementario de control/watchdog Teams.
 > **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
 > **Mejoras de cobertura en findtest (v0.18.0):** `sf metadelta findtest` detecta pruebas ejecutables desde las anotaciones del código Apex, incluye pruebas del manifiesto y referencias del código, y valida la cobertura de ApexTrigger mediante handlers o DML.
+> **Corrección de despliegues a producción en findtest (v0.19.0):** `sf metadelta findtest` detecta si la org destino es sandbox antes de seleccionar el nivel de pruebas fallback, omite `NoTestRun` en producción, conserva la validación dry-run y devuelve un código distinto de cero cuando falla el deploy.
 
 ---
 
@@ -1770,7 +1774,7 @@ Las clases de prueba que ya aparecen en el manifiesto se incluyen aunque su clas
 | `--org` | Alias o usuario de la org destino para el asistente de despliegue. Equivale a `--target-org` pero es más corto. | Org por defecto |
 | `--target-org` | Alias o usuario pasado a `sf project deploy start` (mismo comportamiento que `--org`). | Org por defecto |
 | `--run-deploy` | Ejecuta el asistente de despliegue sin agregar `--dry-run`. Si se omite, el asistente agrega `--dry-run` para mantener la validación no destructiva. | `false` |
-| `--run-deploy-prod` | Asistente de despliegue para producción que omite la bandera `-l` cuando el manifiesto no contiene clases Apex y usa `-l RunSpecifiedTests` con las pruebas detectadas cuando sí existen. | `false` |
+| `--run-deploy-prod` | Alias compatible de `--run-deploy`: ejecuta sin `--dry-run`. La detección de producción controla por separado si se permite `NoTestRun`. | `false` |
 | `--only-local` | Ignora el manifiesto (si existe) y analiza únicamente las clases Apex presentes en el repositorio local. | `false` |
 | `--ignore-managed`, `--no-ignore-managed` | Omite (`true`) o incluye (`false`) clases cuyos nombres comienzan con `namespace__`. | `true` |
 | `--ignore-communities`, `--no-ignore-communities` | Omite (`true`) o incluye (`false`) los controladores estándar de Communities (ChangePasswordController, etc.). | `true` |
@@ -1782,11 +1786,13 @@ Las clases de prueba que ya aparecen en el manifiesto se incluyen aunque su clas
 Al indicar un manifiesto con `--xml-name` o `--deploy`, el comando:
 
 1. Lee el `package.xml` existente (el archivo debe estar creado previamente).
-2. Verifica si existen nodos `<types><name>ApexClass</name></types>` y `<types><name>ApexTrigger</name></types>`. Si no hay componentes Apex que analizar, reporta la ausencia. Cuando `--org`/`--target-org` está presente, igual invoca `sf project deploy start --manifest <archivo> -l NoTestRun` agregando `--dry-run` salvo que indiques `--run-deploy`. Sin org, el flujo se detiene después del reporte.
+2. Verifica si existen nodos `<types><name>ApexClass</name></types>` y `<types><name>ApexTrigger</name></types>`. Si no hay componentes Apex que analizar, detecta `Organization.IsSandbox` en la org destino. En sandboxes usa `-l NoTestRun`; en producción omite `-l` para que Salesforce aplique su nivel de pruebas predeterminado, tanto en dry-run como en despliegues reales. Sin org, el flujo se detiene después del reporte.
 3. Construye la lista a evaluar intersectando el manifiesto con el filesystem local y, opcionalmente, eliminando clases de paquetes gestionados y controladores de Communities. Usa `--verbose` para listar los elementos omitidos.
 4. Busca la clase de prueba asociada para cada clase Apex restante. Las coincidencias directas (`MiClaseTest`, `MiClase_Test`, `MiClaseTests`, etc.) y las referencias completas en el código se incluyen en `-t`; también se conservan las pruebas ejecutables ya presentes en el manifiesto. La cobertura de triggers se resuelve por handler, nombre del trigger o DML sobre su SObject.
-5. Si alguna clase Apex o trigger no tiene prueba asociada, o falta el archivo requerido, el comando reporta los nombres y omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos.
-6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> ...` o `-l NoTestRun` si no se detectan pruebas. El comando agrega `--dry-run` salvo que pases `--run-deploy`. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
+5. Si alguna clase Apex o trigger no tiene prueba asociada, o falta el archivo requerido, el comando reporta los nombres. En sandboxes omite `sf project deploy start` para que puedas corregir el manifiesto o restaurar los archivos; en producción, cuando no se resuelven pruebas, continúa sin `-l` para que Salesforce aplique su nivel predeterminado.
+6. De lo contrario, ejecuta `sf project deploy start --manifest <archivo> -l RunSpecifiedTests -t <Prueba1> -t <Prueba2> ...` o el fallback correspondiente al tipo de org si no se detectan pruebas. El comando agrega `--dry-run` salvo que pases `--run-deploy`. Si el deploy falla, `findtest` termina con un código distinto de cero. Usa `--org`/`--target-org` para sobrescribir la org predeterminada.
+
+Si falla la consulta de `Organization.IsSandbox`, `findtest` muestra una advertencia y trata la org como producción, omitiendo `NoTestRun` porque Salesforce rechaza ese nivel en producción. `--run-deploy-prod` continúa soportado como alias compatible para ejecutar sin `--dry-run`.
 
 #### Salida
 
