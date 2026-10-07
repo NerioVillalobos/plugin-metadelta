@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-10-05 — `@nervill/metadelta` 0.19.0
+> **Last update / Última actualización:** 2026-10-07 — `@nervill/metadelta` 0.20.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -54,17 +54,17 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.19.0
+   sf plugins install @nervill/metadelta@0.20.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -79,7 +79,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.19.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0 (link)`.
 
 ---
 
@@ -205,7 +205,7 @@ sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest
 
 #### Characteristics
 
-1. Runs `git diff --name-status <to>..<from>` to detect additions, deletions, and renames.
+1. Runs a NUL-safe three-dot diff from the merge-base (`git diff --name-status -z <to>...<from>`) to detect additions, deletions, and renames without losing accented paths or unrelated changes from the base branch.
 2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
 3. Creates destructive manifests automatically when complete deletions exist.
 4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
@@ -235,6 +235,7 @@ Vlocity outputs:
 | `--to` | **Required.** Base branch for comparison. |
 | `--xml` | Existing destination `package.xml` to update with missing Core components. |
 | `--yaml` | Existing destination YAML manifest to update with missing Vlocity components. |
+| `--strict` | Fails when metadata candidate files cannot be resolved to Core/Vlocity components. |
 
    ![Metadelta plugin find command example](images/metadelta-example-finddelta-command.gif)
 ---
@@ -552,6 +553,7 @@ Watchdog target entries can include custom manifests per org:
 > **finddelta bundled metadata fix (v0.17.0):** `sf metadelta finddelta` compares individual members inside `CustomLabels.labels-meta.xml`, so unchanged custom labels are not incorrectly added to the generated delta manifest.
 > **findtest coverage improvements (v0.18.0):** `sf metadelta findtest` detects runnable tests from Apex source annotations, includes manifest tests and source-reference matches, and validates ApexTrigger coverage through handlers or DML.
 > **findtest production deployment fix (v0.19.0):** `sf metadelta findtest` detects whether the target org is a sandbox before selecting the fallback test level, omits `NoTestRun` in production, preserves dry-run validation, and returns a non-zero exit code when the deploy fails.
+> **finddelta reliability fixes (v0.20.0):** `sf metadelta finddelta` uses merge-base and NUL-safe Git diffs, supports large and binary metadata files, preserves partial bundles as active components instead of destructive deletes, resolves generic metadata companions, and offers `--strict` for unresolved metadata candidates.
 
 ---
 
@@ -1005,11 +1007,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.19.0
+   sf plugins install @nervill/metadelta@0.20.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.19.0`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.20.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -1030,7 +1032,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.19.0 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.20.0 (link)`.
 
 ---
 
@@ -1155,7 +1157,7 @@ sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Rel
 
 #### Características
 
-1. Ejecuta `git diff --name-status <to>..<from>` para detectar adiciones, eliminaciones y renombrados.
+1. Ejecuta un diff seguro con NUL desde el merge-base (`git diff --name-status -z <to>...<from>`) para detectar adiciones, eliminaciones y renombrados sin perder rutas con acentos ni cambios ajenos de la rama base.
 2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
 3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones completas.
 4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
@@ -1185,6 +1187,7 @@ Salidas Vlocity:
 | `--to` | **Requerida.** Rama base para la comparación. |
 | `--xml` | `package.xml` destino existente para incorporar componentes Core faltantes. |
 | `--yaml` | YAML destino existente para incorporar componentes Vlocity faltantes. |
+| `--strict` | Falla si existen archivos candidatos de metadata que no pueden resolverse a componentes Core/Vlocity. |
 
 ---
 
@@ -1501,6 +1504,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 > **Corrección de metadata agrupada en finddelta (v0.17.0):** `sf metadelta finddelta` compara los miembros individuales dentro de `CustomLabels.labels-meta.xml`, evitando agregar al manifest delta las etiquetas sin cambios.
 > **Mejoras de cobertura en findtest (v0.18.0):** `sf metadelta findtest` detecta pruebas ejecutables desde las anotaciones del código Apex, incluye pruebas del manifiesto y referencias del código, y valida la cobertura de ApexTrigger mediante handlers o DML.
 > **Corrección de despliegues a producción en findtest (v0.19.0):** `sf metadelta findtest` detecta si la org destino es sandbox antes de seleccionar el nivel de pruebas fallback, omite `NoTestRun` en producción, conserva la validación dry-run y devuelve un código distinto de cero cuando falla el deploy.
+> **Correcciones de confiabilidad en finddelta (v0.20.0):** `sf metadelta finddelta` usa merge-base y diffs Git seguros con NUL, soporta archivos de metadata grandes y binarios, conserva bundles parciales como componentes activos en lugar de eliminarlos, resuelve acompañantes de metadata genéricos y ofrece `--strict` para candidatos no resueltos.
 
 ---
 
