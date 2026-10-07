@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildBundledMetadataDeltaComponents,
+  expandCoreCandidateFiles,
   filterCompleteApexClassDeletions,
   filterCompleteVlocityDatapackDeletions,
 } from '../src/commands/metadelta/finddelta.js';
@@ -90,4 +91,16 @@ test('buildCustomLabelDeltaComponents returns only added or modified labels', ()
   assert.deepEqual(delta.destructive, [
     {type: 'CustomLabel', fullName: 'RemovedLabel'},
   ]);
+});
+
+test('expandCoreCandidateFiles includes generic metadata siblings and bundle metadata', () => {
+  const expanded = expandCoreCandidateFiles([
+    'force-app/main/default/email/Folder/Notice.email',
+    'force-app/main/default/documents/Folder/Logo.png',
+    'force-app/main/default/staticresources/site/app.js'
+  ]);
+
+  assert.ok(expanded.includes('force-app/main/default/email/Folder/Notice.email-meta.xml'));
+  assert.ok(expanded.includes('force-app/main/default/documents/Folder/Logo.document-meta.xml'));
+  assert.ok(expanded.includes('force-app/main/default/staticresources/site.resource-meta.xml'));
 });
