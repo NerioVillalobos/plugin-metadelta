@@ -5,6 +5,7 @@ import {
   expandCoreCandidateFiles,
   filterCompleteApexClassDeletions,
   filterCompleteVlocityDatapackDeletions,
+  groupFilesByComponent,
 } from '../src/commands/metadelta/finddelta.js';
 
 const customLabels = (labels) => `<?xml version="1.0" encoding="UTF-8"?>
@@ -103,4 +104,28 @@ test('expandCoreCandidateFiles includes generic metadata siblings and bundle met
   assert.ok(expanded.includes('force-app/main/default/email/Folder/Notice.email-meta.xml'));
   assert.ok(expanded.includes('force-app/main/default/documents/Folder/Logo.document-meta.xml'));
   assert.ok(expanded.includes('force-app/main/default/staticresources/site.resource-meta.xml'));
+});
+
+test('expandCoreCandidateFiles includes the parent of decomposed object translations', () => {
+  const expanded = expandCoreCandidateFiles([
+    'force-app/main/default/objectTranslations/Quote-es_MX/quote_currency.fieldTranslation-meta.xml'
+  ]);
+
+  assert.ok(expanded.includes(
+    'force-app/main/default/objectTranslations/Quote-es_MX/Quote-es_MX.objectTranslation-meta.xml'
+  ));
+});
+
+test('groupFilesByComponent keeps decomposed children and their parent together', () => {
+  const groups = groupFilesByComponent([
+    'force-app/main/default/objectTranslations/Quote-es_MX/Quote-es_MX.objectTranslation-meta.xml',
+    'force-app/main/default/objectTranslations/Quote-es_MX/quote_currency.fieldTranslation-meta.xml',
+    'force-app/main/default/classes/Unrelated.cls-meta.xml'
+  ]);
+
+  assert.ok(groups.some((group) => (
+    group.includes('force-app/main/default/objectTranslations/Quote-es_MX/Quote-es_MX.objectTranslation-meta.xml')
+      && group.includes('force-app/main/default/objectTranslations/Quote-es_MX/quote_currency.fieldTranslation-meta.xml')
+  )));
+  assert.ok(groups.some((group) => group.includes('force-app/main/default/classes/Unrelated.cls-meta.xml')));
 });
