@@ -1,4 +1,4 @@
-> **Last update / Última actualización:** 2026-10-07 — `@nervill/metadelta` 0.20.0
+> **Last update / Última actualización:** 2026-10-09 — `@nervill/metadelta` 0.21.0
 
 # Metadelta Salesforce CLI Plugin
 
@@ -54,17 +54,17 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    To install this exact release instead, pin the version:
    ```bash
-   sf plugins install @nervill/metadelta@0.20.0
+   sf plugins install @nervill/metadelta@0.21.0
    ```
    > npmjs.com displays `npm i @nervill/metadelta` as the generic Node.js package command. Use `sf plugins install` so the package is registered as a Salesforce CLI plugin.
 
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.21.0`.
 
 3. Alternatively, install the current repository version directly from GitHub:
    ```bash
    sf plugins install github:NerioVillalobos/plugin-metadelta.git
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.21.0`.
 
    ![Metadelta plugin installation example](images/metadelta-example-install.gif)
 
@@ -79,7 +79,7 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.20.0 (link)`.
+   Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.21.0 (link)`.
 
 ---
 
@@ -209,6 +209,8 @@ sf metadelta finddelta --from <source_branch> --to <base_branch> [--xml manifest
 2. Generates Core and Vlocity delta manifests under `manifest/` using the `from` branch as the output name.
 3. Creates destructive manifests automatically when complete deletions exist.
 4. If `--xml` and/or `--yaml` are provided, merges only missing components into the destination manifests (no duplicates).
+5. Adds required parent files for decomposed metadata such as `CustomObjectTranslation` before resolving the temporary source tree.
+6. If the global Core resolver fails, retries independently by component so valid groups are preserved. Any unresolved group makes the delta incomplete, returns a non-zero exit code, and prevents `--xml` from being modified.
 
 #### Notes
 
@@ -554,6 +556,7 @@ Watchdog target entries can include custom manifests per org:
 > **findtest coverage improvements (v0.18.0):** `sf metadelta findtest` detects runnable tests from Apex source annotations, includes manifest tests and source-reference matches, and validates ApexTrigger coverage through handlers or DML.
 > **findtest production deployment fix (v0.19.0):** `sf metadelta findtest` detects whether the target org is a sandbox before selecting the fallback test level, omits `NoTestRun` in production, preserves dry-run validation, and returns a non-zero exit code when the deploy fails.
 > **finddelta reliability fixes (v0.20.0):** `sf metadelta finddelta` uses merge-base and NUL-safe Git diffs, supports large and binary metadata files, preserves partial bundles as active components instead of destructive deletes, resolves generic metadata companions, and offers `--strict` for unresolved metadata candidates.
+> **finddelta decomposed metadata fix (v0.21.0):** `sf metadelta finddelta` includes required parent metadata for children such as `CustomObjectTranslation`, retries Core manifest resolution by component, reports unresolved files with a non-zero exit code, and prevents partial `--xml` merges.
 
 ---
 
@@ -1007,11 +1010,11 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Para instalar específicamente esta versión:
    ```bash
-   sf plugins install @nervill/metadelta@0.20.0
+   sf plugins install @nervill/metadelta@0.21.0
    ```
    > npmjs.com muestra `npm i @nervill/metadelta` como comando genérico para paquetes Node.js. Usa `sf plugins install` para registrar correctamente el paquete como plugin de Salesforce CLI.
 
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.20.0`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.21.0`.
 
 3. Como alternativa, instala directamente la versión actual del repositorio en GitHub:
    ```bash
@@ -1032,7 +1035,7 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    npm run build
    sf plugins link .
    ```
-   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.20.0 (link)`.
+   Confirma la instalación con `sf plugins`, que debe mostrar `@nervill/metadelta 0.21.0 (link)`.
 
 ---
 
@@ -1161,6 +1164,8 @@ sf metadelta finddelta --from <rama_fuente> --to <rama_base> [--xml manifest/Rel
 2. Genera manifiestos delta Core y Vlocity en `manifest/` usando la rama `from` en el nombre de salida.
 3. Crea manifiestos destructivos automáticamente cuando existen eliminaciones completas.
 4. Si indicas `--xml` y/o `--yaml`, fusiona solo los componentes faltantes en los manifiestos destino (sin duplicados).
+5. Agrega los archivos padre requeridos por metadata descompuesta, como `CustomObjectTranslation`, antes de resolver el árbol temporal.
+6. Si falla el resolver Core global, reintenta por componente para conservar los grupos válidos. Cualquier grupo sin resolver marca el delta como incompleto, devuelve código distinto de cero y evita modificar `--xml`.
 
 #### Comentarios
 
@@ -1505,6 +1510,7 @@ Los targets del watchdog pueden incluir manifests custom por org:
 > **Mejoras de cobertura en findtest (v0.18.0):** `sf metadelta findtest` detecta pruebas ejecutables desde las anotaciones del código Apex, incluye pruebas del manifiesto y referencias del código, y valida la cobertura de ApexTrigger mediante handlers o DML.
 > **Corrección de despliegues a producción en findtest (v0.19.0):** `sf metadelta findtest` detecta si la org destino es sandbox antes de seleccionar el nivel de pruebas fallback, omite `NoTestRun` en producción, conserva la validación dry-run y devuelve un código distinto de cero cuando falla el deploy.
 > **Correcciones de confiabilidad en finddelta (v0.20.0):** `sf metadelta finddelta` usa merge-base y diffs Git seguros con NUL, soporta archivos de metadata grandes y binarios, conserva bundles parciales como componentes activos en lugar de eliminarlos, resuelve acompañantes de metadata genéricos y ofrece `--strict` para candidatos no resueltos.
+> **Corrección de metadata descompuesta en finddelta (v0.21.0):** `sf metadelta finddelta` incorpora los padres requeridos por hijos como `CustomObjectTranslation`, reintenta la resolución Core por componente, informa archivos no resolubles con código distinto de cero y evita fusiones parciales con `--xml`.
 
 ---
 
