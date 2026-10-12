@@ -4,9 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  appendDestructiveArgs,
   gatherTestsForDeployment,
   mapApexToTests,
-  mapApexTriggersToTests
+  mapApexTriggersToTests,
+  resolveDestructiveChanges
 } from '../src/commands/metadelta/findtest.js';
 
 const writeFixture = () => {
@@ -85,5 +87,53 @@ test('findtest uses manifest tests and trigger DML coverage in RunSpecifiedTests
     assert.deepEqual(result.missingTestFiles, []);
   } finally {
     fs.rmSync(fixture.root, {recursive: true, force: true});
+  }
+});
+
+test('findtest discovers the finddelta destructive manifest and defaults it to POST', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-findtest-destructive-'));
+  const manifestDir = path.join(root, 'manifest');
+  fs.mkdirSync(manifestDir);
+  fs.writeFileSync(path.join(manifestDir, 'release.xml'), '<Package><version>66.0</version></Package>');
+  const destructivePath = path.join(manifestDir, 'Destructive-release.xml');
+  fs.writeFileSync(destructivePath, `<Package>
+  <types><members>ObsoleteClass</members><name>ApexClass</name></types>
+  <version>66.0</version>
+</Package>`);
+
+  try {
+    assert.deepEqual(resolveDestructiveChanges(path.join(manifestDir, 'release.xml'), root), [{
+      path: destructivePath,
+      order: 'post',
+      memberCount: 1
+    }]);
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
+
+test('findtest honors explicit pre/post destructive paths and appends both flags', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-findtest-order-'));
+  const manifestDir = path.join(root, 'manifest');
+  const preDir = path.join(manifestDir, 'preDestructive');
+  const postDir = path.join(manifestDir, 'postDestructive');
+  fs.mkdirSync(preDir, {recursive: true});
+  fs.mkdirSync(postDir, {recursive: true});
+  const manifestPath = path.join(manifestDir, 'release.xml');
+  fs.writeFileSync(manifestPath, '<Package><version>66.0</version></Package>');
+  const prePath = path.join(preDir, 'destructiveChanges.xml');
+  const postPath = path.join(postDir, 'destructiveChanges.xml');
+  const destructiveXml = '<Package><types><members>Obsolete</members><name>ApexClass</name></types><version>66.0</version></Package>';
+  fs.writeFileSync(prePath, destructiveXml);
+  fs.writeFileSync(postPath, destructiveXml);
+
+  try {
+    const changes = resolveDestructiveChanges(manifestPath, root);
+    const args = appendDestructiveArgs(['project', 'deploy', 'start'], changes);
+    assert.deepEqual(changes.map((change) => change.order), ['pre', 'post']);
+    assert.ok(args.includes('--pre-destructive-changes'));
+    assert.ok(args.includes('--post-destructive-changes'));
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
   }
 });

@@ -595,6 +595,97 @@ const writePackageXml = (manifestPath, packageObject, apiVersion = null) => {
   fs.writeFileSync(manifestPath, output);
 };
 
+const destructiveOrderValues = new Set(['auto', 'pre', 'post']);
+
+const inferDestructiveOrder = (destructivePath, requestedOrder = 'auto') => {
+  if (requestedOrder !== 'auto') {
+    return requestedOrder;
+  }
+
+  const normalizedPath = String(destructivePath || '').replace(/\\/g, '/').toLowerCase();
+  if (/(^|\/)pre(?:destructive|delete)(\/|$)/i.test(normalizedPath)) {
+    return 'pre';
+  }
+  if (/(^|\/)post(?:destructive|delete)(\/|$)/i.test(normalizedPath)) {
+    return 'post';
+  }
+
+  // finddelta generates Destructive-<manifest>.xml without an order marker.
+  // POST is the conservative default because it lets the active package deploy
+  // before removing components that may still be referenced by it.
+  return 'post';
+};
+
+const countDestructiveMembers = (packageObject) => {
+  if (!packageObject?.Package) {
+    throw new Error('El manifest destructivo no contiene un nodo <Package>.');
+  }
+
+  const types = ensureArray(packageObject.Package.types ?? []);
+  let memberCount = 0;
+  for (const type of types) {
+    const typeName = normalizeMemberValue(type?.name);
+    const members = ensureArray(type?.members ?? [])
+      .map((member) => normalizeMemberValue(member))
+      .filter(Boolean);
+    if (!typeName || members.length === 0) {
+      throw new Error('El manifest destructivo contiene un bloque <types> sin nombre o miembros.');
+    }
+    memberCount += members.length;
+  }
+
+  if (memberCount === 0) {
+    throw new Error('El manifest destructivo no contiene componentes para eliminar.');
+  }
+
+  return memberCount;
+};
+
+const resolveDestructiveChanges = (manifestPath, projectRoot, explicitPath = null, requestedOrder = 'auto') => {
+  if (requestedOrder && !destructiveOrderValues.has(requestedOrder)) {
+    throw new Error(`Orden destructivo inválido: ${requestedOrder}. Use auto, pre o post.`);
+  }
+
+  const manifestDirectory = path.dirname(manifestPath);
+  const manifestBase = path.basename(manifestPath, path.extname(manifestPath));
+  const candidates = explicitPath
+    ? [{path: resolvePath(projectRoot, explicitPath), order: requestedOrder}]
+    : [
+        {path: path.join(manifestDirectory, `Destructive-${manifestBase}.xml`), order: requestedOrder},
+        {path: path.join(manifestDirectory, 'preDestructive', 'destructiveChanges.xml'), order: requestedOrder === 'auto' ? 'pre' : requestedOrder},
+        {path: path.join(manifestDirectory, 'postDestructive', 'destructiveChanges.xml'), order: requestedOrder === 'auto' ? 'post' : requestedOrder}
+      ];
+
+  if (explicitPath && !fs.existsSync(candidates[0].path)) {
+    throw new Error(`No existe el manifest destructivo indicado: ${candidates[0].path}`);
+  }
+
+  const found = [];
+  for (const candidate of candidates) {
+    if (!candidate.path || !fs.existsSync(candidate.path)) continue;
+    const packageObject = readPackageXml(candidate.path);
+    const memberCount = countDestructiveMembers(packageObject);
+    found.push({
+      path: path.resolve(candidate.path),
+      order: inferDestructiveOrder(candidate.path, candidate.order || requestedOrder),
+      memberCount
+    });
+  }
+
+  const unique = new Map(found.map((item) => [item.path.toLowerCase(), item]));
+  return Array.from(unique.values());
+};
+
+const appendDestructiveArgs = (deployArgs, destructiveChanges) => {
+  for (const change of destructiveChanges || []) {
+    deployArgs.push(
+      change.order === 'pre' ? '--pre-destructive-changes' : '--post-destructive-changes',
+      change.path
+    );
+  }
+  return deployArgs;
+};
+
 const gatherTestsForDeployment = (
   apexMembers,
   manifestMembers,
@@ -712,6 +803,14 @@ class FindTest extends Command {
     }),
     deploy: Flags.string({
       summary: 'Ruta al package.xml existente que se utilizará para el despliegue.'
+    }),
+    'destructive-xml': Flags.string({
+      summary: 'Ruta opcional al destructiveChanges.xml. Si se omite, se busca el archivo asociado automáticamente.'
+    }),
+    'destructive-order': Flags.string({
+      summary: 'Orden del destructive detectado: auto, pre o post.',
+      options: ['auto', 'pre', 'post'],
+      default: 'auto'
     }),
     org: Flags.string({
       char: 'o',
@@ -1059,6 +1158,26 @@ class FindTest extends Command {
         this.error('El package.xml no contiene un nodo <Package>.');
       }
 
+      let destructiveChanges = [];
+      try {
+        destructiveChanges = resolveDestructiveChanges(
+          manifestFlagPath,
+          projectRoot,
+          flags['destructive-xml'],
+          flags['destructive-order']
+        );
+      } catch (error) {
+        this.error(`No se pudo validar el manifest destructivo: ${error.message}`);
+      }
+
+      if (destructiveChanges.length > 0) {
+        this.log('\nDestructive detectado:');
+        destructiveChanges.forEach((change) => {
+          this.log(` - ${change.path} (${change.memberCount} componentes, orden ${change.order.toUpperCase()})`);
+        });
+        this.log('Se validará primero el manifest activo y luego la configuración destructiva antes de ejecutar el deploy.');
+      }
+
       const originalTypes = packageObject.Package.types ?? [];
       const types = ensureArray(originalTypes);
       const typesIsArray = Array.isArray(originalTypes);
@@ -1066,6 +1185,7 @@ class FindTest extends Command {
       const triggerType = types.find((type) => type.name === 'ApexTrigger');
 
       const deployArgs = ['project', 'deploy', 'start', '--manifest', manifestFlagPath, '--target-org', targetOrg];
+      appendDestructiveArgs(deployArgs, destructiveChanges);
 
       if (!apexType && !triggerType) {
         const noApexMessage = fallbackTestLevel
@@ -1252,8 +1372,10 @@ class FindTest extends Command {
 export default FindTest;
 
 export {
+  appendDestructiveArgs,
   gatherTestsForDeployment,
   isTestClassContent,
   mapApexToTests,
-  mapApexTriggersToTests
+  mapApexTriggersToTests,
+  resolveDestructiveChanges
 };

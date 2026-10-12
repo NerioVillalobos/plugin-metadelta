@@ -306,6 +306,26 @@
           "multiple": false,
           "type": "option"
         },
+        "destructive-xml": {
+          "name": "destructive-xml",
+          "summary": "Ruta opcional al destructiveChanges.xml. Si se omite, se busca el archivo asociado automáticamente.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "destructive-order": {
+          "name": "destructive-order",
+          "summary": "Orden del destructive detectado: auto, pre o post.",
+          "default": "auto",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "auto",
+            "pre",
+            "post"
+          ],
+          "type": "option"
+        },
         "org": {
           "char": "o",
           "name": "org",
@@ -1018,5 +1038,5 @@
       ]
     }
   },
-  "version": "0.21.0"
+  "version": "0.22.0"
 }
