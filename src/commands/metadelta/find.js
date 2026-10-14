@@ -10,6 +10,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fetchOrgApiVersion} from './orgApiVersion.js';
 
+// Salesforce can advertise this type through describeMetadata while the
+// Metadata API endpoint exposed by the target org rejects the fields used by
+// `sf org list metadata`. It is not a deployable component for this audit.
+export const UNSUPPORTED_LIST_METADATA_TYPES = new Set(['ContentWorkspace']);
+
+export function filterListMetadataTypes(metadataTypes) {
+  return metadataTypes.filter((metadataType) => !UNSUPPORTED_LIST_METADATA_TYPES.has(metadataType));
+}
+
 class Find extends Command {
   static id = 'metadelta:find';
   static summary = 'Find metadata changes made by a user in a Salesforce org';
@@ -112,7 +121,7 @@ class Find extends Command {
       }
     };
 
-    let metadataTypesToUse = obtenerMetadataDeOrg();
+    let metadataTypesToUse = filterListMetadataTypes(obtenerMetadataDeOrg());
     if (flags.metafile) {
       const filePath = path.resolve(flags.metafile);
       if (fs.existsSync(filePath)) {
@@ -134,7 +143,7 @@ class Find extends Command {
           }
           const candidate = Array.isArray(parsed) ? parsed : parsed?.metadataTypes;
           if (Array.isArray(candidate)) {
-            metadataTypesToUse = candidate;
+            metadataTypesToUse = filterListMetadataTypes(candidate);
           } else {
             this.warn('Archivo de metadatos inválido, usando lista por defecto.');
           }
