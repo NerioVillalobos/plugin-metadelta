@@ -245,6 +245,12 @@
           "summary": "Falla si se detectan archivos candidatos que no se pueden resolver a componentes.",
           "allowNo": false,
           "type": "boolean"
+        },
+        "all-paths": {
+          "name": "all-paths",
+          "summary": "Incluye cambios fuera de packageDirectories y omite el filtro de .forceignore.",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
@@ -1038,5 +1044,5 @@
       ]
     }
   },
-  "version": "0.23.0"
+  "version": "0.24.0"
 }
