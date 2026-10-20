@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import {
   buildBundledMetadataDeltaComponents,
   expandCoreCandidateFiles,
+  filterDiffEntriesByProject,
   filterCompleteApexClassDeletions,
   filterCompleteVlocityDatapackDeletions,
   groupFilesByComponent,
+  isPathInPackageDirectory,
+  matchesForceIgnorePattern,
+  normalizePackageDirectories,
 } from '../src/commands/metadelta/finddelta.js';
 
 const customLabels = (labels) => `<?xml version="1.0" encoding="UTF-8"?>
@@ -128,4 +132,63 @@ test('groupFilesByComponent keeps decomposed children and their parent together'
       && group.includes('force-app/main/default/objectTranslations/Quote-es_MX/quote_currency.fieldTranslation-meta.xml')
   )));
   assert.ok(groups.some((group) => group.includes('force-app/main/default/classes/Unrelated.cls-meta.xml')));
+});
+
+test('normalizePackageDirectories removes nested paths and normalizes prefixes', () => {
+  assert.deepEqual(
+    normalizePackageDirectories([
+      {path: 'force-app/'},
+      {path: './extra-app/'},
+      {path: 'force-app/main/default'}
+    ]),
+    ['force-app', 'extra-app']
+  );
+});
+
+test('package directory matching keeps Vlocity outside package directories separate', () => {
+  assert.equal(isPathInPackageDirectory('force-app/main/default/classes/A.cls', ['force-app']), true);
+  assert.equal(isPathInPackageDirectory('data/backup/force-app/main/default/classes/A.cls', ['force-app']), false);
+  assert.equal(isPathInPackageDirectory('Vlocity/OmniScript/Order/Order_DataPack.json', ['force-app']), false);
+});
+
+test('forceignore patterns support recursive and negated entries', () => {
+  assert.equal(matchesForceIgnorePattern('force-app/main/default/flows/debug.flow-meta.xml', '**/debug.flow-meta.xml'), true);
+  assert.equal(matchesForceIgnorePattern('force-app/main/default/classes/Keep.cls', 'classes/Keep.cls'), false);
+  assert.equal(matchesForceIgnorePattern('data/backup/file.xml', 'data/'), true);
+});
+
+test('filterDiffEntriesByProject drops out-of-project Core files but keeps Vlocity', () => {
+  const logs = [];
+  const entries = filterDiffEntriesByProject([
+    {status: 'A', path: 'force-app/main/default/classes/Real.cls'},
+    {status: 'A', path: 'data/history/force-app/main/default/classes/Backup.cls'},
+    {status: 'A', path: 'Vlocity/OmniScript/Order/Order_DataPack.json'},
+    {status: 'R100', oldPath: 'data/old/Backup.cls', newPath: 'force-app/main/default/classes/Real.cls'}
+  ], {
+    packageDirectories: ['force-app'],
+    forceIgnore: () => false
+  }, {log: (message) => logs.push(message)});
+
+  assert.deepEqual(entries, [
+    {status: 'A', path: 'force-app/main/default/classes/Real.cls'},
+    {status: 'A', path: 'Vlocity/OmniScript/Order/Order_DataPack.json'},
+    {status: 'A', path: 'force-app/main/default/classes/Real.cls'}
+  ]);
+  assert.match(logs[0], /Ignorados 2 archivo/);
+  assert.match(logs[1], /data\/history/);
+  assert.match(logs[2], /data\/old/);
+});
+
+test('filterDiffEntriesByProject excludes forceignored Core files', () => {
+  const logs = [];
+  const entries = filterDiffEntriesByProject([
+    {status: 'A', path: 'force-app/main/default/flows/debug.flow-meta.xml'},
+    {status: 'A', path: 'force-app/main/default/flows/Real.flow-meta.xml'}
+  ], {
+    packageDirectories: ['force-app'],
+    forceIgnore: (filePath) => filePath.endsWith('/debug.flow-meta.xml')
+  }, {log: (message) => logs.push(message)});
+
+  assert.deepEqual(entries, [{status: 'A', path: 'force-app/main/default/flows/Real.flow-meta.xml'}]);
+  assert.match(logs[1], /\.forceignore/);
 });
