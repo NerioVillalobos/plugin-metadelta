@@ -197,6 +197,50 @@ const stripComments = (source = '') => source
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\/\/.*$/gm, '');
 
+const declaresInterface = (source = '') => {
+  const normalized = stripComments(source);
+  return /\binterface\s+\w+/i.test(normalized) && !/\bclass\s+\w+/i.test(normalized);
+};
+
+const declaresEnumOnly = (source = '') => {
+  const normalized = stripComments(source);
+  return /^\s*(?:(?:public|global|private|protected)\s+)?enum\s+\w+/im.test(normalized)
+    && !/\bclass\s+\w+/i.test(normalized);
+};
+
+const hasExecutableCode = (source = '') => {
+  const normalized = stripComments(source);
+
+  // Method/constructor bodies, control-flow blocks, and static initializers
+  // are executable even when the class has no direct test-name match.
+  if (/\b\w+\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+\s*)?\{/i.test(normalized)
+    || /\b(?:if|for|while|switch|try|catch|do)\s*\(/i.test(normalized)
+    || /\bstatic\s*\{/i.test(normalized)) {
+    return true;
+  }
+
+  // A non-literal field initializer can execute code during class loading or
+  // construction. Literal constants alone do not require coverage.
+  const assignments = normalized.match(/\b\w[\w<>,\s\[\]]*\s+\w+\s*=\s*[^;]+;/g) || [];
+  return assignments.some((assignment) => {
+    const value = assignment.slice(assignment.indexOf('=') + 1).trim();
+    return !/^(?:null|true|false|-?\d+(?:\.\d+)?|'[^']*'|"[^"]*")\s*;?$/i.test(value);
+  });
+};
+
+const getCoverageInfo = (content = '') => {
+  if (declaresInterface(content)) {
+    return {requiresCoverage: false, reason: 'interface'};
+  }
+  if (declaresEnumOnly(content)) {
+    return {requiresCoverage: false, reason: 'enum'};
+  }
+  if (!hasExecutableCode(content)) {
+    return {requiresCoverage: false, reason: 'sin código ejecutable'};
+  }
+  return {requiresCoverage: true, reason: null};
+};
+
 const isTestClassContent = (source = '') => {
   const normalized = stripComments(source);
   const classIndex = normalized.search(/\bclass\s+\w+/i);
@@ -222,13 +266,23 @@ const getClassInfo = (directory, className) => {
       content: '',
       isTestClass: TEST_NAME_PATTERN.test(className),
       hasTestMethods: false,
-      runnableTest: false
+      runnableTest: false,
+      requiresCoverage: true,
+      coverageReason: null
     };
   }
 
   const isTestClass = isTestClassContent(content);
   const runnableTest = isTestClass && hasTestMethods(content);
-  return {content, isTestClass, hasTestMethods: hasTestMethods(content), runnableTest};
+  const coverage = getCoverageInfo(content);
+  return {
+    content,
+    isTestClass,
+    hasTestMethods: hasTestMethods(content),
+    runnableTest,
+    requiresCoverage: coverage.requiresCoverage,
+    coverageReason: coverage.reason
+  };
 };
 
 const isRunnableTestClass = (directory, className) => getClassInfo(directory, className).runnableTest;
@@ -240,7 +294,11 @@ const findTestReferences = (apexClass, testClassContent) => {
   const patterns = [
     new RegExp(`\\bnew\\s+${escapedClass}\\b`, 'i'),
     new RegExp(`\\b${escapedClass}\\.\\w+\\(`, 'i'),
-    new RegExp(`\\b${escapedClass}\\s+\\w+\\s*;`, 'i')
+    new RegExp(`\\b${escapedClass}\\s+\\w+\\s*[=;:,)]`, 'i'),
+    new RegExp(`(?:<|,)\\s*${escapedClass}\\s*[,>]`, 'i'),
+    new RegExp(`\\(\\s*${escapedClass}\\s*\\)`, 'i'),
+    new RegExp(`\\b${escapedClass}\\.class\\b`, 'i'),
+    new RegExp(`\\b(?:implements|extends)\\s+${escapedClass}\\b`, 'i')
   ];
   return patterns.some((pattern) => pattern.test(stripComments(testClassContent)));
 };
@@ -401,13 +459,126 @@ const findPrimaryTestClass = (apexClass, testClasses, directory) => {
   return bestSuggestion;
 };
 
-const mapApexToTests = (classesDirectory) => {
+const normalizeTestMap = (testMap = {}) => {
+  const normalized = new Map();
+  if (testMap instanceof Map) {
+    for (const [apexClass, tests] of testMap.entries()) {
+      const values = Array.isArray(tests) ? tests : [tests];
+      const names = values.map((value) => String(value || '').trim()).filter(Boolean);
+      if (apexClass && names.length > 0) {
+        normalized.set(String(apexClass).trim(), Array.from(new Set(names)));
+      }
+    }
+    return normalized;
+  }
+  const entries = Array.isArray(testMap)
+    ? testMap.map((entry) => [entry?.class ?? entry?.apexClass, entry?.tests ?? entry?.test ?? []])
+    : Object.entries(testMap);
+
+  for (const [apexClass, tests] of entries) {
+    if (!apexClass) {
+      continue;
+    }
+    const values = Array.isArray(tests) ? tests : [tests];
+    const names = values.map((value) => String(value || '').trim()).filter(Boolean);
+    if (names.length > 0) {
+      normalized.set(String(apexClass).trim(), Array.from(new Set(names)));
+    }
+  }
+
+  return normalized;
+};
+
+const parseCsvLine = (line) => {
+  const values = [];
+  let value = '';
+  let quoted = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === ',' && !quoted) {
+      values.push(value.trim());
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+
+  values.push(value.trim());
+  return values;
+};
+
+const readTestMap = (mapPath) => {
+  const extension = path.extname(mapPath).toLowerCase();
+  const content = fs.readFileSync(mapPath, 'utf8');
+
+  if (extension === '.json') {
+    return normalizeTestMap(JSON.parse(content));
+  }
+
+  const entries = {};
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const values = parseCsvLine(trimmed);
+    if (/^(?:class|apexclass|component)$/i.test(values[0])) {
+      continue;
+    }
+    const tests = values.slice(1)
+      .flatMap((value) => value.split(';'))
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (values[0] && tests.length > 0) {
+      entries[values[0]] = tests;
+    }
+  }
+  return normalizeTestMap(entries);
+};
+
+const mapApexToTests = (classesDirectory, options = {}) => {
   const apexClasses = getApexClasses(classesDirectory);
   const testClasses = getTestClasses(classesDirectory);
   const mapping = {};
   const suggestions = [];
+  const explicitMap = normalizeTestMap(options.testMap || {});
+  const indirectCandidates = options.indirectClasses
+    ? new Set(options.indirectClasses)
+    : new Set(apexClasses);
 
   for (const apexClass of apexClasses) {
+    const classInfo = getClassInfo(classesDirectory, apexClass);
+    if (!classInfo.requiresCoverage) {
+      mapping[apexClass] = {
+        testClass: null,
+        testClasses: [],
+        confidence: 'no_requiere',
+        reason: classInfo.coverageReason
+      };
+      continue;
+    }
+
+    const explicitTests = explicitMap.get(apexClass)
+      || explicitMap.get(Array.from(explicitMap.keys()).find((key) => (
+        canonicalizeMemberName(key) === canonicalizeMemberName(apexClass)
+      )));
+    if (explicitTests?.length) {
+      mapping[apexClass] = {
+        testClass: explicitTests[0],
+        testClasses: explicitTests,
+        confidence: 'mapa'
+      };
+      continue;
+    }
+
     const referenceTests = testClasses.filter((testClass) => (
       findTestReferences(apexClass, getClassInfo(classesDirectory, testClass).content)
     ));
@@ -438,6 +609,37 @@ const mapApexToTests = (classesDirectory) => {
     }
   }
 
+  // Resolve one level of production-to-production indirection. This keeps a
+  // test already selected for a service/handler usable for classes it invokes,
+  // without expanding the search to the entire dependency graph.
+  for (const apexClass of apexClasses) {
+    const entry = mapping[apexClass];
+    if (!entry || entry.confidence !== 'none') {
+      continue;
+    }
+
+    for (const intermediateClass of apexClasses) {
+      if (intermediateClass === apexClass || !indirectCandidates.has(intermediateClass)) {
+        continue;
+      }
+      const intermediateEntry = mapping[intermediateClass];
+      if (!intermediateEntry || !['exact', 'reference', 'mapa'].includes(intermediateEntry.confidence)) {
+        continue;
+      }
+      if (!findTestReferences(apexClass, getClassInfo(classesDirectory, intermediateClass).content)) {
+        continue;
+      }
+
+      mapping[apexClass] = {
+        testClass: intermediateEntry.testClass,
+        testClasses: intermediateEntry.testClasses || [intermediateEntry.testClass],
+        confidence: 'indirecta',
+        via: intermediateClass
+      };
+      break;
+    }
+  }
+
   return {mapping, suggestions};
 };
 
@@ -458,8 +660,15 @@ const findProjectRoot = (startDir) => {
 const NO_TEST_FOUND_MESSAGE = '❌ No tiene pruebas asociadas';
 
 const formatMappingDisplay = (entry) => {
+  if (entry?.confidence === 'no_requiere') {
+    return `ⓘ Sin código ejecutable (${entry.reason}), no requiere prueba`;
+  }
   if (entry && entry.testClass) {
-    const suffix = entry.confidence === 'reference' ? ' (referencia)' : '';
+    const suffix = entry.confidence === 'reference'
+      ? ' (referencia)'
+      : entry.confidence === 'indirecta'
+        ? ` (indirecta vía ${entry.via})`
+        : entry.confidence === 'mapa' ? ' (mapa)' : '';
     return `${entry.testClass}${suffix}`;
   }
 
@@ -700,6 +909,7 @@ const gatherTestsForDeployment = (
   const testsMissingInManifest = new Set();
   const missingTestFiles = new Set();
   const apexWithoutTests = new Set();
+  const nonCoverageClasses = new Map();
   const missingApexClasses = new Set();
   const lowConfidenceMatches = new Map();
   const triggerWithoutTests = new Set();
@@ -725,6 +935,11 @@ const gatherTestsForDeployment = (
     }
 
     const mappingEntry = mapping[member];
+
+    if (mappingEntry?.confidence === 'no_requiere') {
+      nonCoverageClasses.set(member, mappingEntry.reason || 'sin código ejecutable');
+      continue;
+    }
 
     if (!mappingEntry || !mappingEntry.testClass) {
       if (mappingEntry && mappingEntry.suggestion) {
@@ -776,6 +991,7 @@ const gatherTestsForDeployment = (
     missingTestFiles: Array.from(missingTestFiles),
     apexWithoutTests: Array.from(apexWithoutTests),
     missingApexClasses: Array.from(missingApexClasses),
+    nonCoverageClasses,
     lowConfidenceMatches,
     triggerWithoutTests: Array.from(triggerWithoutTests),
     triggerMapping,
@@ -811,6 +1027,9 @@ class FindTest extends Command {
       summary: 'Orden del destructive detectado: auto, pre o post.',
       options: ['auto', 'pre', 'post'],
       default: 'auto'
+    }),
+    'test-map': Flags.string({
+      summary: 'Ruta a un mapa JSON o CSV de relaciones clase Apex -> clases de prueba.'
     }),
     org: Flags.string({
       char: 'o',
@@ -910,9 +1129,22 @@ class FindTest extends Command {
       this.error(`El directorio de clases Apex no existe: ${sourceDir}`);
     }
 
-    const {mapping: apexTestMapping, suggestions} = mapApexToTests(sourceDir);
-    const availableApexClasses = new Set(Object.keys(apexTestMapping));
-    const filesystemClasses = new Set(Object.keys(apexTestMapping));
+    const defaultTestMapPath = path.join(projectRoot, '.metadelta', 'findtest-map.json');
+    const testMapPath = flags['test-map']
+      ? resolvePath(projectRoot, flags['test-map'])
+      : fs.existsSync(defaultTestMapPath) ? defaultTestMapPath : null;
+    let testMap = {};
+    if (testMapPath) {
+      if (!fs.existsSync(testMapPath)) {
+        this.error(`No existe el mapa de pruebas indicado: ${testMapPath}`);
+      }
+      try {
+        testMap = readTestMap(testMapPath);
+        this.log(`Mapa de pruebas cargado: ${testMapPath}`);
+      } catch (error) {
+        this.error(`No se pudo leer el mapa de pruebas ${testMapPath}: ${error.message}`);
+      }
+    }
 
     const deployPath = flags.deploy ? resolvePath(projectRoot, flags.deploy) : null;
     const xmlNameResolved = flags['xml-name']
@@ -981,6 +1213,16 @@ class FindTest extends Command {
         .map((name) => normalizeMemberValue(name))
         .filter(Boolean);
     }
+
+    const indirectClasses = manifestApexMembers === null
+      ? undefined
+      : manifestApexMembersNormalized.filter((name) => classFileExists(sourceDir, name));
+    const {mapping: apexTestMapping, suggestions} = mapApexToTests(sourceDir, {
+      testMap,
+      indirectClasses
+    });
+    const availableApexClasses = new Set(Object.keys(apexTestMapping));
+    const filesystemClasses = new Set(Object.keys(apexTestMapping));
 
     const ignoreManaged = flags['ignore-managed'] !== undefined ? flags['ignore-managed'] : true;
     const ignoreCommunities = flags['ignore-communities'] !== undefined
@@ -1132,6 +1374,16 @@ class FindTest extends Command {
     }
 
     if (flags.json) {
+      metrics.mappings = finalClasses.map((apexClass) => {
+        const entry = apexTestMapping[apexClass] || {confidence: 'none', testClass: null, testClasses: []};
+        return {
+          component: apexClass,
+          tests: entry.testClasses || (entry.testClass ? [entry.testClass] : []),
+          confidence: entry.confidence,
+          ...(entry.via ? {via: entry.via} : {}),
+          ...(entry.reason ? {reason: entry.reason} : {})
+        };
+      });
       this.log(JSON.stringify(metrics, null, 2));
     }
 
@@ -1218,6 +1470,7 @@ class FindTest extends Command {
         missingTestFiles,
         apexWithoutTests,
         missingApexClasses,
+        nonCoverageClasses,
         lowConfidenceMatches,
         triggerWithoutTests
       } = gatherTestsForDeployment(
@@ -1294,6 +1547,11 @@ class FindTest extends Command {
           .join(', ');
 
         blockingWarnings.push(`No se encontraron clases de prueba asociadas para: ${details}`);
+      }
+      if (nonCoverageClasses.size > 0 && verbose) {
+        nonCoverageClasses.forEach((reason, apexClass) => {
+          this.log(`ⓘ ${apexClass}: no requiere prueba (${reason}).`);
+        });
       }
       if (missingTestFiles.length > 0) {
         blockingWarnings.push(
@@ -1374,8 +1632,11 @@ export default FindTest;
 export {
   appendDestructiveArgs,
   gatherTestsForDeployment,
+  findTestReferences,
+  getClassInfo,
   isTestClassContent,
   mapApexToTests,
   mapApexTriggersToTests,
+  readTestMap,
   resolveDestructiveChanges
 };

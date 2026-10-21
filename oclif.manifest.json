@@ -332,6 +332,13 @@
           ],
           "type": "option"
         },
+        "test-map": {
+          "name": "test-map",
+          "summary": "Ruta a un mapa JSON o CSV de relaciones clase Apex -> clases de prueba.",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
         "org": {
           "char": "o",
           "name": "org",
@@ -1044,5 +1051,5 @@
       ]
     }
   },
-  "version": "0.24.0"
+  "version": "0.25.0"
 }

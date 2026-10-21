@@ -8,6 +8,7 @@ import {
   gatherTestsForDeployment,
   mapApexToTests,
   mapApexTriggersToTests,
+  readTestMap,
   resolveDestructiveChanges
 } from '../src/commands/metadelta/findtest.js';
 
@@ -18,7 +19,9 @@ const writeFixture = () => {
   fs.mkdirSync(classes);
   fs.mkdirSync(triggers);
 
-  fs.writeFileSync(path.join(classes, 'KIO_QuoteService.cls'), 'public class KIO_QuoteService {}');
+  fs.writeFileSync(path.join(classes, 'KIO_QuoteService.cls'), `public class KIO_QuoteService {
+  public static void execute() { }
+}`);
   fs.writeFileSync(path.join(classes, 'KIO_QuoteServiceTest.cls'), `@IsTest
 private class KIO_QuoteServiceTest {
   @IsTest static void covers() {
@@ -85,6 +88,77 @@ test('findtest uses manifest tests and trigger DML coverage in RunSpecifiedTests
     assert.deepEqual(result.triggerWithoutTests, []);
     assert.deepEqual(result.apexWithoutTests, []);
     assert.deepEqual(result.missingTestFiles, []);
+  } finally {
+    fs.rmSync(fixture.root, {recursive: true, force: true});
+  }
+});
+
+test('findtest ignores interfaces and enum-only classes and resolves indirect coverage', () => {
+  const fixture = writeFixture();
+  try {
+    fs.writeFileSync(path.join(fixture.classes, 'IFoo.cls'), `public interface IFoo {
+  String nombre();
+}`);
+    fs.writeFileSync(path.join(fixture.classes, 'ColorEnum.cls'), 'public enum ColorEnum { ROJO, AZUL }');
+    fs.writeFileSync(path.join(fixture.classes, 'FooA.cls'), `public class FooA implements IFoo {
+  public String nombre() { return 'A'; }
+}`);
+    fs.writeFileSync(path.join(fixture.classes, 'FooService.cls'), `public class FooService {
+  public static List<IFoo> todos() {
+    return new List<IFoo>{new FooA()};
+  }
+}`);
+    fs.writeFileSync(path.join(fixture.classes, 'FooServiceTest.cls'), `@IsTest
+private class FooServiceTest {
+  @IsTest static void covers() { FooService.todos(); }
+}`);
+    fs.writeFileSync(path.join(fixture.classes, 'BarCast.cls'), `public class BarCast implements IFoo {
+  public String nombre() { return 'B'; }
+}`);
+    fs.writeFileSync(path.join(fixture.classes, 'BarCastSpec.cls'), `@IsTest
+private class BarCastSpec {
+  @IsTest static void covers() { IFoo value = new BarCast(); }
+}`);
+
+    const result = mapApexToTests(fixture.classes);
+    assert.equal(result.mapping.IFoo.confidence, 'no_requiere');
+    assert.equal(result.mapping.ColorEnum.confidence, 'no_requiere');
+    assert.equal(result.mapping.FooA.confidence, 'indirecta');
+    assert.equal(result.mapping.FooA.via, 'FooService');
+    assert.equal(result.mapping.FooA.testClass, 'FooServiceTest');
+    assert.equal(result.mapping.BarCast.confidence, 'reference');
+
+    const gathered = gatherTestsForDeployment(
+      ['IFoo', 'ColorEnum', 'FooA', 'FooService', 'BarCast'],
+      ['IFoo', 'ColorEnum', 'FooA', 'FooService', 'BarCast', 'FooServiceTest', 'BarCastSpec'],
+      result.mapping,
+      fixture.classes,
+      new Set(Object.keys(result.mapping))
+    );
+    assert.deepEqual(gathered.apexWithoutTests, []);
+    assert.deepEqual(new Set(gathered.testsToRun), new Set(['FooServiceTest', 'BarCastSpec']));
+    assert.equal(gathered.nonCoverageClasses.get('IFoo'), 'interface');
+    assert.equal(gathered.nonCoverageClasses.get('ColorEnum'), 'enum');
+  } finally {
+    fs.rmSync(fixture.root, {recursive: true, force: true});
+  }
+});
+
+test('findtest gives an explicit test map priority and supports JSON/CSV files', () => {
+  const fixture = writeFixture();
+  const jsonPath = path.join(fixture.root, 'findtest-map.json');
+  const csvPath = path.join(fixture.root, 'findtest-map.csv');
+  try {
+    fs.writeFileSync(jsonPath, JSON.stringify({KIO_QuoteService: ['KIO_QuoteSpec']}));
+    fs.writeFileSync(csvPath, 'class,test\nKIO_QuoteService,KIO_QuoteSpec;KIO_QuoteServiceTest\n');
+    const jsonMap = readTestMap(jsonPath);
+    const csvMap = readTestMap(csvPath);
+    assert.deepEqual(jsonMap.get('KIO_QuoteService'), ['KIO_QuoteSpec']);
+    assert.deepEqual(csvMap.get('KIO_QuoteService'), ['KIO_QuoteSpec', 'KIO_QuoteServiceTest']);
+
+    const result = mapApexToTests(fixture.classes, {testMap: jsonMap});
+    assert.equal(result.mapping.KIO_QuoteService.confidence, 'mapa');
+    assert.deepEqual(result.mapping.KIO_QuoteService.testClasses, ['KIO_QuoteSpec']);
   } finally {
     fs.rmSync(fixture.root, {recursive: true, force: true});
   }
