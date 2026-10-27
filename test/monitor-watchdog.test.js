@@ -100,8 +100,8 @@ test('watch target config stores custom XML and YAML scopes for monitor command 
   fs.writeFileSync(xmlPath, '<Package/>', 'utf8');
   fs.writeFileSync(yamlPath, 'projectPath: .', 'utf8');
 
-  addWatchTarget(configPath, 'Telecentro-qa', {interval: 8});
-  const {target} = updateWatchTarget(configPath, 'Telecentro-qa', {
+  addWatchTarget(configPath, 'ExampleOrg-qa', {interval: 8});
+  const {target} = updateWatchTarget(configPath, 'ExampleOrg-qa', {
     scopeXml: xmlPath,
     scopeYaml: yamlPath,
   });
@@ -112,7 +112,7 @@ test('watch target config stores custom XML and YAML scopes for monitor command 
     'monitor',
     'run',
     '--org',
-    'Telecentro-qa',
+    'ExampleOrg-qa',
     '--interval',
     '8',
     '--scope-xml',
@@ -120,7 +120,7 @@ test('watch target config stores custom XML and YAML scopes for monitor command 
     '--scope-yaml',
     yamlPath,
     '--export-csv',
-    path.join(os.homedir(), '.metadelta', 'Telecentro-qa-metadelta-monitor.csv'),
+    path.join(os.homedir(), '.metadelta', 'ExampleOrg-qa-metadelta-monitor.csv'),
   ]);
 });
 
@@ -137,8 +137,8 @@ test('watch target interval can be updated and is used by monitor command genera
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-watchdog-'));
   const configPath = path.join(tmp, 'watchdog.config.json');
 
-  addWatchTarget(configPath, 'Telecentro-demo', {interval: 5});
-  const {target} = updateWatchTarget(configPath, 'Telecentro-demo', {interval: 12});
+  addWatchTarget(configPath, 'ExampleOrg-demo', {interval: 5});
+  const {target} = updateWatchTarget(configPath, 'ExampleOrg-demo', {interval: 12});
   const args = buildMonitorRunArgs(target);
 
   assert.equal(target.interval, 12);
@@ -147,7 +147,7 @@ test('watch target interval can be updated and is used by monitor command genera
     'monitor',
     'run',
     '--org',
-    'Telecentro-demo',
+    'ExampleOrg-demo',
     '--interval',
     '12',
   ]);
@@ -156,7 +156,7 @@ test('watch target interval can be updated and is used by monitor command genera
 test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', () => {
   const command = buildWindowsMonitorCommand(
     {
-      org: 'Telecentro qa',
+      org: 'ExampleOrg qa',
       interval: 8,
       scopeXml: 'C:\\Manifests\\Release File.xml',
       scopeYaml: 'C:\\Manifests\\Release.yaml',
@@ -165,7 +165,7 @@ test('buildWindowsMonitorCommand quotes monitor arguments for PowerShell tabs', 
     {command: 'sf', launchRoot: 'C:\\Users\\Nerio\\Documents\\DevOps\\plugin-metadelta'}
   );
 
-  assert.equal(command, "sf metadelta monitor run --org 'Telecentro qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
+  assert.equal(command, "sf metadelta monitor run --org 'ExampleOrg qa' --interval 8 --scope-xml 'C:\\Manifests\\Release File.xml' --scope-yaml 'C:\\Manifests\\Release.yaml' --export-csv 'C:\\Reports\\monitor qa.csv'");
 });
 
 test('resolveUserPath preserves Windows absolute paths and resolves relative paths from base dir', () => {

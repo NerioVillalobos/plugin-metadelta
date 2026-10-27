@@ -6,7 +6,7 @@ import path from 'node:path';
 import {buildVlocityEnv, toVlocityRelativePath, writeVlocityMonitorJob} from '../src/utils/monitor/retriever.js';
 
 test('toVlocityRelativePath uses portable relative paths for Vlocity CLI', () => {
-  const orgRoot = path.join('C:', 'Users', 'Nerio', '.metadelta', 'monitor', 'Telecentro-demo');
+  const orgRoot = path.join('C:', 'Users', 'ExampleUser', '.metadelta', 'monitor', 'ExampleOrg-demo');
   const jobPath = path.join(orgRoot, 'manifest', 'monitor-vlocity-export.yaml');
   assert.equal(toVlocityRelativePath(orgRoot, jobPath), 'manifest/monitor-vlocity-export.yaml');
 });
@@ -14,7 +14,7 @@ test('toVlocityRelativePath uses portable relative paths for Vlocity CLI', () =>
 test('toVlocityRelativePath points to custom YAML outside monitor workspace', () => {
   const userRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'metadelta-monitor-user-'));
   try {
-    const orgRoot = path.join(userRoot, '.metadelta', 'monitor', 'Telecentro-demo');
+    const orgRoot = path.join(userRoot, '.metadelta', 'monitor', 'ExampleOrg-demo');
     const jobPath = path.join(userRoot, 'Documents', 'DevOps', 'manifest-test', 'Release.yaml');
     assert.equal(
       toVlocityRelativePath(orgRoot, jobPath),
