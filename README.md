@@ -25,6 +25,8 @@ Metadelta is a custom Salesforce CLI plugin that offers thirteen complementary c
 
 Created by **Nerio Villalobos** (<nervill@gmail.com>).
 
+Documentation examples use fictional organization aliases and illustrative data.
+
 ### Index
 
 - [Installation](#installation)
@@ -66,7 +68,9 @@ Created by **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirm installation with `sf plugins`, which should list `@nervill/metadelta 0.25.0`.
 
-   ![Metadelta plugin installation example](images/metadelta-example-install.gif)
+   ```sh
+   sf plugins install @nervill/metadelta
+   ```
 
 4. (Optional, for local development) Clone this repository and install dependencies:
    ```bash
@@ -162,7 +166,9 @@ sf metadelta find --org myOrg --metafile ./mismetadatos.json
   ```bash
   sf metadelta find --org myOrg --namespace myns --yaml
   ```
-   ![Metadelta plugin find command example](images/metadelta-example-find-command.gif)
+   ```sh
+   sf metadelta find --org ExampleOrg-demo --days 2 --xml --yaml
+   ```
 
 #### Output
 
@@ -190,7 +196,9 @@ The command runs `sf org display --target-org <alias> --json`, extracts `result.
 |------|-------------|---------|
 | `--org`, `-o` | **Required.** Alias or username of the target org. | N/A |
 
-   ![Metadelta plugin orgApiVersion command example](images/metadelta-example-orgApiVersion-command.gif)
+   ```sh
+   sf metadelta orgApiVersion --org ExampleOrg-demo
+   ```
 ---
 
 ### `finddelta` command
@@ -245,7 +253,9 @@ Vlocity outputs:
 
 By default, files outside the Salesforce package directories are reported as ignored and do not enter the Core manifests. Renames crossing the project boundary are converted into the applicable addition or deletion. Use `--all-paths` only when the repository intentionally treats its entire tree as deployable.
 
-   ![Metadelta plugin find command example](images/metadelta-example-finddelta-command.gif)
+   ```sh
+   sf metadelta finddelta --from feature/EXAMPLE-001 --to develop --xml
+   ```
 ---
 
 ### `postvalidate` command
@@ -548,12 +558,12 @@ Watchdog target entries can include custom manifests per org:
 
 ```json
 {
-  "org": "Telecentro-qa",
-  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "org": "ExampleOrg-qa",
+  "logPath": "~/.metadelta/monitor/ExampleOrg-qa/change-log.jsonl",
   "scopeXml": "/absolute/path/Release.xml",
   "scopeYaml": "/absolute/path/Release.yaml",
   "interval": 8,
-  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+  "exportCsv": "~/.metadelta/ExampleOrg-qa-metadelta-monitor.csv"
 }
 ```
 
@@ -999,6 +1009,8 @@ Metadelta es un plugin personalizado de Salesforce CLI que ofrece trece familias
 
 Creado por **Nerio Villalobos** (<nervill@gmail.com>).
 
+Los ejemplos de documentación utilizan alias de organizaciones ficticios y datos ilustrativos.
+
 ### Índice
 
 - [Instalación](#instalación)
@@ -1040,7 +1052,9 @@ Creado por **Nerio Villalobos** (<nervill@gmail.com>).
    ```
    Confirma la instalación con `sf plugins`.
 
-   ![Ejemplo de instalación del plugin Metadelta](images/metadelta-example-install.gif)
+   ```sh
+   sf plugins install @nervill/metadelta
+   ```
 
 4. (Opcional, para desarrollo local) Clona este repositorio e instala las dependencias:
    ```bash
@@ -1520,12 +1534,12 @@ Los targets del watchdog pueden incluir manifests custom por org:
 
 ```json
 {
-  "org": "Telecentro-qa",
-  "logPath": "~/.metadelta/monitor/Telecentro-qa/change-log.jsonl",
+  "org": "ExampleOrg-qa",
+  "logPath": "~/.metadelta/monitor/ExampleOrg-qa/change-log.jsonl",
   "scopeXml": "/absolute/path/Release.xml",
   "scopeYaml": "/absolute/path/Release.yaml",
   "interval": 8,
-  "exportCsv": "~/.metadelta/Telecentro-qa-metadelta-monitor.csv"
+  "exportCsv": "~/.metadelta/ExampleOrg-qa-metadelta-monitor.csv"
 }
 ```
 

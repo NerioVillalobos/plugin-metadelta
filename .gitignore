@@ -6,3 +6,12 @@ manifest/
 /dist/
 *.tgz
 codex.txt
+
+# Local diagnostics and recordings; publish synthetic examples only.
+/docs/check-error/
+/docs/errores/
+/test-results/
+/playwright-report/
+/blob-report/
+/tests/.metadelta-playwright/
+/tests/.metadelta*.ts

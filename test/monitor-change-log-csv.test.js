@@ -16,7 +16,7 @@ test('exportChangeLogToCsv exports monitor JSONL events with stable CSV columns'
   const csvPath = path.join(tmp, 'change-log.csv');
 
   appendSessionStarted(logPath, {
-    orgAlias: 'Telecentro-qa',
+    orgAlias: 'ExampleOrg-qa',
     scope: 'all-custom',
     startedAt: '2026-06-26T22:02:51.033Z',
   });
@@ -26,16 +26,16 @@ test('exportChangeLogToCsv exports monitor JSONL events with stable CSV columns'
       action: 'MODIFIED',
       type: 'Promotion',
       memberName: 'Promo, Internet',
-      file: 'Telecentro-qa/current/vlocity/Promotion/abc/Promo.json',
+      file: 'ExampleOrg-qa/current/vlocity/Promotion/abc/Promo.json',
       lastModifiedDate: '2026-06-26T22:17:19.783Z',
       user: 'Luis "QA" Ramírez',
     },
   ], {
-    orgAlias: 'Telecentro-qa',
+    orgAlias: 'ExampleOrg-qa',
     detectedAt: '2026-06-26T22:17:19.783Z',
   });
   appendSessionEnded(logPath, {
-    orgAlias: 'Telecentro-qa',
+    orgAlias: 'ExampleOrg-qa',
     scope: 'all-custom',
     startedAt: '2026-06-26T22:02:51.033Z',
     endedAt: '2026-06-26T23:34:02.985Z',
@@ -48,7 +48,7 @@ test('exportChangeLogToCsv exports monitor JSONL events with stable CSV columns'
 
   assert.equal(result.entries, 3);
   assert.match(csv, /^event,org,scope,source,action,type,component,file,previousFile,detectedAt,lastModifiedDate,lastModifiedBy,startedAt,endedAt,exitCode,reason\n/);
-  assert.match(csv, /CHANGE_DETECTED,Telecentro-qa,,vlocity,MODIFIED,Promotion,"Promo, Internet"/);
+  assert.match(csv, /CHANGE_DETECTED,ExampleOrg-qa,,vlocity,MODIFIED,Promotion,"Promo, Internet"/);
   assert.match(csv, /"Luis ""QA"" Ramírez"/);
-  assert.match(csv, /SESSION_ENDED,Telecentro-qa,all-custom/);
+  assert.match(csv, /SESSION_ENDED,ExampleOrg-qa,all-custom/);
 });

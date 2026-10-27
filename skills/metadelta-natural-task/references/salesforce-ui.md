@@ -12,7 +12,7 @@ Read this reference when a procedure crosses Lightning applications, Visualforce
 
 ## Field Service Settings
 
-Observed in the `TDV_preview` org on 2026-08-21:
+Previously observed behavior (organization identity omitted):
 
 - Lightning route: `/lightning/n/FSL__Field_Service_Settings`
 - The settings content is hosted by the FSL Visualforce frame whose path contains `/apex/vf066_settings`.
@@ -60,7 +60,7 @@ The labels and English API/status values can vary by org configuration and langu
 
 ## Field Service Scheduling / General Logic
 
-Observed in `TDV_preview` on 2026-08-21:
+Previously observed behavior (organization identity omitted):
 
 - Open the visible sidebar `span` whose exact text is `Scheduling`; the initial tab is General Logic.
 - Work Order Priority Field is the visible wrapper `custom-settings-wrapper[value-field-name="'WO_Priority_Field__c'"]` and its descendant `select` offers `None` and `Scheduling Priority`.

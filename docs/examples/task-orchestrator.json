@@ -1,0 +1,61 @@
+{
+  "solutions": [
+    {
+      "pattern": "No authorization information found",
+      "description": "No se encontró autenticación válida para el alias solicitado.",
+      "solution": "Ejecuta \"sf org login web -a <alias>\" o \"sf org login web --set-default -a <alias>\" antes de grabar/reproducir.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "browserType\\.launch: Executable doesn\\'t exist",
+      "description": "Playwright no tiene instalados los navegadores.",
+      "solution": "Ejecuta \"npx playwright install --with-deps\" para descargar los binarios.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Target page, context or browser has been closed",
+      "description": "El navegador se cerró antes de completar el flujo.",
+      "solution": "Reintenta la ejecución y valida que el login o MFA no cierre la ventana; usa --header para inspeccionar.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "net::ERR_NAME_NOT_RESOLVED",
+      "description": "No se pudo resolver el host de la org.",
+      "solution": "Valida la conectividad de red y que el alias resuelva a un org válido.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Error al obtener URL de la org|No se pudo consultar la org|No pudo encontrar ninguna org|No authorized orgs",
+      "description": "No fue posible obtener la URL de login de la org con el alias indicado.",
+      "solution": "Ejecuta \"sf org display --target-org <alias> --verbose\" para validar sesión activa y, si falla, vuelve a autenticar con \"sf org login web -a <alias>\".",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Playwright codegen finalizó con errores",
+      "description": "La sesión de grabación de Playwright terminó con error.",
+      "solution": "Reejecuta con consola visible y prueba manualmente: \"npx playwright codegen <url> --target playwright-test --output tests/<archivo>.ts\". Si falla por binarios, ejecuta \"node tests/.metadelta-playwright/node_modules/@playwright/test/cli.js install chromium\".",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "El botón Finish permanece deshabilitado después de intentar seleccionar acciones con scroll|No se pudo seleccionar checkbox de Action Library automáticamente",
+      "description": "La lista de Action Library tardó en cargar o no se pudo seleccionar una acción antes de Finish.",
+      "solution": "Reejecuta con \"--header\" para confirmar el elemento objetivo y verifica que el modal \"Add from Asset Library\" termine de cargar (sin spinner). Si el botón Finish sigue deshabilitado, valida permisos/visibilidad de acciones en la org destino.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    },
+    {
+      "pattern": "Search apps and items...|App Launcher",
+      "description": "El buscador del App Launcher no estuvo disponible a tiempo en el flujo automático.",
+      "solution": "Reintenta la ejecución; el parcheador ya abre App Launcher y aplica fallback por placeholder. Si persiste, valida que la app objetivo sea visible para el usuario autenticado.",
+      "addedAt": "2024-01-01T00:00:00.000Z",
+      "lastUsedAt": null
+    }
+  ],
+  "errors": []
+}
